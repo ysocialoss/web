@@ -1,8 +1,9 @@
+import AccountControls from '~/components/AccountControls';
 import { createEffect, createSignal, For, on, type ParentProps } from "solid-js";
 import { A, useLocation } from "@solidjs/router";
 import LegalNav from "~/components/LegalNav";
 import { SocialContext } from "~/lib/social-context";
-import { Bell, UserRound, Search, Settings2, Component, MessagesSquare, SquareChartGantt, Plus } from "~/components/Icons";
+import { Bell, Search, Settings2, Component, MessagesSquare, SquareChartGantt, Plus } from "~/components/Icons";
 
 const nav = [
   { label: "Feed", href: "/", icon: SquareChartGantt },
@@ -47,7 +48,7 @@ export default function SocialLayout(props: ParentProps) {
       {props.children}
     </main>
     <aside class="right-sidebar">
-      <div class="top-actions flex justify-end gap-[15px]"><button aria-label="Notifications"><Bell size={24} /></button><button aria-label="Your profile"><UserRound size={24} /></button></div>
+      <div class="top-actions flex justify-end gap-[15px]"><button aria-label="Notifications"><Bell size={24} /></button><AccountControls /></div>
     </aside>
     <LegalNav />
   </div>
