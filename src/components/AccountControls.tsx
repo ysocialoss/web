@@ -1,3 +1,4 @@
+import { A } from "@solidjs/router";
 import {
   createSignal,
   Match,
@@ -8,9 +9,9 @@ import {
   createUniqueId,
 } from "solid-js";
 import { UserRound } from "~/components/Icons";
-import { useAuth } from "~/lib/auth";
+import { useSocial } from "~/lib/social-context";
 export default function AccountControls() {
-  const { state, reload } = useAuth();
+  const { auth: state, reloadAuth: reload } = useSocial();
   const [busy, setBusy] = createSignal(false);
   const [error, setError] = createSignal("");
   const [open, setOpen] = createSignal(false);
@@ -22,7 +23,6 @@ export default function AccountControls() {
     if (restoreFocus) trigger?.focus();
   }
   onMount(() => {
-    void reload();
     const outside = (event: PointerEvent) => {
       if (event.target instanceof Node && !root?.contains(event.target))
         close();
@@ -139,7 +139,7 @@ export default function AccountControls() {
                 </button>
               </Match>
               <Match when={state().kind === "signedIn"}>
-                <p class="px-3 py-2 font-semibold [overflow-wrap:anywhere]">@{handle()}</p>
+                <A class="block px-3 py-2 font-semibold hover:underline [overflow-wrap:anywhere]" href={`/profile/${handle()}`} onClick={() => close()}>View your profile</A>
                 <button
                   class="
                     block w-full rounded-md px-3 py-2.5 text-left text-[#f5f5f5] hover:bg-[#303030]

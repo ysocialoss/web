@@ -1,12 +1,12 @@
 import {
   createSignal,
   createUniqueId,
-  For,
   onCleanup,
   onMount,
   Show,
+  Switch,
+  Match,
 } from "solid-js";
-import { MAX_ATTACHMENTS } from "~/lib/attachments";
 import Avatar from "~/components/Avatar";
 import {
   Clock,
@@ -17,51 +17,25 @@ import {
   Radio,
   Tv,
   Video,
-  X,
 } from "~/components/Icons";
-import PostMedia from "~/components/PostMedia";
-import {
-  acceptsPostMedia,
-  canPublishPost,
-  isMediaPostType,
-  mediaAccepts,
-  postTypeLabels,
-  type PostType,
-} from "~/lib/post-types";
-import type { PostAttachment, PostDraft } from "~/lib/posts";
+import { characterCount, validContent } from "~/lib/posts";
 import { useSocial } from "~/lib/social-context";
 
 export default function Composer(props: {
-  onPost: (draft: PostDraft) => void;
+  onPost: (content: string) => Promise<void>;
 }) {
   const social = useSocial();
   const editorId = createUniqueId();
   const [expanded, setExpanded] = createSignal(false);
   const [text, setText] = createSignal("");
-  const [postType, setPostType] = createSignal<PostType>("text");
-  const [mediaError, setMediaError] = createSignal("");
-  const [attachments, setAttachments] = createSignal<PostAttachment[]>([]);
-  const ownedUrls = new Set<string>();
+  const [busy, setBusy] = createSignal(false);
+  const [error, setError] = createSignal("");
   let container: HTMLDivElement | undefined;
   let trigger: HTMLButtonElement | undefined;
   let textarea: HTMLTextAreaElement | undefined;
-  let mediaInput: HTMLInputElement | undefined;
-  const canPost = () =>
-    canPublishPost({
-      type: postType(),
-      text: text(),
-      mediaCount: attachments().length,
-    });
-  const accept = () => {
-    const type = postType();
-    return isMediaPostType(type) ? mediaAccepts[type] : undefined;
-  };
-
   onMount(() => {
     if (container) onCleanup(social.observeComposer(container));
   });
-  onCleanup(() => ownedUrls.forEach((url) => URL.revokeObjectURL(url)));
-
   function open() {
     setExpanded(true);
     textarea?.focus({ preventScroll: true });
@@ -70,65 +44,26 @@ export default function Composer(props: {
     setExpanded(false);
     trigger?.focus({ preventScroll: true });
   }
-  function clearMedia() {
-    attachments().forEach((attachment) => {
-      ownedUrls.delete(attachment.url);
-      URL.revokeObjectURL(attachment.url);
-    });
-    setAttachments([]);
-    setMediaError("");
-  }
-  function selectType(type: PostType) {
-    if (type !== postType()) clearMedia();
-    setPostType(type);
-    if (isMediaPostType(type)) mediaInput?.click();
-  }
-  function addFiles(input: HTMLInputElement) {
-    const type = postType();
-    if (!isMediaPostType(type)) return;
-    const files = Array.from(input.files ?? []);
-    const valid = files.filter((file) => acceptsPostMedia(type, file.type));
-    if (attachments().length + valid.length > MAX_ATTACHMENTS) {
-      setMediaError(`Maximum ${MAX_ATTACHMENTS} attachments.`);
-      input.value = "";
+  async function publish() {
+    if (busy() || !validContent(text()) || social.auth().kind !== "signedIn")
       return;
+    setBusy(true);
+    setError("");
+    try {
+      await props.onPost(text().trim());
+      setText("");
+      if (textarea) textarea.style.height = "";
+      close();
+    } catch (error) {
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Could not publish. Please retry.",
+      );
+    } finally {
+      setBusy(false);
     }
-    setMediaError(
-      valid.length === files.length
-        ? ""
-        : `Choose ${postTypeLabels[type].toLowerCase()} files for this post type.`,
-    );
-    const additions = valid.map((file) => {
-      const url = URL.createObjectURL(file);
-      ownedUrls.add(url);
-      return { name: file.name, size: file.size, url, kind: type };
-    });
-    setAttachments((current) => [...current, ...additions]);
-    input.value = "";
   }
-  function removeAttachment(attachment: PostAttachment) {
-    setMediaError("");
-    setAttachments((current) => current.filter((item) => item !== attachment));
-    ownedUrls.delete(attachment.url);
-    URL.revokeObjectURL(attachment.url);
-  }
-  function post() {
-    if (!canPost()) return;
-    props.onPost({
-      type: postType(),
-      text: text().trim(),
-      attachments: attachments(),
-    });
-    // Published previews belong to the feed until it unmounts.
-    attachments().forEach((attachment) => ownedUrls.delete(attachment.url));
-    setText("");
-    if (textarea) textarea.style.height = "";
-    setAttachments([]);
-    setPostType("text");
-    setMediaError("");
-    close();
-  }
-
   return (
     <div
       ref={(element) => {
@@ -148,6 +83,7 @@ export default function Composer(props: {
           ref={(element) => {
             trigger = element;
           }}
+          data-composer-trigger
           type="button"
           aria-expanded={expanded()}
           aria-controls={editorId}
@@ -167,11 +103,14 @@ export default function Composer(props: {
           </span>
           <span class="mr-2 w-6" aria-hidden="true" />
         </button>
-        <div class="
+        <div
+          class="
           pointer-events-none absolute top-[18px] right-[60px] left-[72px] flex items-center gap-1 text-[15px]
           leading-[22px] text-[#777] opacity-0 transition-opacity duration-200 [&>span:first-child]:shrink-0
           group-data-[expanded=true]/composer:opacity-100 motion-reduce:transition-none
-        " aria-hidden={!expanded()}>
+        "
+          aria-hidden={!expanded()}
+        >
           <span class="font-semibold text-[#f5f5f5]">You</span>
           <ChevronRight size={14} />
           <span class="truncate">Community or topic</span>
@@ -191,185 +130,171 @@ export default function Composer(props: {
           <Plus size={24} />
         </button>
       </div>
-      <div id={editorId} data-composer-reveal class="
+      <div
+        id={editorId}
+        data-composer-reveal
+        class="
         grid grid-rows-[0fr] opacity-0 transition-[grid-template-rows,opacity] duration-[320ms,180ms]
         ease-[var(--composer-easing),ease-out] group-data-[expanded=true]/composer:grid-rows-[1fr]
         group-data-[expanded=true]/composer:opacity-100
         group-data-[expanded=true]/composer:duration-[360ms,240ms]
         group-data-[expanded=true]/composer:ease-[var(--composer-easing),ease-in] motion-reduce:transition-none
-      " inert={!expanded()}>
+      "
+        inert={!expanded()}
+      >
         <div class="min-h-0 overflow-hidden">
-          <form
-            class="px-6 pb-[22px]"
-            onSubmit={(event) => {
-              event.preventDefault();
-              post();
-            }}
-            onKeyDown={(event) => {
-              if (event.key === "Escape") {
-                event.preventDefault();
-                close();
-              }
-              if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
-                event.preventDefault();
-                post();
-              }
-            }}
-          >
-            <div class="ml-12">
-              <label class="sr-only" for={`${editorId}-text`}>
-                Write a post
-              </label>
-              <textarea
-                ref={(element) => {
-                  textarea = element;
-                }}
-                id={`${editorId}-text`}
-                class="m-0 block h-6 min-h-6 max-h-60 w-full resize-none rounded-none border-0 bg-transparent p-0 text-[15px] leading-6 outline-none placeholder:text-[#777]"
-                rows={1}
-                placeholder="What’s new?"
-                value={text()}
-                onInput={(event) => {
-                  setText(event.currentTarget.value);
-                  event.currentTarget.style.height = "auto";
-                  event.currentTarget.style.height = `${Math.min(240, event.currentTarget.scrollHeight)}px`;
-                }}
-              />
-              <Show when={attachments().length > 0}>
-                <ul class="mb-4 flex flex-wrap gap-3" aria-label="Attachments">
-                  <For each={attachments()}>
-                    {(attachment) => (
-                      <li class="relative rounded-xl border border-[#383838] bg-[#171717]">
-                        <PostMedia attachment={attachment} compact />
-                        <button
-                          type="button"
-                          aria-label={`Remove ${attachment.name}`}
-                          onClick={() => removeAttachment(attachment)}
-                          class="absolute top-[3px] right-[3px] flex items-center justify-center rounded-full bg-[#111c]"
-                        >
-                          <X size={16} />
-                        </button>
-                      </li>
-                    )}
-                  </For>
-                </ul>
-              </Show>
-              <div
-                class="-mx-2.5 flex items-center overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-                role="toolbar"
-                aria-label="Post types"
-              >
-                <button
-                  type="button"
-                  class="flex shrink-0 items-center justify-center text-[#808080] aria-pressed:text-[#f5f5f5]"
-                  aria-label="Add images"
-                  title="Images"
-                  aria-pressed={postType() === "image"}
-                  onClick={() => selectType("image")}
-                >
-                  <Image size={21} />
+          <div class="px-6 pb-[22px]">
+            <Switch>
+              <Match when={social.auth().kind === "loading"}>
+                <p role="status">Loading account…</p>
+              </Match>
+              <Match when={social.auth().kind === "anonymous"}>
+                <a class="text-[#00d363]" href="/auth/login" rel="external">
+                  Sign in with CNS to post
+                </a>
+              </Match>
+              <Match when={social.auth().kind === "onboarding"}>
+                <a class="text-[#00d363]" href="/onboarding">
+                  Choose your handle to post
+                </a>
+              </Match>
+              <Match when={social.auth().kind === "unavailable"}>
+                <button type="button" onClick={() => void social.reloadAuth()}>
+                  Retry account connection
                 </button>
-                <button
-                  type="button"
-                  class="flex shrink-0 items-center justify-center text-[#808080] aria-pressed:text-[#f5f5f5]"
-                  aria-label="Add GIF"
-                  title="GIF"
-                  aria-pressed={postType() === "gif"}
-                  onClick={() => selectType("gif")}
+              </Match>
+              <Match when={social.auth().kind === "signedIn"}>
+                <form
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    void publish();
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") {
+                      event.preventDefault();
+                      close();
+                    }
+                    if (
+                      event.key === "Enter" &&
+                      (event.metaKey || event.ctrlKey)
+                    ) {
+                      event.preventDefault();
+                      void publish();
+                    }
+                  }}
                 >
-                  <span class="inline-flex h-[19px] w-[18px] items-center justify-center rounded border-[1.7px] border-current text-[9px] font-bold tracking-[-0.5px]">GIF</span>
-                </button>
-                <button
-                  type="button"
-                  class="flex shrink-0 items-center justify-center text-[#808080] aria-pressed:text-[#f5f5f5]"
-                  aria-label="Add video"
-                  title="Video"
-                  aria-pressed={postType() === "video"}
-                  onClick={() => selectType("video")}
-                >
-                  <Video size={21} />
-                </button>
-                <button
-                  type="button"
-                  class="flex shrink-0 items-center justify-center text-[#808080] aria-pressed:text-[#f5f5f5]"
-                  aria-label="Add voice"
-                  title="Voice"
-                  aria-pressed={postType() === "voice"}
-                  onClick={() => selectType("voice")}
-                >
-                  <Mic size={21} />
-                </button>
-                <button
-                  type="button"
-                  class="flex shrink-0 items-center justify-center text-[#808080] aria-pressed:text-[#f5f5f5]"
-                  aria-label="Live post"
-                  title="Live chat"
-                  aria-pressed={postType() === "live"}
-                  onClick={() =>
-                    selectType(postType() === "live" ? "text" : "live")
-                  }
-                >
-                  <Radio size={21} />
-                </button>
-                <button
-                  type="button"
-                  class="flex shrink-0 items-center justify-center text-[#808080] aria-pressed:text-[#f5f5f5]"
-                  aria-label="Stream post"
-                  title="Stream"
-                  aria-pressed={postType() === "streams"}
-                  onClick={() =>
-                    selectType(postType() === "streams" ? "text" : "streams")
-                  }
-                >
-                  <Tv size={21} />
-                </button>
-              </div>
-              <Show when={postType() !== "text"}>
-                <div class="mb-2 flex items-center gap-2 text-sm text-[#999]">
-                  <span>{postTypeLabels[postType()]}</span>
-                  <button
-                    type="button"
-                    aria-label="Switch to text post"
-                    onClick={() => {
-                      clearMedia();
-                      setPostType("text");
-                    }}
-                  >
-                    <X size={15} />
-                  </button>
-                </div>
-              </Show>
-              <Show when={mediaError()}>
-                <p class="mb-2 text-sm text-[#ff7373]" role="alert">
-                  {mediaError()}
-                </p>
-              </Show>
-            </div>
-            <div class="mt-[18px] flex items-center justify-between">
-              <button type="button" class="flex items-center gap-2 text-[15px] font-semibold text-[#888]">
-                <Clock size={20} />
-                <span>Schedule post</span>
-              </button>
-              <button
-                type="submit"
-                class="min-w-[66px] rounded-xl border border-[#3a3a3a] px-4 text-[15px] font-semibold text-[#f5f5f5] disabled:border-[#272727] disabled:text-[#555]"
-                disabled={!canPost()}
-              >
-                Post
-              </button>
-            </div>
-            <input
-              ref={(element) => {
-                mediaInput = element;
-              }}
-              type="file"
-              accept={accept()}
-              multiple
-              class="hidden"
-              aria-label="Choose post media"
-              onChange={(event) => addFiles(event.currentTarget)}
-            />
-          </form>
+                  <div class="ml-12">
+                    <label class="sr-only" for={`${editorId}-text`}>
+                      Write a post
+                    </label>
+                    <textarea
+                      ref={(element) => {
+                        textarea = element;
+                      }}
+                      id={`${editorId}-text`}
+                      class="m-0 block h-6 min-h-6 max-h-60 w-full resize-none rounded-none border-0 bg-transparent p-0 text-[15px] leading-6 outline-none placeholder:text-[#777]"
+                      rows={1}
+                      placeholder="What’s new?"
+                      value={text()}
+                      disabled={busy()}
+                      aria-describedby={`${editorId}-count`}
+                      onInput={(event) => {
+                        setText(event.currentTarget.value);
+                        event.currentTarget.style.height = "auto";
+                        event.currentTarget.style.height = `${Math.min(240, event.currentTarget.scrollHeight)}px`;
+                      }}
+                    />
+                    <div
+                      class="-mx-2.5 flex items-center overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                      role="toolbar"
+                      aria-label="Post types"
+                    >
+                      <button
+                        type="button"
+                        class="flex shrink-0 items-center justify-center text-[#808080] aria-pressed:text-[#f5f5f5]"
+                        aria-label="Add images"
+                        title="Images"
+                      >
+                        <Image size={21} />
+                      </button>
+                      <button
+                        type="button"
+                        class="flex shrink-0 items-center justify-center text-[#808080] aria-pressed:text-[#f5f5f5]"
+                        aria-label="Add GIF"
+                        title="GIF"
+                      >
+                        <span class="inline-flex h-[19px] w-[18px] items-center justify-center rounded border-[1.7px] border-current text-[9px] font-bold tracking-[-0.5px]">
+                          GIF
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        class="flex shrink-0 items-center justify-center text-[#808080] aria-pressed:text-[#f5f5f5]"
+                        aria-label="Add video"
+                        title="Video"
+                      >
+                        <Video size={21} />
+                      </button>
+                      <button
+                        type="button"
+                        class="flex shrink-0 items-center justify-center text-[#808080] aria-pressed:text-[#f5f5f5]"
+                        aria-label="Add voice"
+                        title="Voice"
+                      >
+                        <Mic size={21} />
+                      </button>
+                      <button
+                        type="button"
+                        class="flex shrink-0 items-center justify-center text-[#808080] aria-pressed:text-[#f5f5f5]"
+                        aria-label="Live post"
+                        title="Live chat"
+                      >
+                        <Radio size={21} />
+                      </button>
+                      <button
+                        type="button"
+                        class="flex shrink-0 items-center justify-center text-[#808080] aria-pressed:text-[#f5f5f5]"
+                        aria-label="Stream post"
+                        title="Stream"
+                      >
+                        <Tv size={21} />
+                      </button>
+                    </div>
+                    <Show when={error()}>
+                      <p class="mb-2 text-sm text-[#ff7373]" role="alert">
+                        {error()}
+                      </p>
+                    </Show>
+                  </div>
+                  <div class="mt-[18px] flex items-center justify-between">
+                    <button
+                      type="button"
+                      class="flex items-center gap-2 text-[15px] font-semibold text-[#888]"
+                    >
+                      <Clock size={20} />
+                      <span>Schedule post</span>
+                    </button>
+                    <span
+                      id={`${editorId}-count`}
+                      class="ml-auto mr-4 text-xs text-[#999]"
+                      classList={{
+                        "text-red-300": characterCount(text().trim()) > 2000,
+                      }}
+                    >
+                      {characterCount(text().trim())} / 2,000
+                    </span>
+                    <button
+                      type="submit"
+                      class="min-w-[66px] rounded-xl border border-[#3a3a3a] px-4 text-[15px] font-semibold text-[#f5f5f5] disabled:border-[#272727] disabled:text-[#555]"
+                      disabled={busy() || !validContent(text())}
+                    >
+                      {busy() ? "Posting…" : "Post"}
+                    </button>
+                  </div>
+                </form>
+              </Match>
+            </Switch>
+          </div>
         </div>
       </div>
     </div>

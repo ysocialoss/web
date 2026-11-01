@@ -1,3 +1,4 @@
+import { useAuth } from "~/lib/auth";
 import AccountControls from "~/components/AccountControls";
 import {
   createEffect,
@@ -5,6 +6,7 @@ import {
   For,
   on,
   type ParentProps,
+  onMount,
 } from "solid-js";
 import { A, useLocation } from "@solidjs/router";
 import LegalNav from "~/components/LegalNav";
@@ -29,6 +31,8 @@ const nav = [
 
 export default function SocialLayout(props: ParentProps) {
   const location = useLocation();
+  const auth = useAuth();
+  onMount(() => void auth.reload());
   const [topFade, setTopFade] = createSignal(0);
   const [composerVisible, setComposerVisible] = createSignal(true);
   const showNewPost = () => location.pathname === "/" && !composerVisible();
@@ -61,7 +65,7 @@ export default function SocialLayout(props: ParentProps) {
   );
 
   return (
-    <SocialContext.Provider value={{ observeComposer }}>
+    <SocialContext.Provider value={{ observeComposer, auth: auth.state, reloadAuth: auth.reload, scrollRoot: () => feedElement }}>
       <div
         class="
           group/page mx-auto grid h-dvh min-h-0 w-[1570px] max-w-[calc(100%-80px)] grid-cols-[275px_600px_455px]
@@ -115,8 +119,15 @@ export default function SocialLayout(props: ParentProps) {
                 </A>
               )}
             </For>
+            <div class="min-[1252px]:hidden">
+              <AccountControls />
+            </div>
           </nav>
           <button
+            onClick={() => {
+              feedElement?.scrollTo({ top: 0, behavior: "smooth" });
+              feedElement?.querySelector<HTMLButtonElement>("[data-composer-trigger]")?.click();
+            }}
             data-visible={showNewPost()}
             aria-hidden={!showNewPost()}
             tabIndex={showNewPost() ? 0 : -1}
