@@ -10,7 +10,8 @@ const units = [
 
 export function relativeTime(timestamp: number, now: number) {
   const elapsed = Math.max(0, Math.floor((now - timestamp) / 1_000));
-  const unit = units.find(unit => elapsed >= unit.seconds) ?? units[units.length - 1];
+  const unit =
+    units.find((unit) => elapsed >= unit.seconds) ?? units[units.length - 1];
   const count = Math.floor(elapsed / unit.seconds);
   return `${count} ${unit.name}${count === 1 ? "" : "s"} ago`;
 }

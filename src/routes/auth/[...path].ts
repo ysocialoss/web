@@ -1,17 +1,25 @@
-import type { APIEvent } from '@solidjs/start/server';
+import type { APIEvent } from "@solidjs/start/server";
 async function forward({ request }: APIEvent) {
   const url = new URL(request.url);
-  if (!['/auth/login', '/auth/callback', '/auth/me', '/auth/profile', '/auth/logout'].includes(url.pathname)) {
-    return Response.json({ error: 'not_found' }, { status: 404 });
+  if (
+    ![
+      "/auth/login",
+      "/auth/callback",
+      "/auth/me",
+      "/auth/profile",
+      "/auth/logout",
+    ].includes(url.pathname)
+  ) {
+    return Response.json({ error: "not_found" }, { status: 404 });
   }
   try {
     let body: string | undefined;
-    if (request.method === 'POST' && request.body) {
+    if (request.method === "POST" && request.body) {
       // Enforce the API's limit before buffering an untrusted request.
       const reader = request.body.getReader();
       const decoder = new TextDecoder();
       let size = 0;
-      body = '';
+      body = "";
       try {
         while (true) {
           const chunk = await reader.read();
@@ -19,27 +27,51 @@ async function forward({ request }: APIEvent) {
           size += chunk.value.byteLength;
           if (size > 16 * 1024) {
             await reader.cancel();
-            return Response.json({ error: 'Request body is too large' }, { status: 413, headers: { 'Cache-Control': 'no-store' } });
+            return Response.json(
+              { error: "Request body is too large" },
+              { status: 413, headers: { "Cache-Control": "no-store" } },
+            );
           }
           body += decoder.decode(chunk.value, { stream: true });
         }
         body += decoder.decode();
-      } finally { reader.releaseLock(); }
+      } finally {
+        reader.releaseLock();
+      }
     }
-    const response = await fetch(new URL(url.pathname + url.search, process.env.API_URL || 'http://127.0.0.1:3100'), {
-      method: request.method,
-      headers: { 'Content-Type': 'application/json', cookie: request.headers.get('cookie') || '', origin: request.headers.get('origin') || '' },
-      body,
-      redirect: 'manual', signal: AbortSignal.timeout(25000),
+    const response = await fetch(
+      new URL(
+        url.pathname + url.search,
+        process.env.API_URL || "http://127.0.0.1:3100",
+      ),
+      {
+        method: request.method,
+        headers: {
+          "Content-Type": "application/json",
+          cookie: request.headers.get("cookie") || "",
+          origin: request.headers.get("origin") || "",
+        },
+        body,
+        redirect: "manual",
+        signal: AbortSignal.timeout(25000),
+      },
+    );
+    const headers = new Headers({
+      "Cache-Control": "no-store",
+      "Referrer-Policy": "no-referrer",
     });
-    const headers = new Headers({ 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' });
-    for (const name of ['content-type', 'location']) {
-      const value = response.headers.get(name); if (value) headers.set(name, value);
+    for (const name of ["content-type", "location"]) {
+      const value = response.headers.get(name);
+      if (value) headers.set(name, value);
     }
-    for (const value of response.headers.getSetCookie()) headers.append('Set-Cookie', value);
+    for (const value of response.headers.getSetCookie())
+      headers.append("Set-Cookie", value);
     return new Response(response.body, { status: response.status, headers });
   } catch {
-    return Response.json({ error: 'backend_unavailable' }, { status: 503, headers: { 'Cache-Control': 'no-store' } });
+    return Response.json(
+      { error: "backend_unavailable" },
+      { status: 503, headers: { "Cache-Control": "no-store" } },
+    );
   }
 }
 export const GET = forward;

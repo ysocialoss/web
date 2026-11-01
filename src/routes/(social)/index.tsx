@@ -6,15 +6,32 @@ import { type PostData, type PostDraft } from "~/lib/posts";
 export default function Feed() {
   const [posts, setPosts] = createSignal<PostData[]>([]);
   const publishedUrls = new Set<string>();
-  onCleanup(() => publishedUrls.forEach(url => URL.revokeObjectURL(url)));
+  onCleanup(() => publishedUrls.forEach((url) => URL.revokeObjectURL(url)));
 
   function publish(draft: PostDraft) {
-    draft.attachments.forEach(attachment => publishedUrls.add(attachment.url));
-    setPosts(current => [{ ...draft, createdAt: Date.now(), likes: 0, comments: 0, liked: false, reposted: false, community: false }, ...current]);
+    draft.attachments.forEach((attachment) =>
+      publishedUrls.add(attachment.url),
+    );
+    setPosts((current) => [
+      {
+        ...draft,
+        createdAt: Date.now(),
+        likes: 0,
+        comments: 0,
+        liked: false,
+        reposted: false,
+        community: false,
+      },
+      ...current,
+    ]);
   }
 
-  return <>
-    <Composer onPost={publish} />
-    <section aria-label="Feed posts"><For each={posts()}>{post => <Post post={post} />}</For></section>
-  </>;
+  return (
+    <>
+      <Composer onPost={publish} />
+      <section aria-label="Feed posts">
+        <For each={posts()}>{(post) => <Post post={post} />}</For>
+      </section>
+    </>
+  );
 }

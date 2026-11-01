@@ -7,5 +7,19 @@ export type PostAttachment = {
   kind: MediaPostType;
 };
 
-export type PostDraft = { type: PostType; text: string; attachments: PostAttachment[] };
-export type PostData = { text: string; createdAt: number; likes: number; comments: number; liked: boolean; reposted: boolean; community: boolean; type?: PostType; attachments?: PostAttachment[] };
+export type PostDraft = {
+  type: PostType;
+  text: string;
+  attachments: PostAttachment[];
+};
+export type PostData = {
+  text: string;
+  createdAt: number;
+  likes: number;
+  comments: number;
+  liked: boolean;
+  reposted: boolean;
+  community: boolean;
+  type?: PostType;
+  attachments?: PostAttachment[];
+};
