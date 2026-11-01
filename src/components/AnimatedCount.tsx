@@ -30,7 +30,7 @@ export default function AnimatedCount(props: AnimatedCountProps) {
 
   return (
     <span
-      class="animated-count"
+      class="inline-grid overflow-hidden align-middle tabular-nums leading-[1.4]"
       aria-label={String(props.value)}
       title={props.value.toLocaleString("en")}
     >
@@ -43,7 +43,7 @@ export default function AnimatedCount(props: AnimatedCountProps) {
           const nextDigits = value.padStart(width, " ").split("");
           const previousDigits = previous.padStart(width, " ").split("");
           return (
-            <span class="animated-count-digits" aria-hidden="true">
+            <span class="inline-flex" aria-hidden="true">
               <For each={nextDigits}>
                 {(digit, index) => {
                   const oldDigit = previousDigits[index()] ?? " ";
@@ -51,14 +51,14 @@ export default function AnimatedCount(props: AnimatedCountProps) {
                     current.previous !== null && digit !== oldDigit;
                   return (
                     <span
-                      class="animated-count-stack"
-                      classList={{ "count-changing": changed }}
+                      class="group/count grid overflow-hidden [--count-enter:100%] [--count-exit:-100%] data-[direction=down]:[--count-enter:-100%] data-[direction=down]:[--count-exit:100%]"
+                      data-changing={changed}
                       data-direction={current.direction}
                     >
                       <Show when={changed}>
-                        <span class="count-previous">{oldDigit.trim()}</span>
+                        <span class="[grid-area:1/1] text-left group-data-[changing=true]/count:animate-[count-exit_380ms_cubic-bezier(0.22,1,0.36,1)_both] motion-reduce:animate-none! motion-reduce:invisible">{oldDigit.trim()}</span>
                       </Show>
-                      <span class="count-current">{digit.trim()}</span>
+                      <span class="[grid-area:1/1] text-left group-data-[changing=true]/count:animate-[count-enter_380ms_cubic-bezier(0.22,1,0.36,1)_both] motion-reduce:animate-none!">{digit.trim()}</span>
                     </span>
                   );
                 }}

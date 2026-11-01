@@ -60,7 +60,7 @@ export default function AccountControls() {
   }
   return (
     <div
-      class="account-controls"
+      class="relative"
       ref={root}
       onFocusOut={(event) => {
         if (
@@ -73,7 +73,7 @@ export default function AccountControls() {
       <button
         ref={trigger}
         type="button"
-        class="account-trigger"
+        class="relative isolate -my-[1.5px] flex size-11 items-center justify-center rounded-[5px] bg-[#202020] focus-visible:outline-[#00d363] focus-visible:outline-offset-2"
         aria-label="Account"
         aria-expanded={open()}
         aria-controls={panelId}
@@ -82,8 +82,8 @@ export default function AccountControls() {
         <UserRound size={24} />
       </button>
       <Show when={open()}>
-        <div id={panelId} class="account-dropdown" aria-label="Account options">
-          <p class="account-dropdown-title">Account</p>
+        <div id={panelId} class="absolute top-[calc(100%+12px)] right-0 z-50 w-[min(260px,calc(100vw-40px))] rounded-[10px] border border-[#343434] bg-[#202020] p-2 text-[14px] shadow-[0_12px_35px_#0008]" aria-label="Account options">
+          <p class="px-3 py-2 text-[12px] text-[#999]">Account</p>
           <div aria-live="polite">
             <Switch>
               <Match when={state().kind === "loading"}>
@@ -91,7 +91,11 @@ export default function AccountControls() {
               </Match>
               <Match when={state().kind === "anonymous"}>
                 <a
-                  class="account-dropdown-item"
+                  class="
+                    block w-full rounded-md px-3 py-2.5 text-left text-[#f5f5f5] hover:bg-[#303030]
+                    focus-visible:bg-[#303030] focus-visible:outline-[#00d363] focus-visible:outline-offset-2
+                    disabled:cursor-wait disabled:opacity-50
+                  "
                   href="/auth/login"
                   rel="external"
                 >
@@ -100,7 +104,11 @@ export default function AccountControls() {
               </Match>
               <Match when={state().kind === "unavailable"}>
                 <button
-                  class="account-dropdown-item"
+                  class="
+                    block w-full rounded-md px-3 py-2.5 text-left text-[#f5f5f5] hover:bg-[#303030]
+                    focus-visible:bg-[#303030] focus-visible:outline-[#00d363] focus-visible:outline-offset-2
+                    disabled:cursor-wait disabled:opacity-50
+                  "
                   type="button"
                   onClick={() => {
                     void reload();
@@ -110,11 +118,19 @@ export default function AccountControls() {
                 </button>
               </Match>
               <Match when={state().kind === "onboarding"}>
-                <a class="account-dropdown-item" href="/onboarding">
+                <a class="
+                  block w-full rounded-md px-3 py-2.5 text-left text-[#f5f5f5] hover:bg-[#303030]
+                  focus-visible:bg-[#303030] focus-visible:outline-[#00d363] focus-visible:outline-offset-2
+                  disabled:cursor-wait disabled:opacity-50
+                " href="/onboarding">
                   Choose your handle
                 </a>
                 <button
-                  class="account-dropdown-item"
+                  class="
+                    block w-full rounded-md px-3 py-2.5 text-left text-[#f5f5f5] hover:bg-[#303030]
+                    focus-visible:bg-[#303030] focus-visible:outline-[#00d363] focus-visible:outline-offset-2
+                    disabled:cursor-wait disabled:opacity-50
+                  "
                   type="button"
                   disabled={busy()}
                   onClick={logout}
@@ -123,9 +139,13 @@ export default function AccountControls() {
                 </button>
               </Match>
               <Match when={state().kind === "signedIn"}>
-                <p class="account-dropdown-handle">@{handle()}</p>
+                <p class="px-3 py-2 font-semibold [overflow-wrap:anywhere]">@{handle()}</p>
                 <button
-                  class="account-dropdown-item"
+                  class="
+                    block w-full rounded-md px-3 py-2.5 text-left text-[#f5f5f5] hover:bg-[#303030]
+                    focus-visible:bg-[#303030] focus-visible:outline-[#00d363] focus-visible:outline-offset-2
+                    disabled:cursor-wait disabled:opacity-50
+                  "
                   type="button"
                   disabled={busy()}
                   onClick={logout}
@@ -135,7 +155,7 @@ export default function AccountControls() {
               </Match>
             </Switch>
             {error() && (
-              <p role="alert" class="account-dropdown-error">
+              <p role="alert" class="px-3 py-2 text-red-300">
                 {error()}
               </p>
             )}

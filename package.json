@@ -7,9 +7,6 @@
     "start": "node .output/server/index.mjs",
     "preview": "vite preview",
     "icons:generate": "node scripts/generate-icons.mjs",
-    "check:routes": "node scripts/check-routes.mjs",
-    "check:post-types": "node scripts/check-post-types.mjs",
-    "check:auth": "node scripts/check-auth.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
