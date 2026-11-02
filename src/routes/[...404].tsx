@@ -1,25 +1,22 @@
 import { A } from "@solidjs/router";
+import { HttpStatusCode } from "@solidjs/start";
+import SimpleLayout from "~/components/SimpleLayout";
 
 export default function NotFound() {
   return (
-    <main class="text-center mx-auto text-gray-700 p-4">
-      <h1 class="max-6-xs text-6xl text-sky-700 font-thin uppercase my-16">Not Found</h1>
-      <p class="mt-8">
-        Visit{" "}
-        <a href="https://www.solidjs.com/" target="_blank" class="text-sky-600 hover:underline">
-          solidjs.com
-        </a>{" "}
-        to learn how to build Solid apps.
-      </p>
-      <p class="my-4">
-        <A href="/" class="text-sky-600 hover:underline">
-          Home
+    <SimpleLayout>
+      <HttpStatusCode code={404} />
+      <main class="flex flex-1 flex-col items-center justify-center gap-6 px-6 py-12">
+        <h1 class="text-5xl font-semibold tracking-tight">404</h1>
+        <A href="/" class="
+          inline-flex transition-[transform,color,background-color,box-shadow,filter] duration-[180ms]
+          motion-reduce:transition-none hover:brightness-[1.16] touch-manipulation items-center justify-center
+          rounded-full font-semibold hover:scale-[1.01] active:scale-[0.97] motion-reduce:hover:scale-100
+          motion-reduce:active:scale-100 bg-[#00d363] text-[#111111] h-[44px] px-6
+        ">
+          Back to feed
         </A>
-        {" - "}
-        <A href="/about" class="text-sky-600 hover:underline">
-          About Page
-        </A>
-      </p>
-    </main>
+      </main>
+    </SimpleLayout>
   );
 }
