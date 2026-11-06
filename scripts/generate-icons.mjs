@@ -13,6 +13,7 @@ const names = [
   "Heart",
   "Repeat2",
   "Share2",
+  "Check",
   "EllipsisVertical",
   "ChevronRight",
   "X",

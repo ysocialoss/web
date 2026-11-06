@@ -255,6 +255,25 @@ export function Share2(props: IconProps): JSX.Element {
     </svg>
   );
 }
+export function Check(props: IconProps): JSX.Element {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width={props.size ?? 24}
+      height={props.size ?? 24}
+      viewBox="0 0 24 24"
+      fill={props.fill ?? "none"}
+      stroke="currentColor"
+      stroke-width={props.strokeWidth ?? 2}
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      class={props.class}
+      aria-hidden="true"
+    >
+      <path d="M20 6 9 17l-5-5" />
+    </svg>
+  );
+}
 export function EllipsisVertical(props: IconProps): JSX.Element {
   return (
     <svg

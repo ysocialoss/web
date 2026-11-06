@@ -9,9 +9,13 @@ export type PostAttachment = {
 };
 export type PostData = {
   id: string;
+  parentId: string | null;
+  replies: number;
   content: string;
   likes: number;
   liked: boolean;
+  reposts: number;
+  reposted: boolean;
   createdAt: string;
   editedAt: string | null;
   editExpiresAt: string;
@@ -19,7 +23,9 @@ export type PostData = {
 };
 export const characterCount = (text: string) => Array.from(text).length;
 export const validContent = (text: string) =>
-  text.trim().length > 0 && !text.includes("\u0000") && characterCount(text.trim()) <= 2000;
+  text.trim().length > 0 &&
+  !text.includes("\u0000") &&
+  characterCount(text.trim()) <= 2000;
 function timestamp(value: unknown): value is string {
   return typeof value === "string" && Number.isFinite(Date.parse(value));
 }
@@ -29,12 +35,24 @@ export function parsePost(value: unknown): PostData {
     value === null ||
     !("id" in value) ||
     typeof value.id !== "string" ||
+    !("parentId" in value) ||
+    !(value.parentId === null || typeof value.parentId === "string") ||
+    !("replies" in value) ||
+    typeof value.replies !== "number" ||
+    !Number.isSafeInteger(value.replies) ||
+    value.replies < 0 ||
     !("likes" in value) ||
     typeof value.likes !== "number" ||
     !Number.isSafeInteger(value.likes) ||
     value.likes < 0 ||
     !("liked" in value) ||
     typeof value.liked !== "boolean" ||
+    !("reposts" in value) ||
+    typeof value.reposts !== "number" ||
+    !Number.isSafeInteger(value.reposts) ||
+    value.reposts < 0 ||
+    !("reposted" in value) ||
+    typeof value.reposted !== "boolean" ||
     !("content" in value) ||
     typeof value.content !== "string" ||
     !("createdAt" in value) ||
@@ -60,9 +78,13 @@ export function parsePost(value: unknown): PostData {
     throw new Error("Invalid author response.");
   return {
     id: value.id,
+    parentId: value.parentId,
+    replies: value.replies,
     content: value.content,
     likes: value.likes,
     liked: value.liked,
+    reposts: value.reposts,
+    reposted: value.reposted,
     createdAt: value.createdAt,
     editedAt: value.editedAt,
     editExpiresAt: value.editExpiresAt,
@@ -109,9 +131,13 @@ export async function request(
   }
   return response.status === 204 ? null : response.json();
 }
-export async function loadPosts(cursor: string | null, signal: AbortSignal) {
+export async function loadPosts(
+  cursor: string | null,
+  signal: AbortSignal,
+  parentId?: string,
+) {
   const body = await request(
-    `/api/posts${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`,
+    `/api/posts${parentId ? `/${encodeURIComponent(parentId)}/replies` : ""}${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`,
     { signal },
   );
   if (
@@ -176,4 +202,36 @@ export async function setPostLike(id: string, liked: boolean) {
   )
     throw new Error("Invalid like response.");
   return { likes: body.likes, liked: body.liked };
+}
+
+export async function replyToPost(id: string, content: string) {
+  return parsePostResponse(
+    await request(`/api/posts/${encodeURIComponent(id)}/replies`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content }),
+    }),
+  );
+}
+
+export type RepostState = Pick<PostData, "reposts" | "reposted">;
+export async function setPostRepost(
+  id: string,
+  reposted: boolean,
+): Promise<RepostState> {
+  const body = await request(`/api/posts/${encodeURIComponent(id)}/repost`, {
+    method: reposted ? "PUT" : "DELETE",
+  });
+  if (
+    typeof body !== "object" ||
+    body === null ||
+    !("reposts" in body) ||
+    typeof body.reposts !== "number" ||
+    !Number.isSafeInteger(body.reposts) ||
+    body.reposts < 0 ||
+    !("reposted" in body) ||
+    typeof body.reposted !== "boolean"
+  )
+    throw new Error("Invalid repost response.");
+  return { reposts: body.reposts, reposted: body.reposted };
 }

@@ -11,6 +11,8 @@ import {
 } from "solid-js";
 import {
   setPostLike,
+  setPostRepost,
+  type RepostState,
   characterCount,
   validContent,
   PostError,
@@ -24,6 +26,7 @@ import {
   Heart,
   Repeat2,
   Share2,
+  Check,
   EllipsisVertical,
   X,
 } from "~/components/Icons";
@@ -35,6 +38,7 @@ export default function Post(props: {
   serverOffset: number;
   onEdit: (id: string, content: string) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
+  onRepost?: (post: PostData, state: RepostState) => void;
 }) {
   const social = useSocial();
   const navigate = useNavigate();
@@ -44,6 +48,41 @@ export default function Post(props: {
     likes: props.post.likes,
     liked: props.post.liked,
   });
+  const [repost, setRepost] = createSignal<RepostState>({
+    reposts: props.post.reposts,
+    reposted: props.post.reposted,
+  });
+  const [reposting, setReposting] = createSignal(false);
+  createEffect(() =>
+    setRepost({ reposts: props.post.reposts, reposted: props.post.reposted }),
+  );
+  const [sharing, setSharing] = createSignal(false);
+  const [shareMessage, setShareMessage] = createSignal("");
+  let shareTimer: ReturnType<typeof setTimeout> | undefined;
+  let disposed = false;
+  onCleanup(() => {
+    disposed = true;
+    clearTimeout(shareTimer);
+  });
+  async function share() {
+    if (sharing()) return;
+    clearTimeout(shareTimer);
+    setSharing(true);
+    setShareMessage("");
+    try {
+      await navigator.clipboard.writeText(
+        new URL(postUrl(), window.location.origin).href,
+      );
+      if (!disposed) setShareMessage("Link copied");
+    } catch {
+      if (!disposed) setShareMessage("Could not copy link. Please try again.");
+    } finally {
+      if (!disposed) {
+        setSharing(false);
+        shareTimer = setTimeout(() => setShareMessage(""), 3000);
+      }
+    }
+  }
   const [liking, setLiking] = createSignal(false);
   const [loginPrompt, setLoginPrompt] = createSignal(false);
   let loginLink: HTMLAnchorElement | undefined;
@@ -61,6 +100,7 @@ export default function Post(props: {
     setReaction({ likes: props.post.likes, liked: props.post.liked }),
   );
   const signedIn = () => social.auth().kind === "signedIn";
+  const reposted = () => signedIn() && repost().reposted;
   const liked = () => signedIn() && reaction().liked;
   function showLoginPrompt(trigger: HTMLButtonElement) {
     promptTrigger = trigger;
@@ -102,6 +142,35 @@ export default function Post(props: {
         );
     } finally {
       setLiking(false);
+    }
+  }
+  async function toggleRepost(trigger: HTMLButtonElement) {
+    if (!allowInteraction(trigger) || reposting()) return;
+    const previous = repost();
+    const next = !previous.reposted;
+    setReposting(true);
+    setError("");
+    setRepost({ reposted: next, reposts: previous.reposts + (next ? 1 : -1) });
+    try {
+      const state = await setPostRepost(props.post.id, next);
+      setRepost(state);
+      props.onRepost?.(props.post, state);
+    } catch (error) {
+      setRepost(previous);
+      if (
+        error instanceof PostError &&
+        (error.status === 401 || error.code === "onboarding_required")
+      ) {
+        await social.reloadAuth();
+        showLoginPrompt(trigger);
+      } else
+        setError(
+          error instanceof Error
+            ? error.message
+            : "Could not update your repost. Please retry.",
+        );
+    } finally {
+      setReposting(false);
     }
   }
   const owns = () => {
@@ -165,7 +234,15 @@ export default function Post(props: {
   }
   async function remove() {
     setMenu(false);
-    if (busy() || !window.confirm("Permanently delete this post?")) return;
+    if (
+      busy() ||
+      !window.confirm(
+        props.post.replies > 0
+          ? "Permanently delete this post and all its replies?"
+          : "Permanently delete this post?",
+      )
+    )
+      return;
     setBusy(true);
     setError("");
     try {
@@ -210,6 +287,16 @@ export default function Post(props: {
       max-[701px]:[&_header_img]:size-[34px] max-[701px]:[&_time]:text-[12px]
     "
     >
+      <Show when={props.standalone && props.post.parentId}>
+        {(parentId) => (
+          <A
+            href={`/post/${parentId()}`}
+            class="text-sm text-[#999] hover:underline"
+          >
+            View parent post
+          </A>
+        )}
+      </Show>
       <header class="flex items-center gap-2">
         <Avatar label={`Avatar for @${props.post.author.handle}`} />
         <A
@@ -327,28 +414,79 @@ export default function Post(props: {
             type="button"
             aria-label="Reply to post"
             aria-disabled={!signedIn()}
-            onClick={(event) => allowInteraction(event.currentTarget)}
+            onClick={(event) => {
+              if (allowInteraction(event.currentTarget)) {
+                navigate(`${postUrl()}#reply`);
+                document.getElementById("reply")?.focus();
+              }
+            }}
             class="flex items-center gap-2.5 max-[701px]:gap-[7px]"
           >
             <MessageCircle size={24} />
+            <Show when={props.post.replies > 0}>
+              <AnimatedCount value={props.post.replies} />
+            </Show>
           </button>
           <button
             type="button"
             aria-label="Repost"
-            aria-pressed={false}
+            aria-pressed={reposted()}
+            title={reposted() ? "Undo repost" : "Repost"}
             aria-disabled={!signedIn()}
-            onClick={(event) => allowInteraction(event.currentTarget)}
+            disabled={reposting()}
+            aria-busy={reposting()}
+            class="flex items-center gap-2.5 max-[701px]:gap-[7px]"
+            classList={{ "text-[#00d363]": reposted() }}
+            onClick={(event) => void toggleRepost(event.currentTarget)}
           >
             <Repeat2 size={24} />
+            <Show when={repost().reposts > 0}>
+              <AnimatedCount value={repost().reposts} />
+            </Show>
           </button>
-          <button
-            type="button"
-            aria-label="Share post"
-            aria-disabled={!signedIn()}
-            onClick={(event) => allowInteraction(event.currentTarget)}
-          >
-            <Share2 size={24} />
-          </button>
+          <div class="relative flex items-center">
+            <button
+              type="button"
+              aria-label="Share post"
+              title={
+                shareMessage() === "Link copied"
+                  ? "Link copied"
+                  : "Copy post link"
+              }
+              disabled={sharing()}
+              aria-busy={sharing()}
+              classList={{ "text-[#00d363]": shareMessage() === "Link copied" }}
+              onClick={(event) => {
+                event.stopPropagation();
+                void share();
+              }}
+            >
+              <Show
+                when={shareMessage() === "Link copied"}
+                fallback={<Share2 size={24} />}
+              >
+                <Check size={24} />
+              </Show>
+            </button>
+            <div
+              role="status"
+              aria-live="polite"
+              aria-atomic="true"
+              class="pointer-events-none absolute bottom-[calc(100%+14px)] left-1/2 z-20 -translate-x-1/2"
+            >
+              <Show when={shareMessage()}>
+                <span
+                  class="share-feedback flex items-center gap-2 rounded-full border border-[#3c4940] bg-[#1c211e] px-3 py-2 text-xs font-medium text-[#e2eee5] shadow-lg"
+                  classList={{
+                    "w-[220px]": shareMessage() !== "Link copied",
+                    "whitespace-nowrap": shareMessage() === "Link copied",
+                  }}
+                >
+                  {shareMessage()}
+                </span>
+              </Show>
+            </div>
+          </div>
           <button
             type="button"
             aria-label="Post options"

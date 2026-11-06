@@ -19,6 +19,10 @@ export async function loadProfile(handle: string, signal: AbortSignal) {
     body.profile === null ||
     !("posts" in body) ||
     !Array.isArray(body.posts) ||
+    !("replies" in body) ||
+    !Array.isArray(body.replies) ||
+    !("reposts" in body) ||
+    !Array.isArray(body.reposts) ||
     !("serverNow" in body) ||
     typeof body.serverNow !== "string" ||
     !Number.isFinite(Date.parse(body.serverNow))
@@ -48,6 +52,25 @@ export async function loadProfile(handle: string, signal: AbortSignal) {
       createdAt: profile.createdAt,
     },
     posts: body.posts.map(parsePost),
+    reposts: body.reposts.map(parsePost),
+    replies: body.replies.map((value: unknown) => {
+      if (
+        typeof value !== "object" ||
+        value === null ||
+        !("post" in value) ||
+        !("thread" in value) ||
+        !Array.isArray(value.thread)
+      )
+        throw new Error("Invalid profile reply response.");
+      return {
+        post: parsePost(value.post),
+        thread: value.thread.map(parsePost),
+      };
+    }),
     serverNow: body.serverNow,
   };
 }
+
+export type ProfileReply = Awaited<
+  ReturnType<typeof loadProfile>
+>["replies"][number];

@@ -7,6 +7,7 @@ import {
   Switch,
   Match,
 } from "solid-js";
+import Replies from "~/components/Replies";
 import Post from "~/components/Post";
 import {
   deletePost,
@@ -111,13 +112,28 @@ export default function PostPage() {
         <Match when={post()}>
           <Show when={post()}>
             {(current) => (
-              <Post
-                post={current()}
-                serverOffset={offset()}
-                onEdit={edit}
-                onDelete={remove}
-                standalone
-              />
+              <>
+                <Post
+                  post={current()}
+                  serverOffset={offset()}
+                  onEdit={edit}
+                  onDelete={remove}
+                  standalone
+                />
+                <Replies
+                  postId={current().id}
+                  onCountChange={(delta) =>
+                    setPost((value) =>
+                      value
+                        ? {
+                            ...value,
+                            replies: Math.max(0, value.replies + delta),
+                          }
+                        : value,
+                    )
+                  }
+                />
+              </>
             )}
           </Show>
         </Match>
