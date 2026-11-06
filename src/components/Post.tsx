@@ -19,6 +19,7 @@ import {
   type PostData,
 } from "~/lib/posts";
 import Avatar from "~/components/Avatar";
+import Modal from "~/components/Modal";
 import RelativeTime from "~/components/RelativeTime";
 import AnimatedCount from "~/components/AnimatedCount";
 import {
@@ -85,7 +86,6 @@ export default function Post(props: {
   }
   const [liking, setLiking] = createSignal(false);
   const [loginPrompt, setLoginPrompt] = createSignal(false);
-  let loginLink: HTMLAnchorElement | undefined;
   let promptTrigger: HTMLButtonElement | undefined;
   const [menu, setMenu] = createSignal(false);
   const [editing, setEditing] = createSignal(false);
@@ -106,7 +106,6 @@ export default function Post(props: {
     promptTrigger = trigger;
     setMenu(false);
     setLoginPrompt(true);
-    loginLink?.focus({ preventScroll: true });
   }
   function allowInteraction(trigger: HTMLButtonElement) {
     if (signedIn()) return true;
@@ -194,13 +193,11 @@ export default function Post(props: {
     const outside = (event: PointerEvent) => {
       if (event.target instanceof Node && !menuRoot?.contains(event.target)) {
         setMenu(false);
-        closeLoginPrompt();
       }
     };
     const escape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setMenu(false);
-        if (loginPrompt()) closeLoginPrompt(true);
       }
     };
     document.addEventListener("visibilitychange", tick);
@@ -504,11 +501,10 @@ export default function Post(props: {
           </button>
         </div>
         <Show when={loginPrompt()}>
-          <div
-            role="dialog"
-            aria-label="Login required"
-            aria-describedby={`${editorId}-login-message`}
-            class="absolute bottom-[calc(100%+12px)] left-0 z-20 w-[280px] max-w-full rounded-xl border border-[#444] bg-[#202020] p-4 text-sm shadow-xl"
+          <Modal
+            title="Login required"
+            descriptionId={`${editorId}-login-message`}
+            onClose={() => closeLoginPrompt(true)}
           >
             <button
               type="button"
@@ -516,8 +512,9 @@ export default function Post(props: {
               class="absolute right-2 top-2 text-[#999]"
               onClick={() => closeLoginPrompt(true)}
             >
-              <X size={16} />
+              <X size={20} />
             </button>
+            <h2 class="mb-3 pr-8 text-xl font-semibold">Login required</h2>
             <Switch>
               <Match when={social.auth().kind === "loading"}>
                 <p id={`${editorId}-login-message`} role="status" class="pr-6">
@@ -541,9 +538,8 @@ export default function Post(props: {
                   Choose your handle to interact with this post.
                 </p>
                 <a
-                  ref={loginLink}
                   href="/onboarding"
-                  class="mt-3 inline-block font-semibold text-[#00d363]"
+                  class="mt-5 inline-flex rounded-full bg-[#00d363] px-5 py-2.5 font-semibold text-black focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#00d363]"
                 >
                   Choose your handle
                 </a>
@@ -553,10 +549,9 @@ export default function Post(props: {
                   Log in to interact with this post.
                 </p>
                 <a
-                  ref={loginLink}
                   href="/auth/login"
                   rel="external"
-                  class="mt-3 inline-block font-semibold text-[#00d363]"
+                  class="mt-5 inline-flex rounded-full bg-[#00d363] px-5 py-2.5 font-semibold text-black focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#00d363]"
                 >
                   Log in with CNS
                 </a>
@@ -567,7 +562,7 @@ export default function Post(props: {
                 </p>
               </Match>
             </Switch>
-          </div>
+          </Modal>
         </Show>
         <Show when={owns() && menu()}>
           <div
