@@ -1,16 +1,9 @@
 import { House, Mail, Search, SlidersHorizontal, Users } from "lucide-react";
 
-const navigation = [
-  { label: "Feed", icon: House },
-  { label: "DMs", icon: Mail },
-  { label: "Search", icon: Search },
-  { label: "Tweak feed", icon: SlidersHorizontal },
-  { label: "Communities", icon: Users },
-] satisfies {
-  label: "Feed" | "DMs" | "Search" | "Tweak feed" | "Communities";
-  icon: typeof House;
-}[];
-
-export type Page =
-  (typeof navigation)[number]["label"] | "Notifications" | "Profile";
-export { navigation };
+export const navigation = [
+  { label: "Feed", icon: House, to: "/" },
+  { label: "DMs", icon: Mail, to: "/messages", disabled: true },
+  { label: "Search", icon: Search, to: "/search" },
+  { label: "Tweak feed", icon: SlidersHorizontal, to: "/settings/feed" },
+  { label: "Communities", icon: Users, to: "/communities", disabled: true },
+];

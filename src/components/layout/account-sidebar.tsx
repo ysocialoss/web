@@ -1,38 +1,29 @@
-import { Bell, UserRound } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import type { AuthState } from "@/features/auth/use-auth";
+import { AccountMenu } from "@/features/auth/account-menu";
+import { Bell } from "lucide-react";
+import { IconLink } from "@/components/ui/icon-button";
 import { ProfileCard } from "@/components/account/profile-card";
 import { TrendingTopics } from "@/components/account/trending-topics";
-import type { Page } from "./navigation";
 
-export function AccountSidebar({
-  onNavigate: setActivePage,
-}: {
-  onNavigate: (page: Page) => void;
-}) {
+export function AccountSidebar({ auth }: { auth: AuthState }) {
+  const { session } = auth;
   return (
-    <aside aria-label="Account" className="min-w-0 p-1 lg:p-3">
+    <aside
+      aria-label="Account"
+      className="min-h-0 min-w-0 overflow-hidden p-1 lg:p-3"
+    >
       <div className="flex items-center justify-end gap-1 lg:gap-2">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="size-6 lg:size-9"
-          aria-label="Notifications"
-          onClick={() => setActivePage("Notifications")}
+        <IconLink
+          to="/notifications"
+          label="Notifications"
+          className="size-7 lg:size-9"
         >
           <Bell />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="size-6 lg:size-9"
-          aria-label="Profile"
-          onClick={() => setActivePage("Profile")}
-        >
-          <UserRound />
-        </Button>
+        </IconLink>
+        <AccountMenu auth={auth} />
       </div>
       <div className="mt-4 hidden lg:block">
-        <ProfileCard />
+        <ProfileCard session={session} loading={!session && !auth.error} />
         <TrendingTopics />
       </div>
     </aside>

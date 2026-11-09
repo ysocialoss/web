@@ -1,75 +1,186 @@
-import { useRef, useState } from "react";
-import { initialPosts, type Post } from "./data";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { api, errorMessage, type Post, type Session } from "@/lib/api";
+import {
+  acknowledgePosts,
+  getLocalPosts,
+  publishOptimistically,
+  subscribeToLocalPosts,
+} from "./post-outbox";
+import {
+  cachedReposts,
+  getActionRevision,
+  mutatePost,
+  projectPost,
+  rememberPosts,
+  subscribeToActions,
+} from "./optimistic-actions";
+import { toast } from "@/components/ui/toast";
 
-export function useFeed() {
-  const [feedPosts, setFeedPosts] = useState(initialPosts);
+export function useFeed(
+  session: Session | null,
+  parentId?: string,
+  autoLoad = true,
+  onPublished?: () => void,
+) {
+  const [feedPosts, setFeedPosts] = useState<Post[]>([]);
   const [draft, setDraft] = useState("");
-  const nextPostId = useRef(4);
-  const [likedPosts, setLikedPosts] = useState<number[]>([]);
-  const [repostedPosts, setRepostedPosts] = useState<number[]>([]);
-  const [bookmarkedPosts, setBookmarkedPosts] = useState<number[]>([]);
-  const [shareCounts, setShareCounts] = useState<Record<number, number>>({});
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [shareStatus, setShareStatus] = useState("");
-
+  useSyncExternalStore(subscribeToActions, getActionRevision);
+  const localPosts = useSyncExternalStore(subscribeToLocalPosts, getLocalPosts);
+  const viewerId =
+    session?.authenticated && !session.needsOnboarding ? session.user.id : null;
+  const visibleLocalPosts = localPosts.filter(
+    (entry) =>
+      entry.post.author.id === viewerId &&
+      entry.post.parentId === (parentId ?? null),
+  );
+  const localIds = new Set(visibleLocalPosts.map((entry) => entry.post.id));
+  const optimisticPostIds = visibleLocalPosts
+    .filter((entry) => entry.status === "sending")
+    .map((entry) => entry.post.id);
+  const canPost = !!session?.authenticated && !session.needsOnboarding;
+  const load = useCallback(
+    async (cursor?: string, signal?: AbortSignal) => {
+      const startedAt = getActionRevision();
+      try {
+        const page = parentId
+          ? await api.replies(parentId, cursor, signal)
+          : await api.posts(cursor, signal);
+        if (signal?.aborted) return;
+        rememberPosts(page.posts, viewerId, startedAt);
+        setFeedPosts((current) =>
+          cursor
+            ? [
+                ...current,
+                ...page.posts.filter(
+                  (post) =>
+                    !current.some((existing) => existing.id === post.id),
+                ),
+              ]
+            : page.posts,
+        );
+        acknowledgePosts(page.posts);
+        setNextCursor(page.nextCursor);
+        setError("");
+      } catch (error) {
+        if (!signal?.aborted) setError(errorMessage(error));
+      } finally {
+        if (!signal?.aborted) setLoading(false);
+      }
+    },
+    [parentId, viewerId],
+  );
+  useEffect(() => {
+    if (!autoLoad) return;
+    const controller = new AbortController();
+    // HTTP completes asynchronously; cleanup cancels stale responses.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void load(undefined, controller.signal);
+    return () => controller.abort();
+  }, [load, session, autoLoad]);
   function publishPost() {
-    if (!draft.trim()) return;
-    const post = {
-      id: nextPostId.current++,
-      name: "User",
-      handle: "user",
-      initials: "U",
-      time: "now",
-      text: draft.trim(),
-      likes: 0,
-      replies: 0,
-      reposts: 0,
-      shares: 0,
-      bookmarks: 0,
-    };
-    setFeedPosts((current) => [post, ...current]);
+    const content = draft.trim();
+    if (
+      !session?.authenticated ||
+      session.needsOnboarding ||
+      !content ||
+      Array.from(content).length > 2000
+    )
+      return;
+    const sending = publishOptimistically({
+      content,
+      author: session.user,
+      parentId: parentId ?? null,
+      onConfirmed: onPublished,
+    });
     setDraft("");
+    return sending;
   }
-
   async function sharePost(post: Post) {
-    const url = new URL(window.location.href);
-    url.hash = `post-${post.id}`;
+    const url = new URL(`/posts/${post.id}`, window.location.origin).href;
     try {
-      if (navigator.share) {
+      if (navigator.share)
         await navigator.share({
-          title: `Post by ${post.name}`,
-          text: post.text,
-          url: url.href,
+          title: `Post by ${post.author.displayName}`,
+          text: post.content,
+          url,
         });
-      } else {
-        await navigator.clipboard.writeText(url.href);
+      else {
+        await navigator.clipboard.writeText(url);
         setShareStatus("Post link copied");
       }
-      setShareCounts((current) => ({
-        ...current,
-        [post.id]: (current[post.id] ?? 0) + 1,
-      }));
     } catch (error) {
       if (!(error instanceof DOMException && error.name === "AbortError")) {
-        setShareStatus("Unable to share this post");
+        const id = toast.add({
+          type: "error",
+          title: "Couldn't share post",
+          description: errorMessage(error),
+          timeout: 0,
+          actionProps: {
+            children: "Retry",
+            onClick: () => {
+              toast.close(id);
+              void sharePost(post);
+            },
+          },
+        });
       }
     }
   }
-
   return {
-    feedPosts,
+    feedPosts: [
+      ...visibleLocalPosts.map((entry) => entry.post),
+      ...feedPosts.filter((post) => !localIds.has(post.id)),
+    ]
+      .map((post) => projectPost(post, viewerId))
+      .filter((post) => post !== null),
+    resolvePost: (post: Post) => projectPost(post, viewerId),
+    viewerReposts: viewerId ? cachedReposts(viewerId) : [],
+    optimisticPostIds,
     draft,
     setDraft,
     publishPost,
-    likedPosts,
-    setLikedPosts,
-    repostedPosts,
-    setRepostedPosts,
-    bookmarkedPosts,
-    setBookmarkedPosts,
-    shareCounts,
+    loading,
+    sessionLoading: session === null,
+    error,
+    canPost,
+    pending: optimisticPostIds,
     shareStatus,
     sharePost,
+    loadMore: nextCursor
+      ? () => {
+          setLoading(true);
+          return load(nextCursor);
+        }
+      : null,
+    retry: () => {
+      setLoading(true);
+      return load();
+    },
+    toggleLike: (post: Post) =>
+      viewerId
+        ? mutatePost(post, viewerId, { kind: "like", value: !post.liked })
+        : false,
+    toggleRepost: (post: Post) =>
+      viewerId
+        ? mutatePost(post, viewerId, { kind: "repost", value: !post.reposted })
+        : false,
+    editPost: (post: Post, content: string) => {
+      const trimmed = content.trim();
+      return viewerId && trimmed && Array.from(trimmed).length <= 2000
+        ? mutatePost(post, viewerId, {
+            kind: "edit",
+            content: trimmed,
+            editedAt: new Date().toISOString(),
+          })
+        : false;
+    },
+    deletePost: (post: Post) =>
+      viewerId ? mutatePost(post, viewerId, { kind: "delete" }) : false,
+    viewerId,
   };
 }
-
 export type FeedState = ReturnType<typeof useFeed>;

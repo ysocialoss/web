@@ -1,26 +1,170 @@
-import { useState } from "react";
+import { useEffect, useRef } from "react";
+import {
+  BrowserRouter,
+  Link,
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+  useParams,
+} from "react-router";
+import { ArrowLeft, Construction, SearchX } from "lucide-react";
 import { NavigationSidebar } from "@/components/layout/navigation-sidebar";
 import { AccountSidebar } from "@/components/layout/account-sidebar";
-import type { Page } from "@/components/layout/navigation";
+import { Toaster } from "@/components/ui/toast";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { IconLink } from "@/components/ui/icon-button";
 import { Feed } from "@/features/feed/feed";
+import { Account } from "@/features/auth/account";
+import { useAuth } from "@/features/auth/use-auth";
+import { Thread } from "@/features/feed/thread";
+import { ProfilePage } from "@/features/profile/profile";
+import type { Session } from "@/lib/api";
 import { useFeed } from "@/features/feed/use-feed";
+import { ProfileSkeleton } from "@/components/loading-skeletons";
 
 export function App() {
-  const [activePage, setActivePage] = useState<Page>("Feed");
-  const feed = useFeed();
-
   return (
-    <main className="grid min-h-svh grid-cols-[4rem_minmax(0,1fr)_4rem] divide-x divide-border lg:grid-cols-[13rem_minmax(0,1fr)_22rem]">
-      <NavigationSidebar activePage={activePage} onNavigate={setActivePage} />
+    <BrowserRouter>
+      <TooltipProvider delay={250}>
+        <Toaster>
+          <AppShell />
+        </Toaster>
+      </TooltipProvider>
+    </BrowserRouter>
+  );
+}
+
+function AppShell() {
+  const auth = useAuth();
+  const centerScroll = useRef<HTMLElement>(null);
+  const { pathname } = useLocation();
+  useEffect(() => {
+    centerScroll.current?.scrollTo(0, 0);
+  }, [pathname]);
+  return (
+    <main className="grid h-dvh min-h-0 grid-cols-[4rem_minmax(0,1fr)_4rem] grid-rows-[minmax(0,1fr)] overflow-hidden divide-x divide-border lg:grid-cols-[13rem_minmax(0,1fr)_22rem]">
+      <NavigationSidebar />
       <section
+        ref={centerScroll}
         aria-label="Main content"
-        className="min-w-0 px-5 py-4 sm:px-10 sm:py-6 lg:px-12"
+        tabIndex={0}
+        className="content-scroll min-h-0 min-w-0 overflow-x-hidden overflow-y-auto overscroll-y-contain px-5 py-4 has-[[data-skeleton-scroll-lock]]:overflow-y-hidden sm:px-10 sm:py-6 lg:px-12"
       >
-        {activePage === "Feed" && <Feed feed={feed} />}
+        <Account auth={auth} />
+        <Routes>
+          <Route path="/" element={<HomeFeed session={auth.session} />} />
+          <Route
+            path="/posts/:id"
+            element={<PostRoute session={auth.session} />}
+          />
+          <Route
+            path="/u/:handle"
+            element={<ProfileRoute session={auth.session} />}
+          />
+          <Route
+            path="/profile"
+            element={
+              auth.session?.authenticated && !auth.session.needsOnboarding ? (
+                <Navigate to={`/u/${auth.session.user.handle}`} replace />
+              ) : (
+                <div className="mx-auto max-w-xl text-sm text-muted-foreground">
+                  {auth.session === null && !auth.error ? (
+                    <ProfileSkeleton />
+                  ) : (
+                    "Sign in and choose your handle to view your profile."
+                  )}
+                </div>
+              )
+            }
+          />
+          <Route
+            path="/onboarding"
+            element={
+              auth.session?.authenticated && !auth.session.needsOnboarding ? (
+                <Navigate to={`/u/${auth.session.user.handle}`} replace />
+              ) : null
+            }
+          />
+          <Route
+            path="/login"
+            element={
+              auth.session?.authenticated && !auth.session.needsOnboarding ? (
+                <Navigate to="/" replace />
+              ) : null
+            }
+          />
+          <Route path="/messages" element={<ComingSoon title="Messages" />} />
+          <Route path="/search" element={<ComingSoon title="Search" />} />
+          <Route
+            path="/settings/feed"
+            element={<ComingSoon title="Feed preferences" />}
+          />
+          <Route
+            path="/communities"
+            element={<ComingSoon title="Communities" />}
+          />
+          <Route
+            path="/notifications"
+            element={<ComingSoon title="Notifications" />}
+          />
+          <Route path="/:legacyHandle" element={<LegacyProfile />} />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
       </section>
-      <AccountSidebar onNavigate={setActivePage} />
+      <AccountSidebar auth={auth} />
     </main>
   );
 }
 
+function HomeFeed({ session }: { session: Session | null }) {
+  const feed = useFeed(session);
+  return <Feed feed={feed} />;
+}
+function PostRoute({ session }: { session: Session | null }) {
+  const { id = "" } = useParams();
+  return <Thread key={id} id={id} session={session} />;
+}
+function ProfileRoute({ session }: { session: Session | null }) {
+  const { handle = "" } = useParams();
+  return <ProfilePage key={handle} handle={handle} session={session} />;
+}
+function LegacyProfile() {
+  const { legacyHandle = "" } = useParams();
+  return /^@[a-z0-9_]{3,32}$/.test(legacyHandle) ? (
+    <Navigate to={`/u/${legacyHandle.slice(1)}`} replace />
+  ) : (
+    <NotFound />
+  );
+}
+function ComingSoon({ title }: { title: string }) {
+  return (
+    <div className="mx-auto max-w-xl">
+      <IconLink to="/" label="Back to feed">
+        <ArrowLeft />
+      </IconLink>
+      <div className="flex flex-col items-center gap-3 py-16 text-center">
+        <Construction className="size-9 text-muted-foreground" />
+        <h1 className="text-xl font-semibold">{title}</h1>
+        <p className="text-sm text-muted-foreground">
+          This part of ysocial is on its way.
+        </p>
+      </div>
+    </div>
+  );
+}
+function NotFound() {
+  return (
+    <div className="mx-auto flex max-w-xl flex-col items-center gap-3 py-16 text-center">
+      <SearchX className="size-9 text-muted-foreground" />
+      <h1 className="text-xl font-semibold">Page not found</h1>
+      <p className="text-sm text-muted-foreground">
+        This address doesn't lead to a page.
+      </p>
+      <Link to="/" className="text-sm underline underline-offset-4">
+        Return to feed
+      </Link>
+    </div>
+  );
+}
 export default App;
