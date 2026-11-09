@@ -1,16 +1,14 @@
-import { defineConfig } from "vite";
-import { nitro } from "nitro/vite";
-import { solidStart } from "@solidjs/start/config";
-import tailwindcss from "@tailwindcss/vite";
+import { resolve } from "node:path"
+import tailwindcss from "@tailwindcss/vite"
+import react from "@vitejs/plugin-react"
+import { defineConfig } from "vite"
 
+// https://vite.dev/config/
 export default defineConfig({
-  // Prebundle the CommonJS dependencies imported by SolidStart's error viewer.
-  optimizeDeps: {
-    include: ['@solidjs/start > source-map-js', '@solidjs/start > error-stack-parser'],
+  plugins: [react(), tailwindcss()],
+  resolve: {
+    alias: {
+      "@": resolve(import.meta.dirname, "./src"),
+    },
   },
-  plugins: [
-    solidStart(),
-    tailwindcss(),
-    nitro()
-  ]
-});
+})
