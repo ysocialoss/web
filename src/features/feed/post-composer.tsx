@@ -16,6 +16,40 @@ import { Textarea } from "@/components/ui/textarea";
 import type { FeedState } from "./use-feed";
 
 export function PostComposer({ feed }: { feed: FeedState }) {
+  if (!feed.sessionLoading && !feed.authenticated) {
+    return (
+      <Dialog>
+        <DialogTrigger
+          render={
+            <button
+              type="button"
+              className="mx-auto block w-full max-w-xl rounded-[1.75rem] bg-muted px-4 py-4 text-left text-sm leading-5 text-muted-foreground focus-visible:outline-2 focus-visible:outline-ring sm:px-5 md:text-base md:leading-6"
+            />
+          }
+        >
+          What's on your mind?
+        </DialogTrigger>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Log in to post</DialogTitle>
+            <DialogDescription>
+              Sign in with CNS to share what's on your mind.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <DialogClose render={<Button variant="outline" />}>
+              Cancel
+            </DialogClose>
+            <Button render={<a href="/auth/login" />}>Log in with CNS</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+  return <AuthenticatedPostComposer feed={feed} />;
+}
+
+function AuthenticatedPostComposer({ feed }: { feed: FeedState }) {
   const [focused, setFocused] = useState(false);
   const [published, setPublished] = useState(false);
   const [submittedLength, setSubmittedLength] = useState(0);

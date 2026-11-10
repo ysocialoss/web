@@ -1,6 +1,6 @@
 export function TrendingTopics() {
   return (
-    <section aria-labelledby="trending-heading" className="mt-10">
+    <section aria-labelledby="trending-heading">
       <h2 id="trending-heading" className="text-base font-semibold">
         Trending Topics
       </h2>

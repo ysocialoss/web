@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Skeleton, SkeletonDelay } from "@/components/ui/skeleton";
 
 export function LoadingSkeleton({
   label,
@@ -13,14 +13,16 @@ export function LoadingSkeleton({
   lockScroll?: boolean;
 }) {
   return (
-    <div
-      role="status"
-      className={className}
-      data-skeleton-scroll-lock={lockScroll || undefined}
-    >
-      <span className="sr-only">{label}</span>
-      <div aria-hidden="true">{children}</div>
-    </div>
+    <SkeletonDelay>
+      <div
+        role="status"
+        className={className}
+        data-skeleton-scroll-lock={lockScroll || undefined}
+      >
+        <span className="sr-only">{label}</span>
+        <div aria-hidden="true">{children}</div>
+      </div>
+    </SkeletonDelay>
   );
 }
 
@@ -31,7 +33,7 @@ export function ComposerSkeleton() {
       className="mx-auto w-full max-w-xl"
       lockScroll
     >
-      <div className="flex h-14 items-center justify-between gap-3 rounded-[1.75rem] bg-muted px-4 sm:px-5">
+      <div className="flex h-13 items-center justify-between md:h-14 gap-3 rounded-[1.75rem] bg-muted px-4 sm:px-5">
         <Skeleton className="h-4 w-40 max-w-[75%] bg-foreground/10" />
         <Skeleton className="size-4 shrink-0 rounded-full bg-foreground/10" />
       </div>

@@ -269,7 +269,6 @@ export function ProfilePage({
                 <PostCard key={post.id} post={post} feed={feed} />
               ))}
           {profile[tab].length === 0 && <p className="mt-4">No {tab} yet.</p>}
-          <p role="status">{feed.shareStatus}</p>
         </>
       )}
     </div>

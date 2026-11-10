@@ -27,7 +27,6 @@ export function useFeed(
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [shareStatus, setShareStatus] = useState("");
   useSyncExternalStore(subscribeToActions, getActionRevision);
   const localPosts = useSyncExternalStore(subscribeToLocalPosts, getLocalPosts);
   const viewerId =
@@ -110,7 +109,6 @@ export function useFeed(
         });
       else {
         await navigator.clipboard.writeText(url);
-        setShareStatus("Post link copied");
       }
     } catch (error) {
       if (!(error instanceof DOMException && error.name === "AbortError")) {
@@ -145,10 +143,10 @@ export function useFeed(
     publishPost,
     loading,
     sessionLoading: session === null,
+    authenticated: !!session?.authenticated,
     error,
     canPost,
     pending: optimisticPostIds,
-    shareStatus,
     sharePost,
     loadMore: nextCursor
       ? () => {

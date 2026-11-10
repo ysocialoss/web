@@ -11,11 +11,13 @@ import type { FeedState } from "./use-feed";
 export function Feed({ feed }: { feed: FeedState }) {
   return (
     <>
-      {feed.sessionLoading && feed.loading && feed.feedPosts.length === 0 ? (
-        <ComposerSkeleton />
-      ) : (
-        <PostComposer feed={feed} />
-      )}
+      <div className="min-h-13 md:min-h-14">
+        {feed.sessionLoading ? (
+          <ComposerSkeleton />
+        ) : (
+          <PostComposer feed={feed} />
+        )}
+      </div>
       <div className="mx-auto mt-6 w-full max-w-xl divide-y divide-border">
         {feed.error && (
           <div role="alert" className="py-3">
@@ -48,9 +50,6 @@ export function Feed({ feed }: { feed: FeedState }) {
             </IconButton>
           </div>
         )}
-        <p role="status" className="text-xs text-muted-foreground">
-          {feed.shareStatus}
-        </p>
       </div>
     </>
   );

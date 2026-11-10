@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { Link } from "react-router";
 import { formatDistance } from "date-fns";
 import { Check, LoaderCircle, Pencil, Trash2, X } from "lucide-react";
@@ -11,10 +11,11 @@ import type { Post } from "@/lib/api";
 import type { FeedState } from "./use-feed";
 
 export function PostCard({ post, feed }: { post: Post; feed: FeedState }) {
+  const editorId = useId();
+  const editorHelpId = useId();
   const [editing, setEditing] = useState(false);
   const [content, setContent] = useState(post.content);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 30_000);
@@ -24,13 +25,14 @@ export function PostCard({ post, feed }: { post: Post; feed: FeedState }) {
   const mine = post.author.id === feed.viewerId;
   const busy = feed.pending.includes(post.id);
   const length = Array.from(content.trim()).length;
+  const changed = content.trim() !== post.content.trim();
   const profilePath = `/u/${post.author.handle}`;
   function closeEditor() {
-    if (content !== post.content) setConfirmDiscard(true);
-    else setEditing(false);
+    setContent(post.content);
+    setEditing(false);
   }
   function save() {
-    if (busy || !length || length > 2000) return;
+    if (busy || !changed || !length || length > 2000) return;
     if (feed.editPost(post, content)) setEditing(false);
   }
   return (
@@ -114,50 +116,73 @@ export function PostCard({ post, feed }: { post: Post; feed: FeedState }) {
             </div>
             {mine && (
               <div className="-mt-1 flex shrink-0 gap-0.5">
-                {now < Date.parse(post.editExpiresAt) && !editing && (
-                  <IconButton
-                    label="Edit post"
-                    size="icon-sm"
-                    disabled={busy}
-                    onClick={() => {
-                      setContent(post.content);
-                      setEditing(true);
-                    }}
-                  >
-                    <Pencil />
-                  </IconButton>
+                {editing ? (
+                  <>
+                    <IconButton
+                      label="Save changes"
+                      size="icon-sm"
+                      disabled={busy || !changed || !length || length > 2000}
+                      onClick={save}
+                    >
+                      <Check />
+                    </IconButton>
+                    <IconButton
+                      label="Cancel editing"
+                      size="icon-sm"
+                      disabled={busy}
+                      onClick={closeEditor}
+                    >
+                      <X />
+                    </IconButton>
+                  </>
+                ) : (
+                  <>
+                    {now < Date.parse(post.editExpiresAt) && (
+                      <IconButton
+                        label="Edit post"
+                        size="icon-sm"
+                        disabled={busy}
+                        onClick={() => {
+                          setContent(post.content);
+                          setEditing(true);
+                        }}
+                      >
+                        <Pencil />
+                      </IconButton>
+                    )}
+                    <IconButton
+                      label="Delete post"
+                      size="icon-sm"
+                      disabled={busy}
+                      className="text-muted-foreground hover:text-destructive"
+                      onClick={() => setConfirmDelete(true)}
+                    >
+                      <Trash2 />
+                    </IconButton>
+                  </>
                 )}
-                <IconButton
-                  label="Delete post"
-                  size="icon-sm"
-                  disabled={busy}
-                  className="text-muted-foreground hover:text-destructive"
-                  onClick={() => setConfirmDelete(true)}
-                >
-                  <Trash2 />
-                </IconButton>
               </div>
             )}
           </div>
           {editing ? (
-            <form
-              className="mt-3 space-y-2"
-              onSubmit={(event) => {
-                event.preventDefault();
-                save();
-              }}
-            >
+            <div className="mt-2 space-y-2">
+              <label htmlFor={editorId} className="sr-only">
+                Edit post
+              </label>
               <Textarea
+                id={editorId}
+                aria-describedby={editorHelpId}
+                aria-invalid={!length || length > 2000}
                 autoFocus
-                aria-label="Edit post"
-                aria-invalid={length > 2000}
+                rows={3}
+                className="max-h-96 resize-y text-sm leading-relaxed"
                 value={content}
                 disabled={busy}
                 onChange={(event) => setContent(event.target.value)}
                 onKeyDown={(event) => {
-                  if (event.key === "Escape") {
+                  if (event.key === "Escape" && !busy) {
                     event.preventDefault();
-                    if (!busy) closeEditor();
+                    closeEditor();
                   }
                   if (
                     event.key === "Enter" &&
@@ -169,35 +194,24 @@ export function PostCard({ post, feed }: { post: Post; feed: FeedState }) {
                   }
                 }}
               />
-              <div className="flex items-center justify-between gap-2">
+              <div
+                id={editorHelpId}
+                className="flex justify-between gap-3 text-xs text-muted-foreground"
+              >
+                <p>
+                  {!length
+                    ? "Write something before saving."
+                    : length > 2000
+                      ? `Remove ${length - 2000} characters to save.`
+                      : null}
+                </p>
                 <span
-                  className={`text-xs ${length > 2000 ? "text-destructive" : "text-muted-foreground"}`}
+                  className={`ml-auto shrink-0 tabular-nums ${length > 2000 ? "text-destructive" : ""}`}
                 >
-                  {length}/2000
+                  {length.toLocaleString()}/2,000
                 </span>
-                <div className="flex gap-1">
-                  <IconButton
-                    type="button"
-                    label="Cancel editing"
-                    disabled={busy}
-                    onClick={closeEditor}
-                  >
-                    <X />
-                  </IconButton>
-                  <IconButton
-                    type="submit"
-                    label="Save changes"
-                    variant="default"
-                    disabled={busy || !length || length > 2000}
-                  >
-                    <Check />
-                  </IconButton>
-                </div>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Edits are available for 15 minutes. Ctrl+Enter to save.
-              </p>
-            </form>
+            </div>
           ) : (
             <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-relaxed">
               {post.content}
@@ -215,18 +229,6 @@ export function PostCard({ post, feed }: { post: Post; feed: FeedState }) {
         destructive
         error={feed.error}
         onConfirm={() => feed.deletePost(post)}
-      />
-      <ConfirmationDialog
-        open={confirmDiscard}
-        onOpenChange={setConfirmDiscard}
-        title="Discard your changes?"
-        description="Your edits haven't been saved. Discarding them keeps the published post as it is."
-        confirmLabel="Discard changes"
-        destructive
-        onConfirm={() => {
-          setEditing(false);
-          return true;
-        }}
       />
     </article>
   );
