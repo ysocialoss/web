@@ -3,6 +3,7 @@ import { api, errorMessage, type Profile, type Session } from "@/lib/api";
 import {
   ArrowLeft,
   CalendarDays,
+  Camera,
   FileText,
   UserCheck,
   UserPlus,
@@ -15,6 +16,17 @@ import { IconButton, IconLink } from "@/components/ui/icon-button";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { BannerImage } from "./banner-image";
+import { BannerEditor } from "./banner-editor";
+import { AvatarCropper } from "./avatar-cropper";
 import { PostCard } from "@/features/feed/post-card";
 import { useFeed } from "@/features/feed/use-feed";
 import { ProfileSkeleton } from "@/components/loading-skeletons";
@@ -23,16 +35,20 @@ import {
   mutateFollow,
   projectRelationship,
   rememberProfile,
+  updateAuthorAvatar,
 } from "@/features/feed/optimistic-actions";
 
 export function ProfilePage({
   handle,
   session,
+  onAvatarSaved,
 }: {
   handle: string;
   session: Session | null;
+  onAvatarSaved: (userId: string, avatarUrl: string) => void;
 }) {
   const [loadedProfile, setProfile] = useState<Profile | null>(null);
+  const [pictureDialogOpen, setPictureDialogOpen] = useState(false);
   const [error, setError] = useState("");
   const [tab, setTab] = useState<"posts" | "replies" | "reposts">("posts");
   const viewer =
@@ -82,6 +98,7 @@ export function ProfilePage({
           }),
         }
       : null;
+  const avatarUrl = profile?.profile.avatarUrl;
   const friends = profile?.isFollowing && profile.isFollowedBy;
   function toggleFollow() {
     if (profile && viewer)
@@ -129,19 +146,100 @@ export function ProfilePage({
         <ProfileSkeleton />
       ) : (
         <>
-          <div className="relative mb-12 h-28 rounded-xl bg-linear-to-br from-muted to-muted/40">
-            <Avatar className="absolute -bottom-8 left-4 size-16 ring-4 ring-background">
-              {profile.profile.avatarUrl && (
-                <AvatarImage
-                  src={profile.profile.avatarUrl}
-                  alt={`${profile.profile.displayName}'s avatar`}
-                  referrerPolicy="no-referrer"
-                />
-              )}
-              <AvatarFallback className="text-lg">
-                {profile.profile.displayName.slice(0, 2)}
-              </AvatarFallback>
-            </Avatar>
+          <div className="relative mb-12 aspect-[3/1] rounded-xl bg-linear-to-br from-muted to-muted/40">
+            {profile.profile.bannerUrl && (
+              <BannerImage
+                src={profile.profile.bannerUrl}
+                crop={profile.profile.bannerCrop}
+                alt={`${profile.profile.displayName}'s banner`}
+              />
+            )}
+            {ownProfile && (
+              <BannerEditor
+                bannerUrl={profile.profile.bannerUrl}
+                onSaved={(bannerUrl, bannerCrop) =>
+                  setProfile((current) =>
+                    current
+                      ? {
+                          ...current,
+                          profile: {
+                            ...current.profile,
+                            bannerUrl,
+                            bannerCrop,
+                          },
+                        }
+                      : current,
+                  )
+                }
+              />
+            )}
+            {ownProfile ? (
+              <Dialog
+                open={pictureDialogOpen}
+                onOpenChange={setPictureDialogOpen}
+              >
+                <DialogTrigger
+                  aria-label="Change profile picture"
+                  className="group absolute -bottom-8 left-4 z-10 size-16 cursor-pointer rounded-[30%] ring-4 ring-background outline-none [corner-shape:squircle] focus-visible:ring-ring"
+                >
+                  <Avatar className="size-full">
+                    {avatarUrl && (
+                      <AvatarImage
+                        src={avatarUrl}
+                        alt={`${profile.profile.displayName}'s avatar`}
+                        referrerPolicy="no-referrer"
+                      />
+                    )}
+                    <AvatarFallback className="text-lg">
+                      {profile.profile.displayName.slice(0, 2)}
+                    </AvatarFallback>
+                    <span className="absolute inset-0 flex items-center justify-center rounded-[inherit] bg-black/60 text-white opacity-0 transition-opacity [corner-shape:inherit] group-hover:opacity-100 group-focus-visible:opacity-100">
+                      <Camera className="size-6" aria-hidden="true" />
+                    </span>
+                  </Avatar>
+                </DialogTrigger>
+                <DialogContent className="max-h-[90dvh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>Change profile picture</DialogTitle>
+                    <DialogDescription className="sr-only">
+                      Choose a picture, then drag and zoom to adjust the crop.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <AvatarCropper
+                    onSave={async (picture, signal) => {
+                      const result = await api.uploadAvatar(picture, signal);
+                      setProfile((current) =>
+                        current
+                          ? {
+                              ...current,
+                              profile: {
+                                ...current.profile,
+                                avatarUrl: result.avatarUrl,
+                              },
+                            }
+                          : current,
+                      );
+                      updateAuthorAvatar(profile.profile.id, result.avatarUrl);
+                      onAvatarSaved(profile.profile.id, result.avatarUrl);
+                      setPictureDialogOpen(false);
+                    }}
+                  />
+                </DialogContent>
+              </Dialog>
+            ) : (
+              <Avatar className="absolute -bottom-8 left-4 size-16 ring-4 ring-background">
+                {profile.profile.avatarUrl && (
+                  <AvatarImage
+                    src={profile.profile.avatarUrl}
+                    alt={`${profile.profile.displayName}'s avatar`}
+                    referrerPolicy="no-referrer"
+                  />
+                )}
+                <AvatarFallback className="text-lg">
+                  {profile.profile.displayName.slice(0, 2)}
+                </AvatarFallback>
+              </Avatar>
+            )}
           </div>
           <div className="flex items-start justify-between gap-3">
             <div>

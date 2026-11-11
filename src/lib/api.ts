@@ -1,5 +1,12 @@
 import { z } from "zod";
 
+export const bannerCropSchema = z.object({
+  x: z.number(),
+  y: z.number(),
+  width: z.number(),
+  height: z.number(),
+});
+export type BannerCrop = z.infer<typeof bannerCropSchema>;
 const userSchema = z.object({
   id: z.string(),
   handle: z.string(),
@@ -49,6 +56,8 @@ const sessionSchema = z.union([
 const profileSchema = z.object({
   profile: userSchema.extend({
     bio: z.string(),
+    bannerUrl: z.string().nullable(),
+    bannerCrop: bannerCropSchema.nullable(),
     createdAt: z.string(),
     followerCount: z.number().int().nonnegative(),
     followingCount: z.number().int().nonnegative(),
@@ -81,6 +90,27 @@ export function errorMessage(error: unknown) {
       return "The 15-minute edit window has expired.";
     if (error.message === "profile_not_found")
       return "This profile does not exist.";
+    if (error.message === "gif_search_limit")
+      return "GIF search limit reached. Try again later.";
+    if (error.message === "gif_search_unavailable")
+      return "GIF search is temporarily unavailable. Try again.";
+    if (error.message === "invalid_gif_selection")
+      return "This GIF selection expired. Search and select it again.";
+    if (error.message === "klipy_not_configured")
+      return "GIF search is not configured yet.";
+    if (error.message === "invalid_banner")
+      return "Choose a JPEG, PNG, AVIF, WebP or GIF under 10 MB. Animated images must have no more than 120 frames.";
+    if (error.message === "avatar_storage_not_configured")
+      return "Profile picture uploads are not configured yet.";
+    if (error.message === "avatar_storage_unavailable")
+      return "Picture storage is temporarily unavailable. Please try again.";
+    if (
+      error.message === "invalid_avatar" ||
+      error.message === "avatar_png_required"
+    )
+      return "This picture could not be saved. Choose another image.";
+    if (error.status === 413)
+      return "This picture is too large. Choose a smaller image.";
     if (error.message === "post_not_found")
       return "This post no longer exists.";
     if (error.message === "retry_account_changed")
@@ -108,8 +138,20 @@ async function request<T>(
     cache: "no-store",
     signal,
     headers:
-      body === undefined ? undefined : { "Content-Type": "application/json" },
-    body: body === undefined ? undefined : JSON.stringify(body),
+      body === undefined
+        ? undefined
+        : {
+            "Content-Type":
+              body instanceof Blob
+                ? body.type || "application/octet-stream"
+                : "application/json",
+          },
+    body:
+      body === undefined
+        ? undefined
+        : body instanceof Blob
+          ? body
+          : JSON.stringify(body),
   });
   if (!response.ok) {
     const parsed = z
@@ -132,6 +174,52 @@ export const api = {
     request("/auth/profile", z.object({ user: userSchema }), "POST", {
       handle,
     }),
+  searchGifs: (query: string, page = 1, signal?: AbortSignal) =>
+    request(
+      "/api/banners/gifs/search",
+      z.object({
+        items: z.array(
+          z.object({
+            id: z.string(),
+            title: z.string(),
+            previewUrl: z.string(),
+            width: z.number().optional(),
+            height: z.number().optional(),
+            url: z.string(),
+            token: z.string(),
+          }),
+        ),
+        hasNext: z.boolean(),
+      }),
+      "POST",
+      { query, page },
+      signal,
+    ),
+  selectBannerGif: (token: string, crop: BannerCrop, signal?: AbortSignal) =>
+    request(
+      "/api/banners/gifs",
+      z.object({ bannerUrl: z.string() }),
+      "POST",
+      { token, crop },
+      signal,
+    ),
+  uploadBanner: (picture: Blob, crop: BannerCrop, signal?: AbortSignal) =>
+    request(
+      `/api/banners/me?crop=${encodeURIComponent(JSON.stringify(crop))}`,
+      z.object({ bannerUrl: z.string() }),
+      "PUT",
+      picture,
+      signal,
+    ),
+  removeBanner: () => request("/api/banners/me", z.undefined(), "DELETE"),
+  uploadAvatar: (picture: Blob, signal?: AbortSignal) =>
+    request(
+      "/api/avatars/me",
+      z.object({ avatarUrl: z.string() }),
+      "PUT",
+      picture,
+      signal,
+    ),
   logout: () => request("/auth/logout", z.undefined(), "POST"),
   posts: (cursor?: string, signal?: AbortSignal) =>
     request(

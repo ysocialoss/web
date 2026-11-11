@@ -65,7 +65,18 @@ export function useAuth() {
     send();
     return true;
   }
+  function updateAvatar(userId: string, avatarUrl: string) {
+    sessionRevision.current++;
+    setSession((current) =>
+      current?.authenticated &&
+      !current.needsOnboarding &&
+      current.user.id === userId
+        ? { ...current, avatarUrl, user: { ...current.user, avatarUrl } }
+        : current,
+    );
+  }
   return {
+    updateAvatar,
     session,
     error,
     busy,

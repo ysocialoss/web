@@ -61,6 +61,18 @@ async function verifyRetry(viewerId: string) {
     throw new ApiError(403, "retry_account_changed");
 }
 
+export function updateAuthorAvatar(userId: string, avatarUrl: string) {
+  for (const [key, entry] of posts) {
+    if (entry.value.author.id === userId) {
+      posts.set(key, {
+        value: { ...entry.value, author: { ...entry.value.author, avatarUrl } },
+        revision: revision + 1,
+      });
+    }
+  }
+  notify();
+}
+
 export function rememberPosts(
   incoming: Post[],
   viewerId: string | null,

@@ -18,6 +18,8 @@
     "@number-flow/react": "^0.6.2",
     "@shadcn/react": "^0.3.1",
     "@tailwindcss/vite": "^4",
+    "@zriz/core": "^0.2.0",
+    "@zriz/react": "^0.2.0",
     "class-variance-authority": "^0.7.1",
     "cmdk": "^1.1.1",
     "cn": "^0.5.2",

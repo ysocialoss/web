@@ -60,7 +60,12 @@ function AppShell() {
           />
           <Route
             path="/u/:handle"
-            element={<ProfileRoute session={auth.session} />}
+            element={
+              <ProfileRoute
+                session={auth.session}
+                onAvatarSaved={auth.updateAvatar}
+              />
+            }
           />
           <Route
             path="/profile"
@@ -125,9 +130,22 @@ function PostRoute({ session }: { session: Session | null }) {
   const { id = "" } = useParams();
   return <Thread key={id} id={id} session={session} />;
 }
-function ProfileRoute({ session }: { session: Session | null }) {
+function ProfileRoute({
+  session,
+  onAvatarSaved,
+}: {
+  session: Session | null;
+  onAvatarSaved: (userId: string, avatarUrl: string) => void;
+}) {
   const { handle = "" } = useParams();
-  return <ProfilePage key={handle} handle={handle} session={session} />;
+  return (
+    <ProfilePage
+      key={handle}
+      handle={handle}
+      session={session}
+      onAvatarSaved={onAvatarSaved}
+    />
+  );
 }
 function LegacyProfile() {
   const { legacyHandle = "" } = useParams();

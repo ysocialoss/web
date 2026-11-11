@@ -26,6 +26,12 @@ importers:
       '@tailwindcss/vite':
         specifier: ^4
         version: 4.3.5(vite@8.3.6(@types/node@24.19.2)(jiti@2.7.0))
+      '@zriz/core':
+        specifier: ^0.2.0
+        version: 0.2.0
+      '@zriz/react':
+        specifier: ^0.2.0
+        version: 0.2.0(@types/react@19.3.0)(@zriz/core@0.2.0)(react@19.3.1)
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -1006,6 +1012,19 @@ packages:
       babel-plugin-react-compiler:
         optional: true
       oxc-transform-react:
+        optional: true
+
+  '@zriz/core@0.2.0':
+    resolution: {integrity: sha512-02OCX2eEXjeFAqTDa5tyGWRNYACVZJG5w4x43+jxGP43zojoIKI2WVP2/AtPPvRwXyhbdyN0S46DPdKBYY7PHg==}
+
+  '@zriz/react@0.2.0':
+    resolution: {integrity: sha512-gMQAbbBft64il2TJQ7DbMFPMOIu/fiBbXjfXjJJh9D+6uQpAhvbRfWHWVzBrDbMvvLf6zu1T2QnXGJLORoP6ow==}
+    peerDependencies:
+      '@types/react': ^18.2.6 || ^19.0.0
+      '@zriz/core': ^0.2.0
+      react: ^18.2.0 || ^19.0.0
+    peerDependenciesMeta:
+      '@types/react':
         optional: true
 
   acorn-jsx@5.3.2:
@@ -3422,6 +3441,15 @@ snapshots:
     dependencies:
       '@rolldown/pluginutils': 1.0.1
       vite: 8.3.6(@types/node@24.19.2)(jiti@2.7.0)
+
+  '@zriz/core@0.2.0': {}
+
+  '@zriz/react@0.2.0(@types/react@19.3.0)(@zriz/core@0.2.0)(react@19.3.1)':
+    dependencies:
+      '@zriz/core': 0.2.0
+      react: 19.3.1
+    optionalDependencies:
+      '@types/react': 19.3.0
 
   acorn-jsx@5.3.2(acorn@8.19.0):
     dependencies:
