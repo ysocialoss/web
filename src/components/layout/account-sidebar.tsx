@@ -22,8 +22,8 @@ export function AccountSidebar({ auth }: { auth: AuthState }) {
     >
       {session !== null && (
         <>
-          {signedIn && (
-            <div className="mb-4 flex items-center justify-end gap-1 lg:gap-2">
+          <div className="mb-4 flex items-center justify-end gap-1 lg:gap-2">
+            {signedIn && (
               <IconLink
                 to="/notifications"
                 label="Notifications"
@@ -31,9 +31,9 @@ export function AccountSidebar({ auth }: { auth: AuthState }) {
               >
                 <Bell />
               </IconLink>
-              <AccountMenu auth={auth} />
-            </div>
-          )}
+            )}
+            <AccountMenu auth={auth} />
+          </div>
           <div className="hidden space-y-10 lg:block">
             {signedIn && <ProfileCard session={session} />}
             <TrendingTopics />
