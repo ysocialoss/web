@@ -243,16 +243,16 @@ export function ProfilePage({
                 { value: "reposts", label: "Reposts", icon: Repeat2 },
               ] as const
             ).map(({ value, label, icon: Icon }) => (
-              <IconButton
+              <Button
                 key={value}
-                label={label}
                 variant={tab === value ? "secondary" : "ghost"}
                 className="flex-1"
                 aria-pressed={tab === value}
                 onClick={() => setTab(value)}
               >
-                <Icon />
-              </IconButton>
+                <Icon aria-hidden="true" />
+                {label}
+              </Button>
             ))}
           </div>
           {feed.error && <p role="alert">{feed.error}</p>}
