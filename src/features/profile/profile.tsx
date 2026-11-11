@@ -30,6 +30,7 @@ import { AvatarCropper } from "./avatar-cropper";
 import { PostCard } from "@/features/feed/post-card";
 import { useFeed } from "@/features/feed/use-feed";
 import { ProfileSkeleton } from "@/components/loading-skeletons";
+import { usePageTitle } from "@/hooks/use-page-title";
 import {
   getActionRevision,
   mutateFollow,
@@ -127,6 +128,11 @@ export function ProfilePage({
     void load(controller.signal);
     return () => controller.abort();
   }, [load, session]);
+  usePageTitle(
+    loadedProfile
+      ? `${loadedProfile.profile.displayName} (@${loadedProfile.profile.handle})`
+      : `@${handle}`,
+  );
   return (
     <div className="mx-auto max-w-xl">
       <header className="mb-4 flex items-center gap-3">

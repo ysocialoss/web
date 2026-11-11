@@ -16,7 +16,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { IconLink } from "@/components/ui/icon-button";
 import { Feed } from "@/features/feed/feed";
 import { Account } from "@/features/auth/account";
-import { useAuth } from "@/features/auth/use-auth";
+import { useAuth, type AuthState } from "@/features/auth/use-auth";
+import { usePageTitle } from "@/hooks/use-page-title";
 import { Thread } from "@/features/feed/thread";
 import { ProfilePage } from "@/features/profile/profile";
 import type { Session } from "@/lib/api";
@@ -67,37 +68,14 @@ function AppShell() {
               />
             }
           />
-          <Route
-            path="/profile"
-            element={
-              auth.session?.authenticated && !auth.session.needsOnboarding ? (
-                <Navigate to={`/u/${auth.session.user.handle}`} replace />
-              ) : (
-                <div className="mx-auto max-w-xl text-sm text-muted-foreground">
-                  {auth.session === null && !auth.error ? (
-                    <ProfileSkeleton />
-                  ) : (
-                    "Sign in and choose your handle to view your profile."
-                  )}
-                </div>
-              )
-            }
-          />
+          <Route path="/profile" element={<MyProfileRoute auth={auth} />} />
           <Route
             path="/onboarding"
-            element={
-              auth.session?.authenticated && !auth.session.needsOnboarding ? (
-                <Navigate to={`/u/${auth.session.user.handle}`} replace />
-              ) : null
-            }
+            element={<OnboardingRoute session={auth.session} />}
           />
           <Route
             path="/login"
-            element={
-              auth.session?.authenticated && !auth.session.needsOnboarding ? (
-                <Navigate to="/" replace />
-              ) : null
-            }
+            element={<LoginRoute session={auth.session} />}
           />
           <Route path="/messages" element={<ComingSoon title="Messages" />} />
           <Route path="/search" element={<ComingSoon title="Search" />} />
@@ -123,8 +101,36 @@ function AppShell() {
 }
 
 function HomeFeed({ session }: { session: Session | null }) {
+  usePageTitle("Feed");
   const feed = useFeed(session);
   return <Feed feed={feed} />;
+}
+function MyProfileRoute({ auth }: { auth: AuthState }) {
+  usePageTitle("Profile");
+  const { session } = auth;
+  return session?.authenticated && !session.needsOnboarding ? (
+    <Navigate to={`/u/${session.user.handle}`} replace />
+  ) : (
+    <div className="mx-auto max-w-xl text-sm text-muted-foreground">
+      {session === null && !auth.error ? (
+        <ProfileSkeleton />
+      ) : (
+        "Sign in and choose your handle to view your profile."
+      )}
+    </div>
+  );
+}
+function OnboardingRoute({ session }: { session: Session | null }) {
+  usePageTitle("Choose your handle");
+  return session?.authenticated && !session.needsOnboarding ? (
+    <Navigate to={`/u/${session.user.handle}`} replace />
+  ) : null;
+}
+function LoginRoute({ session }: { session: Session | null }) {
+  usePageTitle("Sign in");
+  return session?.authenticated && !session.needsOnboarding ? (
+    <Navigate to="/" replace />
+  ) : null;
 }
 function PostRoute({ session }: { session: Session | null }) {
   const { id = "" } = useParams();
@@ -156,6 +162,7 @@ function LegacyProfile() {
   );
 }
 function ComingSoon({ title }: { title: string }) {
+  usePageTitle(title);
   return (
     <div className="mx-auto max-w-xl">
       <IconLink to="/" label="Back to feed">
@@ -172,6 +179,7 @@ function ComingSoon({ title }: { title: string }) {
   );
 }
 function NotFound() {
+  usePageTitle("Page not found");
   return (
     <div className="mx-auto flex max-w-xl flex-col items-center gap-3 py-16 text-center">
       <SearchX className="size-9 text-muted-foreground" />

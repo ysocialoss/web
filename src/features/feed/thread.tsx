@@ -6,6 +6,7 @@ import { Feed } from "./feed";
 import { PostCard } from "./post-card";
 import { useFeed } from "./use-feed";
 import { getActionRevision, rememberPosts } from "./optimistic-actions";
+import { usePageTitle } from "@/hooks/use-page-title";
 import {
   ComposerSkeleton,
   PostListSkeleton,
@@ -50,6 +51,11 @@ export function Thread({
     return () => controller.abort();
   }, [load, session]);
   const post = loadedPost ? feed.resolvePost(loadedPost) : null;
+  usePageTitle(
+    post
+      ? `${post.parentId ? "Reply" : "Post"} by @${post.author.handle}`
+      : "Post",
+  );
   const wasDeleted = loadedPost !== null && post === null;
   return (
     <div className="mx-auto max-w-xl">
