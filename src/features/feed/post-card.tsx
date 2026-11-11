@@ -26,7 +26,7 @@ export function PostCard({ post, feed }: { post: Post; feed: FeedState }) {
   const busy = feed.pending.includes(post.id);
   const length = Array.from(content.trim()).length;
   const changed = content.trim() !== post.content.trim();
-  const profilePath = `/u/${post.author.handle}`;
+  const profilePath = `/@${post.author.handle}`;
   function closeEditor() {
     setContent(post.content);
     setEditing(false);

@@ -41,7 +41,7 @@ export function ProfileCard({
         {user ? (
           <Link
             className="text-xs text-muted-foreground"
-            to={`/u/${user.handle}`}
+            to={`/@${user.handle}`}
           >
             @{user.handle}
           </Link>

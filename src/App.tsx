@@ -60,7 +60,7 @@ function AppShell() {
             element={<PostRoute session={auth.session} />}
           />
           <Route
-            path="/u/:handle"
+            path="/:profileHandle"
             element={
               <ProfileRoute
                 session={auth.session}
@@ -91,7 +91,6 @@ function AppShell() {
             path="/notifications"
             element={<ComingSoon title="Notifications" />}
           />
-          <Route path="/:legacyHandle" element={<LegacyProfile />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </section>
@@ -109,7 +108,7 @@ function MyProfileRoute({ auth }: { auth: AuthState }) {
   usePageTitle("Profile");
   const { session } = auth;
   return session?.authenticated && !session.needsOnboarding ? (
-    <Navigate to={`/u/${session.user.handle}`} replace />
+    <Navigate to={`/@${session.user.handle}`} replace />
   ) : (
     <div className="mx-auto max-w-xl text-sm text-muted-foreground">
       {session === null && !auth.error ? (
@@ -123,7 +122,7 @@ function MyProfileRoute({ auth }: { auth: AuthState }) {
 function OnboardingRoute({ session }: { session: Session | null }) {
   usePageTitle("Choose your handle");
   return session?.authenticated && !session.needsOnboarding ? (
-    <Navigate to={`/u/${session.user.handle}`} replace />
+    <Navigate to={`/@${session.user.handle}`} replace />
   ) : null;
 }
 function LoginRoute({ session }: { session: Session | null }) {
@@ -143,7 +142,9 @@ function ProfileRoute({
   session: Session | null;
   onAvatarSaved: (userId: string, avatarUrl: string) => void;
 }) {
-  const { handle = "" } = useParams();
+  const { profileHandle = "" } = useParams();
+  if (!/^@[a-z0-9_]{3,32}$/.test(profileHandle)) return <NotFound />;
+  const handle = profileHandle.slice(1);
   return (
     <ProfilePage
       key={handle}
@@ -151,14 +152,6 @@ function ProfileRoute({
       session={session}
       onAvatarSaved={onAvatarSaved}
     />
-  );
-}
-function LegacyProfile() {
-  const { legacyHandle = "" } = useParams();
-  return /^@[a-z0-9_]{3,32}$/.test(legacyHandle) ? (
-    <Navigate to={`/u/${legacyHandle.slice(1)}`} replace />
-  ) : (
-    <NotFound />
   );
 }
 function ComingSoon({ title }: { title: string }) {

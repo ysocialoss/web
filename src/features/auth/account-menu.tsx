@@ -81,7 +81,7 @@ export function AccountMenu({ auth }: { auth: AuthState }) {
               )}
             </DropdownMenuLabel>
             {user && (
-              <DropdownMenuItem render={<Link to={`/u/${user.handle}`} />}>
+              <DropdownMenuItem render={<Link to={`/@${user.handle}`} />}>
                 <UserRound />
                 View profile
               </DropdownMenuItem>
