@@ -1,0 +1,12 @@
+{$SITE_ADDRESS:localhost:3000} {
+	@backend path /api /api/* /auth /auth/*
+	handle @backend {
+		reverse_proxy {$API_UPSTREAM:127.0.0.1:3100}
+	}
+
+	handle {
+		root * {$WEB_ROOT:dist}
+		try_files {path} /index.html
+		file_server
+	}
+}
