@@ -9,9 +9,10 @@ pnpm build
 caddy run --config Caddyfile --adapter caddyfile
 ```
 
-The default address is `https://localhost:3000`. Caddy uses a local certificate
-for localhost. For public hosting, set `SITE_ADDRESS` to your domain before
-starting Caddy, for example `ysocial.cc`. Point DNS at the host and
+The Caddyfile defaults to plain HTTP on `:8080` with automatic HTTPS off, which
+is what the container and Kubernetes use (TLS terminates at the ingress). For a
+standalone host that serves HTTPS itself, set `AUTO_HTTPS=on` and `SITE_ADDRESS`
+to a domain. Point DNS at the host and
 allow ports 80 and 443 so Caddy can obtain and renew HTTPS certificates.
 Run Caddy under your host's service manager and preserve its certificate data.
 
@@ -19,8 +20,9 @@ Set these environment variables in the Caddy service:
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `SITE_ADDRESS` | `localhost:3000` | Public domain, or `http://localhost:3000` for an HTTP smoke check. |
-| `API_UPSTREAM` | `127.0.0.1:3100` | API address reachable from Caddy. |
+| `SITE_ADDRESS` | `:8080` | Listen address, or a public domain when `AUTO_HTTPS=on`. |
+| `AUTO_HTTPS` | `off` | Set to `on` for Caddy-managed certificates on a standalone host. |
+| `API_UPSTREAM` | `127.0.0.1:3100` | API address reachable from Caddy (`api:3100` in the image). |
 | `WEB_ROOT` | `dist` | Build directory. Use an absolute path when Caddy runs from another directory. |
 
 Start the API separately using `pnpm start` from `api`, with its required
@@ -39,18 +41,23 @@ existing files from `dist` or fall back to `index.html`, so direct visits to
 ## Run with Docker
 
 From the parent directory, build with `docker build -t ysocial-web ./web`.
-The image builds the frontend and serves it with Caddy on port 80 by default.
-It proxies to `api:3100`, so connect both containers to the same Docker network
-and give the API container the name or network alias `api`.
+The image builds the frontend and serves it with Caddy on port 8080 as a
+non-root user (uid 1001). It proxies `/api` and `/auth` to `api:3100`, so
+connect both containers to the same Docker network and give the API container
+the name or network alias `api`. Override `API_UPSTREAM` for another address.
 
 ```sh
-docker run -d --name web --network ysocial -p 3000:80 ysocial-web
+docker run -d --name web --network ysocial -p 3000:8080 ysocial-web
 ```
 
-Override `API_UPSTREAM` if the API has a different network address. For public
-HTTPS hosting, set `SITE_ADDRESS` to your domain, publish ports 80 and 443,
-and mount persistent volumes at `/data` and `/config`.
+The image runs with a read-only root filesystem and no capabilities
+(`--read-only --tmpfs /tmp --cap-drop ALL`). `GET /healthz` returns `200 ok`
+without touching the API, for container and Kubernetes probes.
 
 After deployment, check that `/@handle` returns the app HTML, a built asset
 returns its file content, and `/auth/me` returns the API response. Also check
 that an unknown `/api/...` path returns the API's error instead of app HTML.
+
+Caching: `/assets/*` (hashed build output) is served `immutable` and never falls
+back to `index.html`; everything else is `no-cache`.
+
