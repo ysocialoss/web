@@ -5,7 +5,7 @@ import "@zriz/react/styles.css";
 import type { BannerCrop } from "@/lib/api";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Camera, Check, ImagePlus, Trash2 } from "lucide-react";
-import { api, errorMessage } from "@/lib/api";
+import { api, errorMessage, retryRequest } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -20,9 +20,11 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 export function BannerEditor({
   bannerUrl,
   onSaved,
+  verifyAccount,
 }: {
   bannerUrl: string | null;
   onSaved: (url: string | null, crop: BannerCrop | null) => void;
+  verifyAccount: (signal?: AbortSignal) => Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -47,6 +49,7 @@ export function BannerEditor({
         <BannerPicker
           key={String(open)}
           current={bannerUrl}
+          verifyAccount={verifyAccount}
           onSaved={(url, crop) => {
             onSaved(url, crop);
             setOpen(false);
@@ -60,9 +63,11 @@ export function BannerEditor({
 function BannerPicker({
   current,
   onSaved,
+  verifyAccount,
 }: {
   current: string | null;
   onSaved: (url: string | null, crop: BannerCrop | null) => void;
+  verifyAccount: (signal?: AbortSignal) => Promise<void>;
 }) {
   const [file, setFile] = useState<Blob | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
@@ -192,20 +197,33 @@ function BannerPicker({
       : null;
     try {
       if (!remove && !crop) throw new Error("Crop is not ready");
-      if (remove) {
-        await api.removeBanner();
-        onSaved(null, null);
-      } else if (selectedGif && crop) {
-        const result = await api.selectBannerGif(
-          selectedGif,
-          crop,
-          controller.signal,
-        );
-        onSaved(result.bannerUrl, crop);
-      } else if (file && crop) {
-        const result = await api.uploadBanner(file, crop, controller.signal);
-        onSaved(result.bannerUrl, crop);
-      }
+      await retryRequest(
+        async () => {
+          if (remove) {
+            await api.removeBanner(controller.signal);
+            onSaved(null, null);
+          } else if (selectedGif && crop) {
+            const result = await api.selectBannerGif(
+              selectedGif,
+              crop,
+              controller.signal,
+            );
+            onSaved(result.bannerUrl, crop);
+          } else if (file && crop) {
+            const result = await api.uploadBanner(
+              file,
+              crop,
+              controller.signal,
+            );
+            onSaved(result.bannerUrl, crop);
+          }
+        },
+        {
+          context: "save banner",
+          signal: controller.signal,
+          beforeRetry: () => verifyAccount(controller.signal),
+        },
+      );
     } catch (error) {
       if (!controller.signal.aborted) setError(errorMessage(error));
     } finally {

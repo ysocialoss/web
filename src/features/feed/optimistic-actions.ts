@@ -1,4 +1,10 @@
-import { api, ApiError, type Post, type Profile } from "@/lib/api";
+import {
+  api,
+  ApiError,
+  retryRequest,
+  type Post,
+  type Profile,
+} from "@/lib/api";
 import { showRetryToast as retryToast } from "@/lib/retry-toast";
 
 type PostCommand =
@@ -214,50 +220,59 @@ export function mutatePost(
     let failed = false;
     try {
       if (retry) await verifyRetry(viewerId);
-      let patch: Partial<Post> = {};
-      switch (command.kind) {
-        case "like":
-          patch = await api.like(post.id, command.value);
-          break;
-        case "repost":
-          patch = await api.repost(post.id, command.value);
-          break;
-        case "edit": {
-          const { post: saved } = await api.edit(post.id, command.content);
-          patch = {
-            content: saved.content,
-            editedAt: saved.editedAt,
-            editExpiresAt: saved.editExpiresAt,
-          };
-          break;
-        }
-        case "delete": {
-          try {
-            await api.delete(post.id);
-          } catch (error) {
-            if (!(error instanceof ApiError && error.status === 404))
-              throw error;
+      const patch = await retryRequest(
+        async () => {
+          let patch: Partial<Post> = {};
+          switch (command.kind) {
+            case "like":
+              patch = await api.like(post.id, command.value);
+              break;
+            case "repost":
+              patch = await api.repost(post.id, command.value);
+              break;
+            case "edit": {
+              const { post: saved } = await api.edit(post.id, command.content);
+              patch = {
+                content: saved.content,
+                editedAt: saved.editedAt,
+                editExpiresAt: saved.editExpiresAt,
+              };
+              break;
+            }
+            case "delete": {
+              try {
+                await api.delete(post.id);
+              } catch (error) {
+                if (!(error instanceof ApiError && error.status === 404))
+                  throw error;
+              }
+              deleted.add(key);
+              const parentKey = post.parentId
+                ? keyFor(viewerId, post.parentId)
+                : null;
+              const parent = parentKey ? posts.get(parentKey) : undefined;
+              if (parentKey && parent)
+                posts.set(parentKey, {
+                  value: {
+                    ...parent.value,
+                    replies: Math.max(0, parent.value.replies - 1),
+                  },
+                  revision: revision + 1,
+                });
+              break;
+            }
+            default: {
+              const exhaustive: never = command;
+              return exhaustive;
+            }
           }
-          deleted.add(key);
-          const parentKey = post.parentId
-            ? keyFor(viewerId, post.parentId)
-            : null;
-          const parent = parentKey ? posts.get(parentKey) : undefined;
-          if (parentKey && parent)
-            posts.set(parentKey, {
-              value: {
-                ...parent.value,
-                replies: Math.max(0, parent.value.replies - 1),
-              },
-              revision: revision + 1,
-            });
-          break;
-        }
-        default: {
-          const exhaustive: never = command;
-          return exhaustive;
-        }
-      }
+          return patch;
+        },
+        {
+          context: `post ${command.kind}`,
+          beforeRetry: () => verifyRetry(viewerId),
+        },
+      );
       const current = posts.get(key);
       if (current)
         posts.set(key, {
@@ -379,7 +394,10 @@ export function mutateFollow(
     let failed = false;
     try {
       if (retry) await verifyRetry(viewerId);
-      const result = await api.follow(profile.profile.handle, value);
+      const result = await retryRequest(
+        () => api.follow(profile.profile.handle, value),
+        { context: "follow", beforeRetry: () => verifyRetry(viewerId) },
+      );
       const current = relationships.get(key);
       if (current) {
         const delta =

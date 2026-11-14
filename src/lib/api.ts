@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { beginConnectionRetry } from "./connection-status";
 
 export const bannerCropSchema = z.object({
   x: z.number(),
@@ -80,6 +81,62 @@ export class ApiError extends Error {
     this.status = status;
   }
 }
+
+// Only transport failures are retried. Validation and authorization errors
+// still reach the caller so the user can act on them.
+export async function retryRequest<T>(
+  operation: () => Promise<T>,
+  {
+    context,
+    signal,
+    beforeRetry,
+  }: {
+    context: string;
+    signal?: AbortSignal;
+    beforeRetry?: () => Promise<void>;
+  },
+): Promise<T> {
+  let attempt = 0;
+  let finishRetry: (() => void) | undefined;
+  try {
+    while (true) {
+      signal?.throwIfAborted();
+      try {
+        if (attempt > 0) await beforeRetry?.();
+        return await operation();
+      } catch (error) {
+        signal?.throwIfAborted();
+        if (
+          !(error instanceof ApiError) ||
+          ![0, 408, 500, 502, 503, 504].includes(error.status)
+        )
+          throw error;
+        finishRetry ??= beginConnectionRetry();
+        const delay = Math.min(1000 * 2 ** Math.min(attempt++, 5), 30_000);
+        if (import.meta.env.DEV)
+          console.debug("[api] Retrying in the background", {
+            context,
+            attempt,
+            delay,
+            error,
+          });
+        await new Promise<void>((resolve, reject) => {
+          const onAbort = () => {
+            clearTimeout(timer);
+            reject(signal?.reason);
+          };
+          const timer = setTimeout(() => {
+            signal?.removeEventListener("abort", onAbort);
+            resolve();
+          }, delay);
+          signal?.addEventListener("abort", onAbort, { once: true });
+        });
+      }
+    }
+  } finally {
+    finishRetry?.();
+  }
+}
 export function errorMessage(error: unknown) {
   if (error instanceof ApiError) {
     if (error.status === 401)
@@ -125,7 +182,7 @@ export function errorMessage(error: unknown) {
   }
   return "Unable to reach the API. Please try again.";
 }
-async function request<T>(
+async function sendRequest<T>(
   path: string,
   schema: z.ZodType<T>,
   method = "GET",
@@ -152,6 +209,11 @@ async function request<T>(
         : body instanceof Blob
           ? body
           : JSON.stringify(body),
+  }).catch((error: unknown) => {
+    signal?.throwIfAborted();
+    if (error instanceof TypeError)
+      throw new ApiError(0, "network_unavailable");
+    throw error;
   });
   if (!response.ok) {
     const parsed = z
@@ -165,6 +227,20 @@ async function request<T>(
   return schema.parse(
     response.status === 204 ? undefined : await response.json(),
   );
+}
+function request<T>(
+  path: string,
+  schema: z.ZodType<T>,
+  method = "GET",
+  body?: unknown,
+  signal?: AbortSignal,
+): Promise<T> {
+  const send = () => sendRequest(path, schema, method, body, signal);
+  // GIF search uses POST but is a read. Writes opt in at their owner, where
+  // account checks and stable post IDs make replay safe.
+  return method === "GET" || path === "/api/banners/gifs/search"
+    ? retryRequest(send, { context: `${method} ${path}`, signal })
+    : send();
 }
 const postPath = (id: string) => `/api/posts/${encodeURIComponent(id)}`;
 export const api = {
@@ -211,7 +287,8 @@ export const api = {
       picture,
       signal,
     ),
-  removeBanner: () => request("/api/banners/me", z.undefined(), "DELETE"),
+  removeBanner: (signal?: AbortSignal) =>
+    request("/api/banners/me", z.undefined(), "DELETE", undefined, signal),
   uploadAvatar: (picture: Blob, signal?: AbortSignal) =>
     request(
       "/api/avatars/me",

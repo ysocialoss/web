@@ -1,4 +1,10 @@
-import { api, ApiError, errorMessage, type Post } from "@/lib/api";
+import {
+  api,
+  ApiError,
+  errorMessage,
+  retryRequest,
+  type Post,
+} from "@/lib/api";
 import { beginReply, rememberPosts } from "./optimistic-actions";
 import { toast } from "@/components/ui/toast";
 
@@ -63,7 +69,7 @@ export function publishOptimistically({
       ...snapshot.filter((entry) => entry.post.id !== optimistic.id),
     ]);
     try {
-      if (retry) {
+      async function verifyAccount() {
         const session = await api.session();
         if (
           !session.authenticated ||
@@ -72,9 +78,17 @@ export function publishOptimistically({
         )
           throw new ApiError(403, "retry_account_changed");
       }
-      const { post } = parentId
-        ? await api.reply(parentId, content, optimistic.id)
-        : await api.publish(content, optimistic.id);
+      if (retry) await verifyAccount();
+      const { post } = await retryRequest(
+        () =>
+          parentId
+            ? api.reply(parentId, content, optimistic.id)
+            : api.publish(content, optimistic.id),
+        {
+          context: parentId ? "publish reply" : "publish post",
+          beforeRetry: verifyAccount,
+        },
+      );
       rememberPosts([post], author.id);
       finishReply?.(true);
       update(

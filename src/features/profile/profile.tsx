@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
-import { api, errorMessage, type Profile, type Session } from "@/lib/api";
+import {
+  api,
+  ApiError,
+  errorMessage,
+  retryRequest,
+  type Profile,
+  type Session,
+} from "@/lib/api";
 import {
   ArrowLeft,
   CalendarDays,
@@ -105,6 +112,15 @@ export function ProfilePage({
     if (profile && viewer)
       mutateFollow(profile, viewer.id, !profile.isFollowing);
   }
+  async function verifyAccount(signal?: AbortSignal) {
+    const current = await api.session(signal);
+    if (
+      !current.authenticated ||
+      current.needsOnboarding ||
+      current.user.id !== viewerId
+    )
+      throw new ApiError(403, "retry_account_changed");
+  }
   const load = useCallback(
     async (signal?: AbortSignal) => {
       const startedAt = getActionRevision();
@@ -163,6 +179,7 @@ export function ProfilePage({
             {ownProfile && (
               <BannerEditor
                 bannerUrl={profile.profile.bannerUrl}
+                verifyAccount={verifyAccount}
                 onSaved={(bannerUrl, bannerCrop) =>
                   setProfile((current) =>
                     current
@@ -213,7 +230,14 @@ export function ProfilePage({
                   </DialogHeader>
                   <AvatarCropper
                     onSave={async (picture, signal) => {
-                      const result = await api.uploadAvatar(picture, signal);
+                      const result = await retryRequest(
+                        () => api.uploadAvatar(picture, signal),
+                        {
+                          context: "upload avatar",
+                          signal,
+                          beforeRetry: () => verifyAccount(signal),
+                        },
+                      );
                       setProfile((current) =>
                         current
                           ? {

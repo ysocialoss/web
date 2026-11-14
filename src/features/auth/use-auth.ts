@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api, errorMessage, type Session } from "@/lib/api";
+import {
+  api,
+  ApiError,
+  errorMessage,
+  retryRequest,
+  type Session,
+} from "@/lib/api";
 import { showRetryToast } from "@/lib/retry-toast";
 import { toast } from "@/components/ui/toast";
 
@@ -48,7 +54,13 @@ export function useAuth() {
       const startedAt = ++sessionRevision.current;
       setSession({ authenticated: false });
       setError("");
-      void api.logout().catch((error: unknown) => {
+      void retryRequest(() => api.logout(), {
+        context: "sign out",
+        beforeRetry: async () => {
+          if (startedAt !== sessionRevision.current)
+            throw new ApiError(403, "retry_account_changed");
+        },
+      }).catch((error: unknown) => {
         if (startedAt === sessionRevision.current) setSession(previous);
         showRetryToast("Couldn't sign out", error, () => {
           if (startedAt === sessionRevision.current) send();
