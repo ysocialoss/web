@@ -5,6 +5,7 @@ import {
   errorMessage,
   retryRequest,
   type Session,
+  type BannerCrop,
 } from "@/lib/api";
 import { showRetryToast } from "@/lib/retry-toast";
 import { toast } from "@/components/ui/toast";
@@ -87,7 +88,22 @@ export function useAuth() {
         : current,
     );
   }
+  function updateBanner(
+    userId: string,
+    bannerUrl: string | null,
+    bannerCrop: BannerCrop | null,
+  ) {
+    sessionRevision.current++;
+    setSession((current) =>
+      current?.authenticated &&
+      !current.needsOnboarding &&
+      current.user.id === userId
+        ? { ...current, user: { ...current.user, bannerUrl, bannerCrop } }
+        : current,
+    );
+  }
   return {
+    updateBanner,
     updateAvatar,
     session,
     error,

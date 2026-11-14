@@ -3,6 +3,7 @@ import { UserRound } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import type { Session } from "@/lib/api";
 import { ProfileCardSkeleton } from "@/components/loading-skeletons";
+import { BannerImage } from "@/features/profile/banner-image";
 
 export function ProfileCard({
   session,
@@ -20,7 +21,14 @@ export function ProfileCard({
     : null;
   return (
     <section aria-labelledby="profile-heading">
-      <div className="relative h-24 rounded-lg bg-linear-to-r from-green-500 to-green-950">
+      <div className="relative aspect-[3/1] rounded-xl bg-linear-to-br from-muted to-muted/40">
+        {user?.bannerUrl && (
+          <BannerImage
+            src={user.bannerUrl}
+            crop={user.bannerCrop}
+            alt={`${user.displayName}'s banner`}
+          />
+        )}
         <Avatar className="absolute -bottom-5 right-2 size-14 ring-4 ring-background">
           {avatarUrl && (
             <AvatarImage

@@ -284,7 +284,7 @@ function BannerPicker({
                   setDragging(false);
                   choose(event.dataTransfer.files[0]);
                 }}
-                className={`flex aspect-[3/1] w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed p-4 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring ${dragging ? "border-primary bg-primary/10" : "border-border bg-muted/40 hover:bg-muted"}`}
+                className={`flex aspect-3/1 w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed p-4 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring ${dragging ? "border-primary bg-primary/10" : "border-border bg-muted/40 hover:bg-muted"}`}
               >
                 <ImagePlus className="size-6" />
                 <span>Drop an image or GIF here, or click to browse</span>

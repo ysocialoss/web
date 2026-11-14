@@ -49,7 +49,10 @@ const sessionSchema = z.union([
   z.object({
     authenticated: z.literal(true),
     needsOnboarding: z.literal(false),
-    user: userSchema,
+    user: userSchema.extend({
+      bannerUrl: z.string().nullable(),
+      bannerCrop: bannerCropSchema.nullable(),
+    }),
     avatarUrl: z.string().nullable(),
     suggestedHandle: z.string(),
   }),

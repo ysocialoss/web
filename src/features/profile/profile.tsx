@@ -6,6 +6,7 @@ import {
   retryRequest,
   type Profile,
   type Session,
+  type BannerCrop,
 } from "@/lib/api";
 import {
   ArrowLeft,
@@ -50,10 +51,16 @@ export function ProfilePage({
   handle,
   session,
   onAvatarSaved,
+  onBannerSaved,
 }: {
   handle: string;
   session: Session | null;
   onAvatarSaved: (userId: string, avatarUrl: string) => void;
+  onBannerSaved: (
+    userId: string,
+    bannerUrl: string | null,
+    bannerCrop: BannerCrop | null,
+  ) => void;
 }) {
   const [loadedProfile, setProfile] = useState<Profile | null>(null);
   const [pictureDialogOpen, setPictureDialogOpen] = useState(false);
@@ -168,7 +175,7 @@ export function ProfilePage({
         <ProfileSkeleton />
       ) : (
         <>
-          <div className="relative mb-12 aspect-[3/1] rounded-xl bg-linear-to-br from-muted to-muted/40">
+          <div className="relative mb-12 aspect-3/1 rounded-xl bg-linear-to-br from-muted to-muted/40">
             {profile.profile.bannerUrl && (
               <BannerImage
                 src={profile.profile.bannerUrl}
@@ -180,7 +187,8 @@ export function ProfilePage({
               <BannerEditor
                 bannerUrl={profile.profile.bannerUrl}
                 verifyAccount={verifyAccount}
-                onSaved={(bannerUrl, bannerCrop) =>
+                onSaved={(bannerUrl, bannerCrop) => {
+                  onBannerSaved(profile.profile.id, bannerUrl, bannerCrop);
                   setProfile((current) =>
                     current
                       ? {
@@ -192,8 +200,8 @@ export function ProfilePage({
                           },
                         }
                       : current,
-                  )
-                }
+                  );
+                }}
               />
             )}
             {ownProfile ? (
@@ -348,7 +356,7 @@ export function ProfilePage({
             </span>
           </div>
           {profile.profile.bio && (
-            <p className="mt-3 whitespace-pre-wrap break-words text-sm">
+            <p className="mt-3 whitespace-pre-wrap wrap-break-words text-sm">
               {profile.profile.bio}
             </p>
           )}

@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import {
   BrowserRouter,
   Link,
+  matchPath,
   Navigate,
   Route,
   Routes,
@@ -24,6 +25,7 @@ import type { Session } from "@/lib/api";
 import { useFeed } from "@/features/feed/use-feed";
 import { ProfileSkeleton } from "@/components/loading-skeletons";
 import { ConnectionBanner } from "@/components/connection-banner";
+import { cn } from "@/lib/utils";
 
 export function App() {
   return (
@@ -41,13 +43,25 @@ function AppShell() {
   const auth = useAuth();
   const centerScroll = useRef<HTMLElement>(null);
   const { pathname } = useLocation();
+  const profileHandle = matchPath("/:profileHandle", pathname)?.params
+    .profileHandle;
+  const hideAccountSidebar =
+    /^@[a-z0-9_]{3,32}$/.test(profileHandle ?? "") ||
+    matchPath("/profile", pathname) !== null;
   useEffect(() => {
     centerScroll.current?.scrollTo(0, 0);
   }, [pathname]);
   return (
     <div className="flex h-dvh min-h-0 flex-col">
       <ConnectionBanner />
-      <main className="grid min-h-0 flex-1 grid-cols-[4rem_minmax(0,1fr)_4rem] grid-rows-[minmax(0,1fr)] overflow-hidden divide-x divide-border lg:grid-cols-[13rem_minmax(0,1fr)_22rem]">
+      <main
+        className={cn(
+          "grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)] overflow-hidden divide-x divide-border",
+          hideAccountSidebar
+            ? "grid-cols-[4rem_minmax(0,1fr)] lg:grid-cols-[13rem_minmax(0,1fr)]"
+            : "grid-cols-[4rem_minmax(0,1fr)_4rem] lg:grid-cols-[13rem_minmax(0,1fr)_22rem]",
+        )}
+      >
         <NavigationSidebar />
         <section
           ref={centerScroll}
@@ -68,6 +82,7 @@ function AppShell() {
                 <ProfileRoute
                   session={auth.session}
                   onAvatarSaved={auth.updateAvatar}
+                  onBannerSaved={auth.updateBanner}
                 />
               }
             />
@@ -97,7 +112,7 @@ function AppShell() {
             <Route path="*" element={<NotFound />} />
           </Routes>
         </section>
-        <AccountSidebar auth={auth} />
+        {!hideAccountSidebar && <AccountSidebar auth={auth} />}
       </main>
     </div>
   );
@@ -142,9 +157,11 @@ function PostRoute({ session }: { session: Session | null }) {
 function ProfileRoute({
   session,
   onAvatarSaved,
+  onBannerSaved,
 }: {
   session: Session | null;
   onAvatarSaved: (userId: string, avatarUrl: string) => void;
+  onBannerSaved: AuthState["updateBanner"];
 }) {
   const { profileHandle = "" } = useParams();
   if (!/^@[a-z0-9_]{3,32}$/.test(profileHandle)) return <NotFound />;
@@ -155,6 +172,7 @@ function ProfileRoute({
       handle={handle}
       session={session}
       onAvatarSaved={onAvatarSaved}
+      onBannerSaved={onBannerSaved}
     />
   );
 }
