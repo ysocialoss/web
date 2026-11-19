@@ -23,6 +23,34 @@ const ThemeProviderContext = React.createContext<
   ThemeProviderState | undefined
 >(undefined)
 
+function useThemeConfirmation({ theme, setTheme }: ThemeProviderState) {
+  const [open, setOpen] = React.useState(false)
+
+  function selectTheme(nextTheme: Theme) {
+    if (nextTheme === "light" && theme !== "light") {
+      setOpen(true)
+    } else if (nextTheme !== theme) {
+      setTheme(nextTheme)
+    }
+  }
+
+  const confirmation = (
+    <ConfirmationDialog
+      open={open}
+      onOpenChange={setOpen}
+      title="Switch to light mode?"
+      description="This will change the site's appearance to light mode."
+      confirmLabel="Switch to light"
+      onConfirm={() => {
+        setTheme("light")
+        return true
+      }}
+    />
+  )
+
+  return { theme, selectTheme, confirmation, open }
+}
+
 function isTheme(value: string | null): value is Theme {
   if (value === null) {
     return false
@@ -96,9 +124,7 @@ export function ThemeProvider({
 
     return defaultTheme
   })
-  const [confirmLightMode, setConfirmLightMode] = React.useState(false)
-
-  const saveTheme = React.useCallback(
+  const setTheme = React.useCallback(
     (nextTheme: Theme) => {
       localStorage.setItem(storageKey, nextTheme)
       setThemeState(nextTheme)
@@ -106,17 +132,7 @@ export function ThemeProvider({
     [storageKey]
   )
 
-  const setTheme = React.useCallback(
-    (nextTheme: Theme) => {
-      if (nextTheme === "light") {
-        if (theme !== "light") setConfirmLightMode(true)
-        return
-      }
-
-      saveTheme(nextTheme)
-    },
-    [theme, saveTheme]
-  )
+  const shortcut = useThemeConfirmation({ theme, setTheme })
 
   const applyTheme = React.useCallback(
     (nextTheme: Theme) => {
@@ -173,7 +189,7 @@ export function ThemeProvider({
       return
     }
 
-    if (confirmLightMode) return
+    if (shortcut.open) return
 
     const nextTheme =
       theme === "dark"
@@ -184,7 +200,7 @@ export function ThemeProvider({
             ? "light"
             : "dark"
 
-    setTheme(nextTheme)
+    shortcut.selectTheme(nextTheme)
   })
 
   React.useEffect(() => {
@@ -232,17 +248,7 @@ export function ThemeProvider({
   return (
     <ThemeProviderContext.Provider {...props} value={value}>
       {children}
-      <ConfirmationDialog
-        open={confirmLightMode}
-        onOpenChange={setConfirmLightMode}
-        title="Switch to light mode?"
-        description="This will change the site's appearance to light mode."
-        confirmLabel="Switch to light"
-        onConfirm={() => {
-          saveTheme("light")
-          return true
-        }}
-      />
+      {shortcut.confirmation}
     </ThemeProviderContext.Provider>
   )
 }
@@ -255,4 +261,8 @@ export const useTheme = () => {
   }
 
   return context
+}
+
+export function useThemeSelection() {
+  return useThemeConfirmation(useTheme())
 }

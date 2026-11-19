@@ -21,7 +21,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useTheme } from "@/components/theme-provider";
+import { useThemeSelection } from "@/components/theme-provider";
 import { cn } from "@/lib/utils";
 import type { AuthState } from "./use-auth";
 
@@ -70,7 +70,7 @@ const themeOptions = [
 ] as const;
 
 function ThemeSwitch() {
-  const { theme, setTheme } = useTheme();
+  const { theme, selectTheme, confirmation } = useThemeSelection();
   return (
     <div className="px-1">
       <div
@@ -84,7 +84,7 @@ function ThemeSwitch() {
             type="button"
             role="radio"
             aria-checked={theme === value}
-            onClick={() => setTheme(value)}
+            onClick={() => selectTheme(value)}
             className={cn(
               "flex h-8 items-center justify-center gap-1.5 rounded-md text-xs font-medium text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 max-md:h-10 max-md:text-sm",
               theme === value &&
@@ -96,6 +96,7 @@ function ThemeSwitch() {
           </button>
         ))}
       </div>
+      {confirmation}
     </div>
   );
 }
