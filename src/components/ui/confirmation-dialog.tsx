@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactElement } from "react";
 import { LoaderCircle } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -20,10 +21,12 @@ import {
   AlertDialogFooter,
   AlertDialogCancel,
   AlertDialogAction,
+  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
 export function ConfirmationDialog({
   open,
+  trigger,
   onOpenChange,
   title,
   description,
@@ -33,6 +36,7 @@ export function ConfirmationDialog({
   destructive = false,
 }: {
   open: boolean;
+  trigger?: ReactElement;
   onOpenChange: (open: boolean) => void;
   title: string;
   description: string;
@@ -45,6 +49,7 @@ export function ConfirmationDialog({
   const [failed, setFailed] = useState(false);
   const mobile = useIsMobile();
   const Root = mobile ? Dialog : AlertDialog;
+  const Trigger = mobile ? DialogTrigger : AlertDialogTrigger;
   const Content = mobile ? DialogContent : AlertDialogContent;
   const Header = mobile ? DialogHeader : AlertDialogHeader;
   const Title = mobile ? DialogTitle : AlertDialogTitle;
@@ -81,6 +86,7 @@ export function ConfirmationDialog({
         }
       }}
     >
+      {trigger && <Trigger render={trigger} />}
       <Content>
         <Header>
           <Title>{title}</Title>

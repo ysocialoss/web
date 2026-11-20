@@ -1,6 +1,6 @@
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent, type ReactElement } from "react";
 import { ArrowLeft, Ban, Search, CornerUpLeft, EyeOff, LockKeyhole, LoaderCircle, Mail, SendHorizontal, ShieldCheck, ShieldQuestion, X } from "lucide-react";
-import { Link, useNavigate, useSearchParams } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import { ActionMenu } from "@/components/ui/action-menu";
 import { Button } from "@/components/ui/button";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
@@ -32,8 +32,13 @@ const withEmoji = (text: string) => {
 };
 const snippet = (text: string | null) => text === null ? null : text.replace(/\s+/g, " ").trim().slice(0, 140);
 
-export function Thread({ id, device, onChange }: { id: string; device: LocalDevice; onChange: () => void }) {
-  const navigate = useNavigate();
+export function Thread({ id, device, onChange, onClose, renderCloseConfirmation }: {
+  id: string;
+  device: LocalDevice;
+  onChange: () => void;
+  onClose: () => void;
+  renderCloseConfirmation: (trigger: ReactElement) => ReactElement;
+}) {
   const { refresh: refreshNotifications } = useNotifications();
   const { refresh: refreshUnread } = useDmUnread();
   const [context, setContext] = useState<Context>();
@@ -263,17 +268,6 @@ export function Thread({ id, device, onChange }: { id: string; device: LocalDevi
     }
   }
 
-  async function closeConversation() {
-    setActionError("");
-    try {
-      await dmApi.close(id, device);
-      onChange();
-      void navigate("/messages", { replace: true });
-    } catch (error) {
-      setActionError(dmError(error));
-    }
-  }
-
   async function loadOlder() {
     const first = messages?.[0];
     const signal = operations.current?.signal;
@@ -500,7 +494,7 @@ export function Thread({ id, device, onChange }: { id: string; device: LocalDevi
           trigger={<IconButton label="Conversation options" aria-label="Conversation options"><span aria-hidden="true" className="text-lg leading-none">⋯</span></IconButton>}
           items={[
             { label: "Security code", icon: ShieldCheck, kind: "action", onClick: () => setShowCode(true) },
-            { label: "Close conversation", icon: EyeOff, kind: "action", onClick: () => void closeConversation(), destructive: true },
+            { label: "Close conversation", icon: EyeOff, kind: "action", onClick: onClose, renderInDrawer: renderCloseConfirmation, destructive: true },
           ]}
         />
       </header>

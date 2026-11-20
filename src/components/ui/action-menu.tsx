@@ -1,4 +1,4 @@
-import type { ReactElement, ReactNode } from "react";
+import { Fragment, type ReactElement, type ReactNode } from "react";
 import { Link } from "react-router";
 import type { LucideIcon } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -28,7 +28,7 @@ type ActionMenuItem = {
   destructive?: boolean;
 } & (
   | { kind: "link"; to: string; reloadDocument?: boolean }
-  | { kind: "action"; onClick: () => void }
+  | { kind: "action"; onClick: () => void; renderInDrawer?: (trigger: ReactElement) => ReactNode }
 );
 
 export function ActionMenu({
@@ -59,33 +59,46 @@ export function ActionMenu({
             </DrawerHeader>
           )}
           <div className="overflow-y-auto overscroll-contain p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
-            {items.map(({ icon: Icon, ...item }) => (
-              <DrawerClose
-                key={item.label}
-                nativeButton={item.kind !== "link"}
-                role={item.kind === "link" ? "link" : undefined}
-                disabled={item.disabled}
-                onClick={item.kind === "action" ? item.onClick : undefined}
-                render={
-                  <Button
-                    variant="ghost"
-                    className={`${large ? "min-h-12 gap-3.5 text-base [&_svg:not([class*='size-'])]:size-5" : "min-h-12 gap-3 text-base"} w-full justify-start ${item.destructive ? "mt-2 border-t text-destructive hover:text-destructive" : ""}`}
-                    nativeButton={item.kind !== "link"}
-                    render={
-                      item.kind === "link" ? (
-                        <Link
-                          to={item.to}
-                          reloadDocument={item.reloadDocument}
-                        />
-                      ) : undefined
-                    }
-                  />
-                }
-              >
-                <Icon aria-hidden="true" />
-                {item.label}
-              </DrawerClose>
-            ))}
+            {items.map(({ icon: Icon, ...item }) => {
+              const className = `${large ? "min-h-12 gap-3.5 text-base [&_svg:not([class*='size-'])]:size-5" : "min-h-12 gap-3 text-base"} w-full justify-start ${item.destructive ? "mt-2 border-t text-destructive hover:text-destructive" : ""}`;
+              if (item.kind === "action" && item.renderInDrawer) {
+                return (
+                  <Fragment key={item.label}>
+                    {item.renderInDrawer(<Button type="button" variant="ghost" className={className} disabled={item.disabled}>
+                      <Icon aria-hidden="true" />
+                      {item.label}
+                    </Button>)}
+                  </Fragment>
+                );
+              }
+              return (
+                <DrawerClose
+                  key={item.label}
+                  nativeButton={item.kind !== "link"}
+                  role={item.kind === "link" ? "link" : undefined}
+                  disabled={item.disabled}
+                  onClick={item.kind === "action" ? item.onClick : undefined}
+                  render={
+                    <Button
+                      variant="ghost"
+                      className={className}
+                      nativeButton={item.kind !== "link"}
+                      render={
+                        item.kind === "link" ? (
+                          <Link
+                            to={item.to}
+                            reloadDocument={item.reloadDocument}
+                          />
+                        ) : undefined
+                      }
+                    />
+                  }
+                >
+                  <Icon aria-hidden="true" />
+                  {item.label}
+                </DrawerClose>
+              );
+            })}
           </div>
         </DrawerContent>
       </Drawer>

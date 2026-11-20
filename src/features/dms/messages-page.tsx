@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactElement } from "react";
 import { LoaderCircle, MessageSquarePlus } from "lucide-react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { Button } from "@/components/ui/button";
+import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { usePageTitle } from "@/hooks/use-page-title";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { type Session } from "@/lib/api";
 import { ConversationList } from "./conversation-list";
 import { dmApi, dmError, type Conversation } from "./dm-api";
@@ -48,6 +50,9 @@ function Inbox({ device, conversationId, pending }: { device: LocalDevice; conve
   const [conversations, setConversations] = useState<Conversation[]>();
   const [error, setError] = useState("");
   const [composing, setComposing] = useState(false);
+  const [closingId, setClosingId] = useState<string>();
+  const [closeError, setCloseError] = useState("");
+  const mobile = useIsMobile();
   const [typing, setTyping] = useState<ReadonlySet<string>>(new Set());
   const [query] = useSearchParams();
   const target = query.get("to");
@@ -95,15 +100,41 @@ function Inbox({ device, conversationId, pending }: { device: LocalDevice; conve
     };
   }, [device.userId]);
 
-  async function close(conversation: Conversation) {
+  function requestClose(id: string) {
+    setCloseError("");
+    setClosingId(id);
+  }
+
+  async function close() {
+    if (!closingId) return false;
     try {
-      await dmApi.close(conversation.id, device);
-      setConversations((list) => list?.filter(({ id }) => id !== conversation.id));
-      if (conversation.id === conversationId) void navigate("/messages", { replace: true });
-      refreshNow();
+      await dmApi.close(closingId, device);
+      setConversations((list) => list?.filter(({ id }) => id !== closingId));
+      if (closingId === conversationId) void navigate("/messages", { replace: true });
+      changed();
+      return true;
     } catch (reason) {
-      setError(dmError(reason));
+      setCloseError(dmError(reason));
+      return false;
     }
+  }
+
+  function closeConfirmation(trigger?: ReactElement) {
+    return (
+      <ConfirmationDialog
+        open={closingId !== undefined}
+        trigger={trigger}
+        onOpenChange={(open) => {
+          if (!open) setClosingId(undefined);
+          else if (trigger && conversationId) requestClose(conversationId);
+        }}
+        title="Close this conversation?"
+        description="This hides the conversation from your inbox. Your messages will still be there when you reopen it."
+        confirmLabel="Close conversation"
+        onConfirm={close}
+        error={closeError}
+      />
+    );
   }
 
   if (messaging.enabled === false) return <MessagingOff onEnable={() => messaging.change(true)} error={messaging.error} />;
@@ -116,13 +147,13 @@ function Inbox({ device, conversationId, pending }: { device: LocalDevice; conve
         typing={typing}
         pendingDevices={pending}
         onNew={() => setComposing(true)}
-        onClose={(conversation) => void close(conversation)}
+        onClose={(conversation) => requestClose(conversation.id)}
       />
     )}>
       {target && !conversationId ? (
         <OpenTarget key={target} handle={target} device={device} onOpened={changed} />
       ) : conversationId ? (
-        <Thread key={conversationId} id={conversationId} device={device} onChange={changed} />
+        <Thread key={conversationId} id={conversationId} device={device} onChange={changed} onClose={() => requestClose(conversationId)} renderCloseConfirmation={closeConfirmation} />
       ) : (
         <div className="hidden flex-1 flex-col items-center justify-center gap-3 p-6 text-center md:flex">
           <MessageSquarePlus aria-hidden="true" className="size-8 text-muted-foreground" />
@@ -134,6 +165,7 @@ function Inbox({ device, conversationId, pending }: { device: LocalDevice; conve
         </div>
       )}
       <NewMessageDialog open={composing} onOpenChange={setComposing} device={device} selfId={device.userId} onOpened={changed} />
+      {(!mobile || !conversationId) && closeConfirmation()}
     </MessagesLayout>
   );
 }
