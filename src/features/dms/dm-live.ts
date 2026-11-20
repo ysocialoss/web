@@ -4,7 +4,8 @@ import { z } from "zod";
 const eventSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("ready") }),
   z.object({ type: z.literal("devices") }),
-  z.object({ type: z.literal("conversation"), id: z.uuid(), roster: z.boolean() }),
+  z.object({ type: z.literal("conversation"), id: z.uuid(), roster: z.boolean(), message: z.uuid().optional() }),
+  z.object({ type: z.literal("typing"), id: z.uuid(), userId: z.uuid() }),
   z.object({ type: z.literal("notifications") }),
   z.object({ type: z.literal("previews"), hidden: z.boolean() }),
 ]);
@@ -78,11 +79,18 @@ function connection() {
       if (ready) listener({ type: "ready" });
       connect();
     },
+    send(frame: string) {
+      if (socket?.readyState === WebSocket.OPEN) socket.send(frame);
+    },
     close() {
       disconnect();
       document.removeEventListener("visibilitychange", visibilityChanged);
     },
   };
+}
+
+export function sendTyping(userId: string, conversationId: string) {
+  subscriptions.get(userId)?.send(JSON.stringify({ type: "typing", id: conversationId }));
 }
 
 export function subscribeDm(userId: string, listener: Listener) {
