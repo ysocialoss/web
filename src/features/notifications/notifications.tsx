@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState, type MouseEvent } from "react";
 import {
   Bell,
   CheckCheck,
@@ -10,7 +10,7 @@ import {
   X,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
-import { useNavigate } from "react-router";
+import { Link } from "react-router";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -62,10 +62,53 @@ const kinds = {
   },
 };
 
-function NotificationsContent({ onNavigate }: { onNavigate?: () => void }) {
-  const { items, loading, nextCursor, error, refresh, markRead, signedIn, canWrite } =
-    useNotifications();
-  const navigate = useNavigate();
+function NotificationsContent({
+  onNavigate,
+  markVisibleAsRead = false,
+}: {
+  onNavigate?: () => void;
+  markVisibleAsRead?: boolean;
+}) {
+  const {
+    items,
+    loading,
+    nextCursor,
+    error,
+    refresh,
+    markSeen,
+    signedIn,
+    canWrite,
+  } = useNotifications();
+  const list = useRef<HTMLUListElement>(null);
+  useEffect(() => {
+    if (!markVisibleAsRead || !canWrite || !list.current) return;
+    const rows = list.current.querySelectorAll<HTMLElement>("[data-unread-id]");
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (document.visibilityState !== "visible") return;
+        const ids: string[] = [];
+        for (const entry of entries) {
+          if (entry.intersectionRatio < 0.5) continue;
+          const id = entry.target.getAttribute("data-unread-id");
+          if (id) ids.push(id);
+        }
+        if (ids.length) void markSeen(ids);
+      },
+      { threshold: 0.5 },
+    );
+    function observeVisibleTab() {
+      observer.disconnect();
+      if (document.visibilityState === "visible") {
+        for (const row of rows) observer.observe(row);
+      }
+    }
+    observeVisibleTab();
+    document.addEventListener("visibilitychange", observeVisibleTab);
+    return () => {
+      document.removeEventListener("visibilitychange", observeVisibleTab);
+      observer.disconnect();
+    };
+  }, [canWrite, items, markSeen, markVisibleAsRead]);
   const visible = items;
   if (!signedIn)
     return (
@@ -96,72 +139,90 @@ function NotificationsContent({ onNavigate }: { onNavigate?: () => void }) {
             ))}
           </div>
         )}
-        <ul className="divide-y">
+        <ul ref={list} className="divide-y">
           {visible.map((item) => {
             const kind = kinds[item.kind],
               Icon = kind.icon;
+            const actorName = item.actor.displayName || item.actor.handle;
+            const profilePath = `/@${item.actor.handle}`;
+            const notificationPath = item.postId
+              ? `/posts/${item.postId}`
+              : profilePath;
+            function handleNavigation(event: MouseEvent<HTMLAnchorElement>) {
+              if (
+                event.metaKey ||
+                event.ctrlKey ||
+                event.shiftKey ||
+                event.altKey
+              )
+                return;
+              if (!item.readAt) void markSeen([item.id], true);
+              onNavigate?.();
+            }
             return (
               <li
                 key={item.id}
-                className={cn("relative", !item.readAt && "bg-primary/5")}
+                data-unread-id={item.readAt ? undefined : item.id}
+                className={cn(
+                  "relative flex items-start gap-3 px-4 py-4 transition-colors hover:bg-muted",
+                  !item.readAt && "bg-primary/5",
+                )}
               >
-                <button
-                  type="button"
-                  className="flex w-full items-start gap-3 px-4 py-4 text-left outline-none transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
-                  onClick={() => {
-                    if (!item.readAt) void markRead(item.id);
-                    onNavigate?.();
-                    navigate(
-                      item.postId
-                        ? `/posts/${item.postId}`
-                        : `/@${item.actor.handle}`,
-                    );
-                  }}
+                <Link
+                  to={profilePath}
+                  onClick={handleNavigation}
+                  aria-label={`View @${item.actor.handle}'s profile`}
+                  className="relative z-10 shrink-0 rounded-md"
                 >
-                  <div className="relative shrink-0">
-                    <Avatar className="size-10">
-                      {item.actor.avatarUrl && (
-                        <AvatarImage src={item.actor.avatarUrl} alt="" />
-                      )}
-                      <AvatarFallback>
-                        {(item.actor.displayName || item.actor.handle).slice(
-                          0,
-                          2,
-                        )}
-                      </AvatarFallback>
-                    </Avatar>
-                    <span
-                      className={cn(
-                        "absolute -right-1 -bottom-1 grid size-5 place-items-center rounded-full ring-2 ring-background",
-                        kind.color,
-                      )}
-                    >
-                      <Icon className="size-3" aria-hidden="true" />
-                    </span>
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm leading-snug">
-                      <span className="font-semibold">
-                        {item.actor.displayName || item.actor.handle}
-                      </span>{" "}
-                      {kind.text}
-                    </p>
-                    {item.preview && (
-                      <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
-                        {item.preview}
-                      </p>
+                  <Avatar className="size-10">
+                    {item.actor.avatarUrl && (
+                      <AvatarImage src={item.actor.avatarUrl} alt="" />
                     )}
-                    <time
-                      dateTime={item.createdAt}
-                      className="mt-1.5 block text-xs text-muted-foreground"
+                    <AvatarFallback>{actorName.slice(0, 2)}</AvatarFallback>
+                  </Avatar>
+                  <span
+                    className={cn(
+                      "absolute -right-1 -bottom-1 grid size-5 place-items-center rounded-full ring-2 ring-background",
+                      kind.color,
+                    )}
+                  >
+                    <Icon className="size-3" aria-hidden="true" />
+                  </span>
+                </Link>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm leading-snug">
+                    <Link
+                      to={profilePath}
+                      onClick={handleNavigation}
+                      className="relative z-10 font-semibold hover:underline"
                     >
-                      {formatDistanceToNow(new Date(item.createdAt), {
-                        addSuffix: true,
-                      })}
-                    </time>
-                  </div>
-                  {!item.readAt && <span className="sr-only">Unread</span>}
-                </button>
+                      {actorName}
+                    </Link>{" "}
+                    {/* Stretch the action link across the row, below the profile links. */}
+                    <Link
+                      to={notificationPath}
+                      onClick={handleNavigation}
+                      className="outline-none after:absolute after:inset-0 focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-ring"
+                    >
+                      <span className="sr-only">{actorName} </span>
+                      {kind.text}
+                      {!item.readAt && <span className="sr-only"> Unread</span>}
+                    </Link>
+                  </p>
+                  {item.preview && (
+                    <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+                      {item.preview}
+                    </p>
+                  )}
+                  <time
+                    dateTime={item.createdAt}
+                    className="mt-1.5 block text-xs text-muted-foreground"
+                  >
+                    {formatDistanceToNow(new Date(item.createdAt), {
+                      addSuffix: true,
+                    })}
+                  </time>
+                </div>
               </li>
             );
           })}
@@ -299,7 +360,12 @@ export function NotificationsBell({ className }: { className?: string }) {
             </Button>
           </div>
         </div>
-        {open && <NotificationsContent onNavigate={() => setOpen(false)} />}
+        {open && (
+          <NotificationsContent
+            markVisibleAsRead
+            onNavigate={() => setOpen(false)}
+          />
+        )}
       </PopoverContent>
     </Popover>
   );
