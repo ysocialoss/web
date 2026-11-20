@@ -1,4 +1,4 @@
-import type { MouseEventHandler } from "react";
+import { useEffect, useState, type MouseEventHandler } from "react";
 import { House, MessageCircle, Plus, Search, UserRound } from "lucide-react";
 import { Link, useLocation } from "react-router";
 import { LegalMenu } from "./legal-menu";
@@ -9,7 +9,50 @@ import { NotificationsBell } from "@/features/notifications/notifications";
 import { FloatingNavigation } from "@/components/ui/floating-navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useNewPostTarget } from "@/features/feed/new-post-target";
+import { cn } from "@/lib/utils";
 import { SiteWordmark } from "./site-wordmark";
+
+const COMPACT_AFTER = 64;
+const DIRECTION_STEP = 10;
+
+function useScrolledDown(resetKey: string) {
+  const [compact, setCompact] = useState(false);
+  useEffect(() => {
+    let last = 0;
+    let travel = 0;
+    function onScroll(event: Event) {
+      const target = event.target;
+      if (
+        !(target instanceof HTMLElement) ||
+        !target.matches(".content-scroll")
+      )
+        return;
+      const top = Math.max(0, target.scrollTop);
+      const delta = top - last;
+      last = top;
+      if (top < COMPACT_AFTER) {
+        travel = 0;
+        setCompact(false);
+        return;
+      }
+      travel = Math.sign(delta) === Math.sign(travel) ? travel + delta : delta;
+      if (travel > DIRECTION_STEP) setCompact(true);
+      else if (travel < -DIRECTION_STEP) setCompact(false);
+    }
+    document.addEventListener("scroll", onScroll, {
+      capture: true,
+      passive: true,
+    });
+    return () =>
+      document.removeEventListener("scroll", onScroll, { capture: true });
+  }, []);
+  const [seenKey, setSeenKey] = useState(resetKey);
+  if (seenKey !== resetKey) {
+    setSeenKey(resetKey);
+    setCompact(false);
+  }
+  return compact;
+}
 
 export function MobileHeader({
   auth,
@@ -87,29 +130,61 @@ export function MobileNavigation({ auth }: { auth: AuthState }) {
     ? "/"
     : (items.find(({ to }) => to === pathname)?.to ?? null);
 
+  const compact = useScrolledDown(pathname);
+  const [lastKind, setLastKind] = useState<"post" | "reply">("post");
+  const kind = newPost?.kind === "reply" ? "reply" : "post";
+  if (newPost && kind !== lastKind) setLastKind(kind);
+  const shownKind = newPost ? kind : lastKind;
+
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-0 z-30 px-[max(1rem,env(safe-area-inset-left),env(safe-area-inset-right))] pb-[max(1rem,env(safe-area-inset-bottom))] md:hidden">
-      <div className="flex items-center justify-center gap-2">
+      <div
+        className={cn(
+          "flex origin-bottom items-center justify-center transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
+          compact ? "scale-[0.8]" : "scale-100",
+        )}
+      >
         <FloatingNavigation
           items={items}
           activeTo={activeTo}
           label="Mobile navigation"
           className="pointer-events-auto w-full max-w-64"
         />
-        {newPost && (
+        <div
+          inert={!newPost}
+          className={cn(
+            "shrink-0 transition-[width,margin,opacity,transform] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
+            newPost
+              ? "pointer-events-auto ml-2 w-14 scale-100 opacity-100"
+              : "pointer-events-none ml-0 w-0 scale-50 opacity-0",
+          )}
+        >
           <button
             type="button"
-            aria-label={newPost.kind === "reply" ? "Write a reply" : "Write a new post"}
-            onClick={newPost.open}
-            className="pointer-events-auto flex size-14 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[0_8px_32px_-8px_rgb(0_0_0/0.5)] ring-1 ring-white/15 outline-none animate-in fade-in-0 zoom-in-75 duration-200 active:scale-95 focus-visible:ring-2 focus-visible:ring-white/90 motion-reduce:animate-none"
+            aria-label={
+              shownKind === "reply" ? "Write a reply" : "Write a new post"
+            }
+            onClick={newPost?.open}
+            className="relative flex size-14 items-center justify-center rounded-full bg-primary/88 text-primary-foreground shadow-[0_4px_16px_-6px_rgb(0_0_0/0.3)] ring-1 ring-white/15 backdrop-blur-2xl backdrop-saturate-200 outline-none transition-transform duration-200 active:scale-95 focus-visible:ring-2 focus-visible:ring-white/90"
           >
-            {newPost.kind === "reply" ? (
-              <MessageCircle className="size-6" aria-hidden="true" strokeWidth={2.5} />
-            ) : (
-              <Plus className="size-6" aria-hidden="true" strokeWidth={2.5} />
-            )}
+            {(["post", "reply"] as const).map((icon) => {
+              const Icon = icon === "reply" ? MessageCircle : Plus;
+              return (
+                <Icon
+                  key={icon}
+                  className={cn(
+                    "absolute size-6 transition-[opacity,transform] duration-300 ease-out motion-reduce:transition-none",
+                    shownKind === icon
+                      ? "scale-100 rotate-0 opacity-100"
+                      : "scale-50 -rotate-90 opacity-0",
+                  )}
+                  aria-hidden="true"
+                  strokeWidth={2.5}
+                />
+              );
+            })}
           </button>
-        )}
+        </div>
       </div>
     </div>
   );

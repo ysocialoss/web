@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/tooltip";
 import type { FeedState } from "./use-feed";
 import { GifPicker } from "@/features/gifs/gif-picker";
+import { EASTER_EGG_GIF, useEasterEggChord } from "@/features/gifs/easter-egg";
 import {
   pollDraftSchema,
   type GifSearchItem,
@@ -237,6 +238,16 @@ function AuthenticatedPostComposer({
     textarea.current?.focus();
   }
 
+  const easterEgg = useEasterEggChord(attachEasterEgg);
+  function attachEasterEgg(before: { value: string; start: number } | null) {
+    if (before) {
+      setDraft(before.value);
+      setCaret(before.start);
+      pendingCaret.current = before.start;
+    }
+    setGif(EASTER_EGG_GIF);
+  }
+
   function publish() {
     if (!valid) return;
     const started = quote
@@ -262,6 +273,8 @@ function AuthenticatedPostComposer({
         <form
           className="flex w-full flex-wrap items-end gap-2 rounded-[1.75rem] bg-muted p-2 pl-4 transition-shadow focus-within:ring-1 focus-within:ring-border sm:pl-5"
           aria-label="Post composer"
+          onKeyDown={feed.canPost ? easterEgg.onKeyDown : undefined}
+          onKeyUp={easterEgg.onKeyUp}
           onSubmit={(event) => {
             event.preventDefault();
             publish();

@@ -26,7 +26,7 @@ export function FloatingNavigation({
     <nav
       aria-label={label}
       className={cn(
-        "isolate rounded-full border border-white/15 bg-zinc-950/90 p-1 text-white shadow-[0_8px_32px_-8px_rgb(0_0_0/0.5),inset_0_1px_1px_rgb(255_255_255/0.12)] backdrop-blur-xl",
+        "isolate rounded-full border border-white/15 bg-zinc-950/32 p-1 text-white shadow-[0_4px_16px_-6px_rgb(0_0_0/0.2),inset_0_1px_1px_rgb(255_255_255/0.2)] backdrop-blur-2xl backdrop-brightness-90 backdrop-saturate-200",
         className,
       )}
     >
@@ -52,7 +52,7 @@ export function FloatingNavigation({
               data-active={active}
               className="group relative flex h-12 min-w-11 items-center justify-center rounded-full outline-none [-webkit-tap-highlight-color:transparent] focus-visible:ring-2 focus-visible:ring-white/90 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
             >
-              <span className="pointer-events-none relative flex size-7 items-center justify-center text-white/75 transition-[transform,color] duration-300 ease-out group-hover:text-white group-active:scale-90 group-data-[active=true]:text-white motion-reduce:transition-none [&_svg]:size-6 [&_svg]:stroke-[2] group-data-[active=true]:[&_svg]:stroke-[2.75]">
+              <span className="pointer-events-none relative flex size-7 items-center justify-center text-white/75 transition-[transform,color] duration-300 ease-out group-hover:text-white group-active:scale-90 group-data-[active=true]:text-white motion-reduce:transition-none [&_svg]:size-6 [&_svg]:stroke-[2] [&_svg]:drop-shadow-[0_1px_2px_rgb(0_0_0/0.45)] group-data-[active=true]:[&_svg]:stroke-[2.75]">
                 <span
                   className={cn(
                     "absolute inset-0 flex items-center justify-center transition-opacity duration-200 motion-reduce:transition-none",

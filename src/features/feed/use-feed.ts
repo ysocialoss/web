@@ -1,3 +1,4 @@
+import { writeClipboard } from "@/lib/clipboard";
 import {
   useCallback,
   useEffect,
@@ -47,23 +48,6 @@ const feedCache = new Map<
     nextCursor: string | null;
   }
 >();
-
-async function writeClipboard(text: string) {
-  try {
-    await navigator.clipboard.writeText(text);
-    return;
-  } catch (error) {
-    const field = document.createElement("textarea");
-    field.value = text;
-    field.setAttribute("readonly", "");
-    field.style.cssText = "position:fixed;opacity:0;pointer-events:none";
-    document.body.append(field);
-    field.select();
-    const copied = document.execCommand("copy");
-    field.remove();
-    if (!copied) throw error;
-  }
-}
 
 export function useFeed(
   session: Session | null,

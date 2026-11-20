@@ -49,6 +49,7 @@ import { BannerEditor } from "./banner-editor";
 import { AvatarCropper } from "./avatar-cropper";
 import { RecentAvatars } from "./recent-avatars";
 import { ProfileForm } from "./profile-form";
+import { ProfileShareButton } from "./profile-share-button";
 import { ProfileEditDialogContent, type ProfileEditTab } from "./profile-edit-dialog";
 import { PostCard } from "@/features/feed/post-card";
 import { useFeed } from "@/features/feed/use-feed";
@@ -482,6 +483,7 @@ export function ProfilePage({
                 </p>
               )}
             </div>
+            <ProfileShareButton handle={profile.profile.handle} />
             {canEditProfile && (
               <Dialog
                 open={editDialogOpen}

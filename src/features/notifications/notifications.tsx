@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { Link } from "react-router";
+import { ProfileHoverLink } from "@/features/profile/profile-hover-link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -168,8 +169,8 @@ function NotificationsContent({
                   !item.readAt && "bg-primary/5",
                 )}
               >
-                <Link
-                  to={profilePath}
+                <ProfileHoverLink
+                  handle={item.actor.handle}
                   onClick={handleNavigation}
                   aria-label={`View @${item.actor.handle}'s profile`}
                   className="relative z-10 shrink-0 rounded-md"
@@ -188,16 +189,16 @@ function NotificationsContent({
                   >
                     <Icon className="size-3" aria-hidden="true" />
                   </span>
-                </Link>
+                </ProfileHoverLink>
                 <div className="min-w-0 flex-1">
                   <p className="text-sm leading-snug">
-                    <Link
-                      to={profilePath}
+                    <ProfileHoverLink
+                      handle={item.actor.handle}
                       onClick={handleNavigation}
                       className="relative z-10 font-semibold hover:underline"
                     >
                       {actorName}
-                    </Link>{" "}
+                    </ProfileHoverLink>{" "}
                     {/* Stretch the action link across the row, below the profile links. */}
                     <Link
                       to={notificationPath}
