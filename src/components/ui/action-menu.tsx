@@ -43,7 +43,6 @@ export function ActionMenu({
   items: ActionMenuItem[];
   /** Keep the title for screen readers only, without a visible heading. */
   hideTitle?: boolean;
-  /** Bigger, easier to hit rows in the mobile drawer. Desktop menus stay compact. */
   large?: boolean;
 }) {
   const mobile = useIsMobile();
@@ -70,7 +69,7 @@ export function ActionMenu({
                 render={
                   <Button
                     variant="ghost"
-                    className={`${large ? "min-h-14 gap-4 text-lg [&_svg:not([class*='size-'])]:size-6" : "min-h-12 gap-3 text-base"} w-full justify-start ${item.destructive ? "mt-2 border-t text-destructive hover:text-destructive" : ""}`}
+                    className={`${large ? "min-h-12 gap-3.5 text-base [&_svg:not([class*='size-'])]:size-5" : "min-h-12 gap-3 text-base"} w-full justify-start ${item.destructive ? "mt-2 border-t text-destructive hover:text-destructive" : ""}`}
                     nativeButton={item.kind !== "link"}
                     render={
                       item.kind === "link" ? (
