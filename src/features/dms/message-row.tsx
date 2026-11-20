@@ -73,11 +73,11 @@ export function MessageRow({
   const reactionsRef = useRef<MessageReactionsHandle>(null);
   const [trayOpen, setTrayOpen] = useState(false);
   const [wantTray, setWantTray] = useState(false);
-  const anchor = useRef<HTMLElement | null>(null);
+  const trigger = useRef<{ element: HTMLElement; keyboard: boolean } | null>(null);
   const showReactions = message.reactions.length > 0 || trayOpen || wantTray;
 
   useEffect(() => {
-    if (wantTray && reactionsRef.current) reactionsRef.current.open(anchor.current ?? undefined);
+    if (wantTray && trigger.current) reactionsRef.current?.open(trigger.current.element, trigger.current.keyboard);
   }, [wantTray]);
 
   return (
@@ -195,8 +195,9 @@ export function MessageRow({
         >
           {canWrite && (
             <IconButton label="Add reaction" size="icon-sm" onClick={(event) => {
-              anchor.current = event.currentTarget;
-              if (reactionsRef.current) reactionsRef.current.open(event.currentTarget);
+              const keyboard = event.detail === 0;
+              trigger.current = { element: event.currentTarget, keyboard };
+              if (reactionsRef.current) reactionsRef.current.open(event.currentTarget, keyboard);
               else setWantTray(true);
             }}>
               <SmilePlus aria-hidden="true" />

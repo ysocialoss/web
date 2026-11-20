@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { ArrowLeft, Ban, Search, CornerUpLeft, EyeOff, LockKeyhole, LoaderCircle, Mail, SendHorizontal, ShieldCheck, ShieldQuestion, X } from "lucide-react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { ActionMenu } from "@/components/ui/action-menu";
@@ -694,7 +694,7 @@ export function Thread({ id, device, onChange }: { id: string; device: LocalDevi
   );
 }
 
-function MessageRows({
+const MessageRows = memo(function MessageRows({
   messages, context, conversationId, byId, actions, acknowledge, editingId, setEditingId, selectedId, setSelectedId, flashId, canWrite,
 }: {
   messages: DisplayMessage[];
@@ -747,6 +747,6 @@ function MessageRows({
       })}
     </ol>
   );
-}
+});
 
 

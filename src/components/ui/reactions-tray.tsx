@@ -16,6 +16,9 @@ export interface ReactionChoice {
 export interface TrayPlacement {
   left: number;
   top: number;
+  cell: number;
+  viewportWidth: number;
+  viewportHeight: number;
   originX: number;
   originY: number;
   side: "top" | "bottom";
@@ -37,8 +40,6 @@ const REST = 0.66;
 const NEAR = 0.8;
 const LIFT = -10;
 const NEAR_LIFT = -3;
-
-export const trayWidth = (count: number) => count * CELL + PAD * 2;
 
 const OPEN = { stiffness: 320, damping: 29 };
 const SWELL = { stiffness: 620, damping: 38 };
@@ -62,6 +63,7 @@ export function ReactionTray({ id, choices, mine, place, closing, reduced, autoF
   const surface = React.useRef<HTMLDivElement>(null);
   const pill = React.useRef<HTMLSpanElement>(null);
   const tag = React.useRef<HTMLSpanElement>(null);
+  const tagWidth = React.useRef(0);
   const glyphs = React.useRef<(HTMLSpanElement | null)[]>([]);
   const cells = React.useRef<(HTMLButtonElement | null)[]>([]);
   const springs = React.useRef<{ open: Spring; tagX: Spring; scale: Spring[]; lift: Spring[] } | null>(null);
@@ -72,6 +74,8 @@ export function ReactionTray({ id, choices, mine, place, closing, reduced, autoF
   const [label, setLabel] = React.useState(-1);
   const [focusIndex, setFocusIndex] = React.useState(0);
   const count = choices.length;
+  const { cell } = place;
+  const width = count * cell + PAD * 2;
 
   React.useLayoutEffect(() => {
     closedRef.current = onClosed;
@@ -82,13 +86,12 @@ export function ReactionTray({ id, choices, mine, place, closing, reduced, autoF
     const el = surface.current;
     if (!s || !el) return;
     const t = s.open.get();
-    const W = trayWidth(count);
     const g = Math.max(0, t);
-    const w = BUTTON + (W - BUTTON) * Math.min(g, 1.03);
+    const w = BUTTON + (width - BUTTON) * Math.min(g, 1);
     const h = BUTTON + (TRAY_H - BUTTON) * Math.min(g, 1);
-    const cx = place.originX + (W / 2 - place.originX) * Math.min(g, 1);
+    const cx = place.originX + (width / 2 - place.originX) * Math.min(g, 1);
     const cy = place.originY + (TRAY_H / 2 - place.originY) * Math.min(g, 1);
-    const left = Math.max(-(w - W) / 2, Math.min(W - w + (w - W) / 2, cx - w / 2));
+    const left = Math.max(0, Math.min(width - w, cx - w / 2));
     const top = cy - h / 2;
     if (pill.current) {
       pill.current.style.width = `${w.toFixed(2)}px`;
@@ -100,16 +103,33 @@ export function ReactionTray({ id, choices, mine, place, closing, reduced, autoF
       const glyph = glyphs.current[i];
       if (!glyph) return;
       glyph.style.transform = `translate3d(0, ${s.lift[i].get().toFixed(2)}px, 0) scale(${spring.get().toFixed(4)})`;
-      const x = PAD + i * CELL + CELL / 2;
+      const x = PAD + (i + 0.5) * cell;
       const inside = Math.min(x - left, left + w - x) - 6;
       glyph.style.opacity = `${Math.max(0, Math.min(1, inside / 14, (h - BUTTON) / 8))}`;
     });
-    if (tag.current) tag.current.style.transform = `translate3d(${s.tagX.get().toFixed(2)}px, 0, 0)`;
+    if (tag.current) {
+      const inset = 4 + tagWidth.current / 2;
+      const x = Math.max(inset, Math.min(place.left + s.tagX.get(), place.viewportWidth - inset));
+      tag.current.style.transform = `translate3d(${x.toFixed(2)}px, 0, 0)`;
+    }
     if (closingRef.current && t <= 0.02 && !finished.current) {
       finished.current = true;
       closedRef.current();
     }
-  }, [count, place]);
+  }, [cell, place, width]);
+
+  React.useLayoutEffect(() => {
+    const element = tag.current;
+    if (!element) return;
+    const measure = () => {
+      tagWidth.current = element.offsetWidth;
+      paint();
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [paint]);
 
   const aim = React.useCallback(
     (index: number) => {
@@ -130,19 +150,19 @@ export function ReactionTray({ id, choices, mine, place, closing, reduced, autoF
         }
       });
       if (index >= 0) {
-        const x = PAD + index * CELL + CELL / 2;
+        const x = PAD + (index + 0.5) * cell;
         if (was < 0 || reduced) s.tagX.jump(x);
         else s.tagX.set(x);
       }
       setLabel(index);
     },
-    [reduced],
+    [cell, reduced],
   );
 
   React.useLayoutEffect(() => {
     const s = {
       open: createSpring(0, OPEN, paint, 0.004),
-      tagX: createSpring(PAD + CELL / 2, TAG, paint, 0.2),
+      tagX: createSpring(PAD + cell / 2, TAG, paint, 0.2),
       scale: choices.map(() => createSpring(0.3, SWELL, paint, 0.002)),
       lift: choices.map(() => createSpring(8, SWELL, paint, 0.05)),
     };
@@ -163,7 +183,7 @@ export function ReactionTray({ id, choices, mine, place, closing, reduced, autoF
               spring.set(REST);
               s.lift[i].set(0);
             },
-            30 + Math.abs(PAD + i * CELL + CELL / 2 - place.originX) * 0.42,
+            30 + Math.abs(PAD + (i + 0.5) * cell - place.originX) * 0.42,
           ),
         ),
       );
@@ -204,14 +224,14 @@ export function ReactionTray({ id, choices, mine, place, closing, reduced, autoF
       setActive: aim,
       indexAt(x, y) {
         const local = x - place.left - PAD;
-        if (local < -6 || local > count * CELL + 6) return -1;
+        if (local < -6 || local > count * cell + 6) return -1;
         if (y < place.top - 64 || y > place.top + TRAY_H + 64) return -1;
-        return Math.max(0, Math.min(count - 1, Math.floor(local / CELL)));
+        return Math.max(0, Math.min(count - 1, Math.floor(local / cell)));
       },
       origin(index) {
         const s = springs.current;
         return {
-          x: place.left + PAD + index * CELL + CELL / 2,
+          x: place.left + PAD + (index + 0.5) * cell,
           y: place.top + TRAY_H / 2 + (s?.lift[index].get() ?? 0),
           s: s?.scale[index].get() ?? REST,
         };
@@ -220,7 +240,7 @@ export function ReactionTray({ id, choices, mine, place, closing, reduced, autoF
         cells.current[index]?.focus({ preventScroll: true });
       },
     }),
-    [aim, place, count],
+    [aim, cell, count, place],
   );
 
   const move = (event: React.KeyboardEvent, index: number) => {
@@ -234,16 +254,17 @@ export function ReactionTray({ id, choices, mine, place, closing, reduced, autoF
       <div
         ref={surface}
         id={id}
+        data-reaction-popup=""
         role="menu"
         aria-label="Add reaction"
         aria-orientation="horizontal"
         inert={closing}
-        className={`absolute z-20 flex p-1 text-popover-foreground ${closing ? "pointer-events-none" : ""}`}
+        className={`fixed z-[60] flex p-1 text-popover-foreground ${closing ? "pointer-events-none" : ""}`}
         style={{
           left: place.left,
           top: place.top,
           height: TRAY_H,
-          width: trayWidth(count),
+          width,
         }}
         onPointerLeave={(event) => {
           if (event.pointerType === "mouse" && !surface.current?.contains(document.activeElement)) aim(-1);
@@ -281,7 +302,7 @@ export function ReactionTray({ id, choices, mine, place, closing, reduced, autoF
               aria-label={choice.label}
               tabIndex={i === focusIndex ? 0 : -1}
               className={`relative grid shrink-0 cursor-pointer place-items-center rounded-full outline-none ${INTERACTION_FOCUS} focus-visible:ring-offset-0`}
-              style={{ width: CELL, height: CELL }}
+              style={{ width: cell, height: TRAY_H - PAD * 2 }}
               onFocus={() => {
                 setFocusIndex(i);
                 aim(i);
@@ -302,7 +323,7 @@ export function ReactionTray({ id, choices, mine, place, closing, reduced, autoF
                 }}
                 aria-hidden="true"
                 className="pointer-events-none block select-none text-center leading-none will-change-transform"
-                style={{ fontSize: GLYPH, transform: `translate3d(0, 8px, 0) scale(0.3)`, opacity: 0 }}
+                style={{ fontSize: Math.min(GLYPH, cell - 2), transform: `translate3d(0, 8px, 0) scale(0.3)`, opacity: 0 }}
               >
                 {choice.icon ? <span className="grid place-items-center text-muted-foreground [&_svg]:size-[0.72em] [&_svg]:stroke-[1.75]">{choice.icon}</span> : choice.emoji}
               </span>
@@ -313,8 +334,8 @@ export function ReactionTray({ id, choices, mine, place, closing, reduced, autoF
       <span
         ref={tag}
         aria-hidden="true"
-        className="pointer-events-none absolute z-20 will-change-transform"
-        style={{ left: place.left, top: place.side === "top" ? place.top - 30 : place.top + TRAY_H + 8 }}
+        className="pointer-events-none fixed left-0 z-[61] will-change-transform"
+        style={{ top: Math.max(4, Math.min(place.side === "top" ? place.top - 30 : place.top + TRAY_H + 8, place.viewportHeight - 26)) }}
       >
         <span
           className="block whitespace-nowrap rounded-full bg-foreground px-2 py-0.5 text-[11.5px] font-medium leading-[18px] text-background transition-[opacity,translate] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none"

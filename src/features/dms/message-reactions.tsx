@@ -44,7 +44,7 @@ function single(next: Reaction[], previous: Reaction[]) {
     .filter((reaction) => reaction.count > 0);
 }
 
-export type MessageReactionsHandle = { open: (anchor?: HTMLElement) => void };
+export type MessageReactionsHandle = Pick<ReactionsHandle, "open">;
 
 export function MessageReactions({
   reactions, selfId, peerName, onReact, onFailed, onOpenChange, ref,
@@ -68,8 +68,8 @@ export function MessageReactions({
   const [picking, setPicking] = useState(false);
   const [tray, setTray] = useState(false);
   useEffect(() => onOpenChange?.(tray || picking), [tray, picking, onOpenChange]);
-  useImperativeHandle(ref, () => ({ open: (anchor) => handle.current?.open(anchor) }), []);
-  const [place, setPlace] = useState<{ left: number; top?: number; bottom?: number }>();
+  useImperativeHandle(ref, () => ({ open: (anchor, keyboard) => handle.current?.open(anchor, keyboard) }), []);
+  const [place, setPlace] = useState<{ left: number; width: number; maxHeight: number; top?: number; bottom?: number }>();
   useEffect(() => {
     if (!picking) return;
     const onKey = (event: KeyboardEvent) => {
@@ -105,8 +105,14 @@ export function MessageReactions({
         hideTrigger={empty}
         onMore={(anchor) => {
           const rect = anchor.getBoundingClientRect();
-          const left = Math.max(8, Math.min(rect.right - 296, window.innerWidth - 304));
-          setPlace(window.innerHeight - rect.bottom > 340 ? { left, top: rect.bottom + 8 } : { left, bottom: window.innerHeight - rect.top + 8 });
+          const { clientWidth, clientHeight } = document.documentElement;
+          const width = Math.min(308, clientWidth - 16);
+          const left = Math.max(8, Math.min(rect.right - width, clientWidth - width - 8));
+          const above = rect.top - 16;
+          const below = clientHeight - rect.bottom - 16;
+          setPlace(below < 340 && above > below
+            ? { left, width, maxHeight: above, bottom: clientHeight - rect.top + 8 }
+            : { left, width, maxHeight: below, top: rect.bottom + 8 });
           setPicking(true);
         }}
         labelFor={nameOf}
@@ -118,7 +124,7 @@ export function MessageReactions({
           role="dialog"
           aria-label="Choose an emoji"
           style={place}
-          className="fixed z-[60] rounded-xl bg-popover p-2.5 text-popover-foreground shadow-md ring-1 ring-foreground/10 animate-in fade-in-0 zoom-in-95 duration-100 motion-reduce:animate-none"
+          className="fixed z-[62] flex flex-col rounded-xl bg-popover p-2.5 text-popover-foreground shadow-md ring-1 ring-foreground/10 animate-in fade-in-0 zoom-in-95 duration-100 motion-reduce:animate-none"
         >
           <EmojiPicker onPick={(emoji) => {
             setPicking(false);

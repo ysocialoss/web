@@ -2,8 +2,10 @@
 "use client";
 
 import * as React from "react";
+import { createPortal } from "react-dom";
 import { NumberRoll } from "./number-roll";
-import { GLYPH, ReactionTray, TRAY_H, trayWidth, type ReactionChoice, type TrayHandle, type TrayPlacement } from "./reactions-tray";
+import { CELL, GLYPH, PAD, ReactionTray, TRAY_H, type ReactionChoice, type TrayHandle, type TrayPlacement } from "./reactions-tray";
+import { Tooltip, TooltipContent, TooltipTrigger } from "./tooltip";
 import { EASE_OUT, EASE_THROW, INTERACTION_FOCUS, INTERACTION_PRESS, createSpring, useInteractionReducedMotion, type Spring } from "./ui-interaction-motion";
 
 export type { ReactionChoice } from "./reactions-tray";
@@ -18,7 +20,7 @@ export interface Reaction {
 
 export interface ReactionsHandle {
   pick: (emoji: string) => void;
-  open: (anchor?: HTMLElement) => void;
+  open: (anchor?: HTMLElement, keyboard?: boolean) => void;
   close: () => void;
   react: (emoji: string) => void;
 }
@@ -101,7 +103,6 @@ const Chip = React.memo(function Chip({ reaction, label, leaving, animateIn, awa
   const glyph = React.useRef<HTMLSpanElement>(null);
   const give = React.useRef<Spring | null>(null);
   const lastCount = React.useRef(count);
-  const tipId = React.useId();
   const shown = open && !leaving;
 
   React.useEffect(() => {
@@ -148,7 +149,7 @@ const Chip = React.memo(function Chip({ reaction, label, leaving, animateIn, awa
 
   return (
     <span
-      className="group/chip relative inline-grid"
+      className="inline-grid"
       style={{
         gridTemplateColumns: shown ? "1fr" : "0fr",
         opacity: shown ? 1 : 0,
@@ -157,45 +158,39 @@ const Chip = React.memo(function Chip({ reaction, label, leaving, animateIn, awa
     >
       <span className="min-w-0 [clip-path:inset(-8px_-3px)]">
         <span className="flex w-max py-0.5 pr-1.5">
-          <button
-            ref={button}
-            type="button"
-            aria-pressed={mine}
-            aria-label={`${label}, ${count} ${count === 1 ? "reaction" : "reactions"}${mine ? ", including yours" : ""}`}
-            aria-describedby={tipId}
-            tabIndex={leaving ? -1 : undefined}
-            onClick={() => onToggle(emoji)}
-            className={`inline-flex h-8 cursor-pointer select-none items-center gap-1.5 rounded-full pl-2 pr-2.5 text-[13px] font-medium tabular-nums will-change-transform ${INTERACTION_PRESS} ${INTERACTION_FOCUS} ${
-              mine
-                ? "bg-[color-mix(in_oklab,var(--foreground)_11%,var(--background))] text-foreground hover:bg-[color-mix(in_oklab,var(--foreground)_15%,var(--background))]"
-                : "bg-background text-muted-foreground shadow-[inset_0_0_0_1px_var(--border)] hover:bg-accent hover:text-foreground"
-            }`}
-          >
-            <span
-              ref={glyph}
-              aria-hidden="true"
-              className="block leading-none"
-              style={{
-                fontSize: CHIP_GLYPH,
-                opacity: awaiting ? 0 : 1,
-                scale: shown ? 1 : 0.4,
-                transition: reduced ? "none" : `scale 420ms ${EASE_THROW}`,
-              }}
+          <Tooltip disabled={quiet || leaving}>
+            <TooltipTrigger
+              ref={button}
+              delay={300}
+              type="button"
+              aria-pressed={mine}
+              aria-label={`${label}, ${count} ${count === 1 ? "reaction" : "reactions"}${mine ? ", including yours" : ""}`}
+              tabIndex={leaving ? -1 : undefined}
+              onClick={() => onToggle(emoji)}
+              className={`inline-flex h-8 cursor-pointer select-none items-center gap-1.5 rounded-full pl-2 pr-2.5 text-[13px] font-medium tabular-nums will-change-transform ${INTERACTION_PRESS} ${INTERACTION_FOCUS} ${
+                mine
+                  ? "bg-[color-mix(in_oklab,var(--foreground)_11%,var(--background))] text-foreground hover:bg-[color-mix(in_oklab,var(--foreground)_15%,var(--background))]"
+                  : "bg-background text-muted-foreground shadow-[inset_0_0_0_1px_var(--border)] hover:bg-accent hover:text-foreground"
+              }`}
             >
-              {emoji}
-            </span>
-            <NumberRoll value={count} format={ROLL_FORMAT} duration={620} aria-hidden="true" />
-          </button>
+              <span
+                ref={glyph}
+                aria-hidden="true"
+                className="block leading-none"
+                style={{
+                  fontSize: CHIP_GLYPH,
+                  opacity: awaiting ? 0 : 1,
+                  scale: shown ? 1 : 0.4,
+                  transition: reduced ? "none" : `scale 420ms ${EASE_THROW}`,
+                }}
+              >
+                {emoji}
+              </span>
+              <NumberRoll value={count} format={ROLL_FORMAT} duration={620} aria-hidden="true" />
+            </TooltipTrigger>
+            <TooltipContent>{who(reaction, label)}</TooltipContent>
+          </Tooltip>
         </span>
-      </span>
-      <span
-        id={tipId}
-        role="tooltip"
-        className={`pointer-events-none absolute bottom-full left-[calc(50%_-_3px)] z-10 mb-1 whitespace-nowrap rounded-[10px] bg-popover px-2 py-1 text-[12px] leading-[16px] text-popover-foreground opacity-0 shadow-[0_0_0_1px_var(--border)] transition-[opacity,translate] delay-0 duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] [translate:-50%_4px] motion-reduce:transition-none ${
-          quiet || leaving ? "" : "group-hover/chip:opacity-100 group-hover/chip:delay-300 group-hover/chip:[translate:-50%_0] group-has-[:focus-visible]/chip:opacity-100 group-has-[:focus-visible]/chip:[translate:-50%_0]"
-        }`}
-      >
-        {who(reaction, label)}
       </span>
     </span>
   );
@@ -237,7 +232,7 @@ function SmilePlus({ open, reduced }: { open: boolean; reduced: boolean }) {
 
 type Phase = "closed" | "open" | "closing";
 type Flight = { id: number; emoji: string; from: { x: number; y: number; s: number } };
-type Press = { id: number; x: number; y: number; dragging: boolean; wasOpen: boolean; rootX: number; rootY: number };
+type Press = { id: number; x: number; y: number; dragging: boolean; wasOpen: boolean };
 
 export function Reactions({
   value,
@@ -394,33 +389,22 @@ export function Reactions({
 
   const anchorEl = React.useRef<HTMLElement | null>(null);
   const openTray = React.useCallback((keyboard: boolean, anchor?: HTMLElement) => {
-    const r = root.current;
     const t = anchor ?? trigger.current;
-    if (!r || !t) return;
+    if (!t) return;
     anchorEl.current = t;
     const count = latest.current.choices.length;
-    const width = trayWidth(count);
-    const box = r.getBoundingClientRect();
+    if (!count) return;
+    const margin = 8;
+    const viewportWidth = document.documentElement.clientWidth;
+    const viewportHeight = document.documentElement.clientHeight;
+    const cell = Math.min(CELL, (viewportWidth - margin * 2 - PAD * 2) / count);
+    const width = cell * count + PAD * 2;
     const at = t.getBoundingClientRect();
-    const cx = at.left - box.left + at.width / 2;
-    const offsetTop = at.top - box.top;
-    let minX = 0;
-    let maxX = document.documentElement.clientWidth;
-    let minY = 0;
-    for (let el = r.parentElement; el && el !== document.body; el = el.parentElement) {
-      const style = getComputedStyle(el);
-      if (style.overflowX === "visible" && style.overflowY === "visible") continue;
-      const clip = el.getBoundingClientRect();
-      minX = Math.max(minX, clip.left);
-      maxX = Math.min(maxX, clip.right);
-      minY = Math.max(minY, clip.top);
-    }
-    let left = cx - width / 2;
-    left = Math.min(left, maxX - 8 - box.left - width);
-    left = Math.max(left, minX + 8 - box.left);
-    const above = at.top - TRAY_H - 10 > minY + 8;
-    const top = above ? offsetTop - TRAY_H - 6 : offsetTop + at.height + 6;
-    setPlace({ left, top, side: above ? "top" : "bottom", originX: cx - left, originY: above ? TRAY_H + 6 + at.height / 2 : -6 - at.height / 2 });
+    const cx = at.left + at.width / 2;
+    const left = Math.max(margin, Math.min(cx - width / 2, viewportWidth - width - margin));
+    const above = at.top >= TRAY_H + 44 || at.top > viewportHeight - at.bottom;
+    const top = Math.max(margin, Math.min(above ? at.top - TRAY_H - 6 : at.bottom + 6, viewportHeight - TRAY_H - margin));
+    setPlace({ left, top, cell, viewportWidth, viewportHeight, side: above ? "top" : "bottom", originX: cx - left, originY: at.top + at.height / 2 - top });
     setFocusTray(keyboard);
     setPhase("open");
   }, []);
@@ -428,7 +412,7 @@ export function Reactions({
   const closeTray = React.useCallback((returnFocus: boolean) => {
     if (latest.current.phase === "closed") return;
     setPhase("closing");
-    if (returnFocus) trigger.current?.focus({ preventScroll: true });
+    if (returnFocus) anchorEl.current?.focus({ preventScroll: true });
   }, []);
 
   const pickIndex = React.useCallback(
@@ -436,14 +420,16 @@ export function Reactions({
       const choice = latest.current.choices[index];
       if (!choice) return;
       if (choice.more) {
+        tray.current?.setActive(-1);
         const from = anchorEl.current ?? trigger.current;
         if (from) latest.current.onMore?.(from);
         return;
       }
       const on = !latest.current.list.some((r) => r.emoji === choice.emoji && r.mine);
       const from = tray.current?.origin(index);
+      const bounds = root.current?.getBoundingClientRect();
       closeTray(keyboard);
-      void react(choice.emoji, on, from);
+      void react(choice.emoji, on, from && bounds ? { x: from.x - bounds.left, y: from.y - bounds.top, s: from.s } : undefined);
     },
     [closeTray, react],
   );
@@ -456,9 +442,9 @@ export function Reactions({
   React.useImperativeHandle(
     ref,
     () => ({
-      open(anchor) {
+      open(anchor, keyboard = false) {
         stopAuto();
-        if (latest.current.phase !== "open") openTray(false, anchor);
+        if (latest.current.phase !== "open") openTray(keyboard, anchor);
       },
       close() {
         closeTray(false);
@@ -491,10 +477,17 @@ export function Reactions({
     if (phase !== "open") return;
     const away = (event: PointerEvent) => {
       const target = event.target as Element;
-      if (!root.current?.contains(target) && !target.closest?.("[data-reaction-popup]")) closeTray(false);
+      if (!root.current?.contains(target) && !anchorEl.current?.contains(target) && !target.closest?.("[data-reaction-popup]")) closeTray(false);
+    };
+    const scrolled = (event: Event) => {
+      if (event.target instanceof Node && event.target.contains(anchorEl.current)) closeTray(false);
     };
     document.addEventListener("pointerdown", away);
-    return () => document.removeEventListener("pointerdown", away);
+    window.addEventListener("scroll", scrolled, true);
+    return () => {
+      document.removeEventListener("pointerdown", away);
+      window.removeEventListener("scroll", scrolled, true);
+    };
   }, [phase, closeTray]);
 
   React.useLayoutEffect(() => {
@@ -585,8 +578,7 @@ export function Reactions({
           onPointerDown={(event) => {
             if (event.button !== 0) return;
             stopAuto();
-            const box = root.current?.getBoundingClientRect();
-            press.current = { id: event.pointerId, x: event.clientX, y: event.clientY, dragging: false, wasOpen: latest.current.phase === "open", rootX: box?.left ?? 0, rootY: box?.top ?? 0 };
+            press.current = { id: event.pointerId, x: event.clientX, y: event.clientY, dragging: false, wasOpen: latest.current.phase === "open" };
             if (latest.current.phase !== "open") openTray(false);
             event.currentTarget.setPointerCapture(event.pointerId);
           }}
@@ -595,14 +587,14 @@ export function Reactions({
             if (!p || p.id !== event.pointerId) return;
             if (!p.dragging && Math.hypot(event.clientX - p.x, event.clientY - p.y) < 7) return;
             p.dragging = true;
-            tray.current?.setActive(tray.current.indexAt(event.clientX - p.rootX, event.clientY - p.rootY));
+            tray.current?.setActive(tray.current.indexAt(event.clientX, event.clientY));
           }}
           onPointerUp={(event) => {
             const p = press.current;
             press.current = null;
             if (!p || p.id !== event.pointerId) return;
             if (p.dragging) {
-              const index = tray.current?.indexAt(event.clientX - p.rootX, event.clientY - p.rootY) ?? -1;
+              const index = tray.current?.indexAt(event.clientX, event.clientY) ?? -1;
               if (index >= 0) pickIndex(index, false);
               else closeTray(false);
             } else if (p.wasOpen) closeTray(false);
@@ -632,7 +624,7 @@ export function Reactions({
         </button>
       </span>
 
-      {phase !== "closed" && place && (
+      {phase !== "closed" && place && createPortal(
         <ReactionTray
           ref={tray}
           id={trayId}
@@ -645,7 +637,8 @@ export function Reactions({
           onPick={pickIndex}
           onClose={closeTray}
           onClosed={() => setPhase((p) => (p === "closing" ? "closed" : p))}
-        />
+        />,
+        document.body,
       )}
 
       <span ref={flyer} aria-hidden="true" className="pointer-events-none absolute left-0 top-0 z-30 flex justify-center leading-none will-change-transform" style={{ fontSize: GLYPH, visibility: "hidden", width: GLYPH, height: GLYPH }} />
