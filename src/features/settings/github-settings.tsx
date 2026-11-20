@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from "react";
+import { useEffect, useEffectEvent, useId, useState } from "react";
 import { useSearchParams } from "react-router";
 import {
   ArrowUpRight,
@@ -54,19 +54,37 @@ export function GithubSettings({
   const [loadAttempt, setLoadAttempt] = useState(0);
   const callback = callbackMessage(params.get("github"));
   const github = settings?.github;
+  const disconnecting = action === "disconnect";
+  const receiveSettings = useEffectEvent((result: GithubSettings) => {
+    setSettings(result);
+    onGithubChange?.(result.github);
+  });
 
   useEffect(() => {
+    if (disconnecting) return;
     const controller = new AbortController();
-    api
-      .githubSettings(controller.signal)
-      .then((result) => {
-        if (!controller.signal.aborted) setSettings(result);
-      })
-      .catch((cause: unknown) => {
-        if (!controller.signal.aborted) setError(errorMessage(cause));
-      });
-    return () => controller.abort();
-  }, [loadAttempt]);
+    let timer: number | undefined;
+    async function load(polling: boolean) {
+      try {
+        const result = await api.githubSettings(controller.signal);
+        if (controller.signal.aborted) return;
+        receiveSettings(result);
+        if (!result.configured || result.github?.contributionCount !== null) return;
+      } catch (cause) {
+        if (controller.signal.aborted) return;
+        if (!polling) {
+          setError(errorMessage(cause));
+          return;
+        }
+      }
+      timer = window.setTimeout(() => void load(true), 15_000);
+    }
+    void load(false);
+    return () => {
+      controller.abort();
+      window.clearTimeout(timer);
+    };
+  }, [disconnecting, loadAttempt]);
 
   async function change(action: GithubAction) {
     setError("");
@@ -168,7 +186,7 @@ export function GithubSettings({
               role="status"
               className="ml-auto text-right text-sm font-medium tabular-nums"
             >
-              {github.contributionCount?.toLocaleString() ?? "Checking…"}
+              {github.contributionCount?.toLocaleString() ?? "Pending"}
             </span>
           </div>
         )}

@@ -16,7 +16,7 @@ for (const entry of ["settings", "profile"] as const) {
       "https://github.com/login/oauth/authorize?client_id=test&state=state";
     const profilePath = `/@${user.handle}`;
     const returnPath = entry === "profile" ? profilePath : "/asettings";
-    let github: { login: string; contributionCount: number } | null = null;
+    let github: { login: string; contributionCount: number | null } | null = null;
     await page.route("**/api/**", (route) => route.fulfill({ json: {} }));
     await page.route("**/auth/me", (route) =>
       route.fulfill({
@@ -78,7 +78,8 @@ for (const entry of ["settings", "profile"] as const) {
     await page.getByRole("button", { name: "Connect GitHub" }).click();
     await expect(page).toHaveURL(authorizeUrl);
 
-    github = { login: "github-login", contributionCount: 5 };
+    await page.clock.install();
+    github = { login: "github-login", contributionCount: null };
     await page.goto(returnPath + "?github=connected");
     if (entry === "profile") {
       await expect(
@@ -105,6 +106,9 @@ for (const entry of ["settings", "profile"] as const) {
       0,
     );
     await expect(settings.getByText("ysocialoss contributions")).toBeVisible();
+    await expect(settings.getByText("Pending", { exact: true })).toBeVisible();
+    github = { ...github, contributionCount: 5 };
+    await page.clock.runFor(15_000);
     await expect(settings.getByText("5", { exact: true })).toBeVisible();
     const disconnect = settings.getByRole("button", {
       name: "Disconnect",
