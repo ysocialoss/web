@@ -262,7 +262,7 @@ export type Session = z.infer<typeof sessionSchema>;
 export type Profile = z.infer<typeof profileSchema>;
 const notificationSchema = z.object({
   id: z.string(),
-  kind: z.enum(["like", "repost", "reply", "follow", "mention", "quote", "dm_invite", "dm_message"]),
+  kind: z.enum(["like", "repost", "reply", "follow", "mention", "quote"]),
   actor: userSchema,
   postId: z.string().nullable(),
   conversationId: z.uuid().nullish(),
@@ -630,7 +630,7 @@ export const api = {
     ),
   notifications: (cursor?: string, unread = false, signal?: AbortSignal) =>
     request(
-      `/api/notifications?includeDms=true&unread=${unread}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`,
+      `/api/notifications?unread=${unread}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`,
       notificationsSchema,
       "GET",
       undefined,
@@ -643,7 +643,7 @@ export const api = {
       "PUT",
     ),
   readAllNotifications: (through: string) =>
-    request("/api/notifications/read?includeDms=true", z.undefined(), "PUT", { through }),
+    request("/api/notifications/read", z.undefined(), "PUT", { through }),
   pushConfig: (endpoint?: string, signal?: AbortSignal) =>
     request(
       `/api/notifications/push${endpoint ? `?endpoint=${encodeURIComponent(endpoint)}` : ""}`,

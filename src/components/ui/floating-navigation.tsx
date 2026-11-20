@@ -7,6 +7,7 @@ type FloatingNavigationItem = {
   label: string;
   icon: ReactNode;
   activeIcon?: ReactNode;
+  badge?: number;
 };
 
 export function FloatingNavigation({
@@ -41,13 +42,13 @@ export function FloatingNavigation({
             opacity: activeIndex < 0 ? 0 : 1,
           }}
         />
-        {items.map(({ to, label: itemLabel, icon, activeIcon }) => {
+        {items.map(({ to, label: itemLabel, icon, activeIcon, badge }) => {
           const active = to === activeTo;
           return (
             <Link
               key={to}
               to={to}
-              aria-label={itemLabel}
+              aria-label={badge ? `${itemLabel}, ${badge} unread` : itemLabel}
               aria-current={active ? "page" : undefined}
               data-active={active}
               className="group relative flex h-12 min-w-11 items-center justify-center rounded-full outline-none [-webkit-tap-highlight-color:transparent] focus-visible:ring-2 focus-visible:ring-white/90 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
@@ -69,6 +70,14 @@ export function FloatingNavigation({
                     )}
                   >
                     {activeIcon}
+                  </span>
+                )}
+                {!!badge && (
+                  <span
+                    aria-hidden="true"
+                    className="absolute -top-1.5 -right-2 grid h-[1.125rem] min-w-[1.125rem] place-items-center rounded-full bg-primary px-1 text-[0.65rem] leading-none font-bold text-primary-foreground ring-2 ring-zinc-950"
+                  >
+                    {badge > 99 ? "99+" : badge}
                   </span>
                 )}
               </span>
