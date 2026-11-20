@@ -284,7 +284,6 @@ function EditBox({ initial, onSave, onCancel }: { initial: string; onSave: (text
       <div className="flex flex-wrap items-center gap-2">
         <Button type="button" size="sm" disabled={busy || !value.trim() || tooLong} onClick={() => void save()}>Save</Button>
         <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={onCancel}>Cancel</Button>
-        <span className="hidden text-xs text-muted-foreground sm:inline">Enter to save · Esc to cancel</span>
       </div>
     </div>
   );
