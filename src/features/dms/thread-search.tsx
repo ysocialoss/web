@@ -1,17 +1,50 @@
-import { Fragment, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useDeferredValue, useEffect, useId, useMemo, useRef, useState } from "react";
 import { LoaderCircle, Search, SearchX, SlidersHorizontal, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
+import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle, DrawerTrigger } from "@/components/ui/drawer";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem,
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { useIsMobile } from "@/hooks/use-mobile";
 import type { DmUser } from "./dm-api";
 import type { LocalDevice } from "./dm-crypto";
 import { fold, noFilters, useMessageSearch, type SearchFilters, type SearchHit } from "./message-search";
 import { nameOf, PersonAvatar } from "./message-row";
 
 const dateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" });
+
+type FilterOption<Value extends string> = { value: Value; label: string };
+
+const contentOptions: FilterOption<SearchFilters["has"]>[] = [
+  { value: "any", label: "Anything" },
+  { value: "link", label: "Links" },
+  { value: "poll", label: "Polls" },
+  { value: "voice", label: "Voice messages" },
+  { value: "gif", label: "GIFs" },
+];
+
+function DrawerFilterGroup<Value extends string>({ label, options, value, onChange }: {
+  label: string;
+  options: FilterOption<Value>[];
+  value: Value;
+  onChange: (value: Value) => void;
+}) {
+  const name = useId();
+  return (
+    <fieldset className="min-w-0">
+      <legend className="px-2 text-xs font-medium text-muted-foreground">{label}</legend>
+      {options.map((option) => (
+        <label key={option.value} className="flex min-h-10 cursor-pointer items-center gap-3 rounded-lg px-2 py-2 hover:bg-muted">
+          <input type="radio" name={name} value={option.value} checked={value === option.value} onChange={() => onChange(option.value)} className="size-4 shrink-0 accent-primary" />
+          <span className="wrap-anywhere">{option.label}</span>
+        </label>
+      ))}
+    </fieldset>
+  );
+}
 
 function Snippet({ hit, query }: { hit: SearchHit; query: string }) {
   const start = Math.max(0, hit.at - 32);
@@ -39,6 +72,7 @@ export function ThreadSearch({ device, conversationId, peer, self, lastMessageAt
   const [query, setQuery] = useState("");
   const [filters, setFilters] = useState<SearchFilters>(noFilters);
   const [showing, setShowing] = useState(true);
+  const mobile = useIsMobile();
   const input = useRef<HTMLInputElement>(null);
   const searchable = useMemo(() => [{ id: conversationId, peer, lastMessageAt }], [conversationId, peer, lastMessageAt]);
   const { search, progress, enable } = useMessageSearch(device, searchable);
@@ -46,9 +80,24 @@ export function ThreadSearch({ device, conversationId, peer, self, lastMessageAt
   const filtered = filters.sender !== "anyone" || filters.has !== "any";
   const active = !!query.trim() || filtered;
   const hits = useDeferredValue(useMemo(() => active ? search(query, filters) : [], [active, search, query, filters]));
+  const senderOptions: FilterOption<SearchFilters["sender"]>[] = [
+    { value: "anyone", label: "Anyone" },
+    { value: "me", label: `${nameOf(self)} (you)` },
+    { value: "them", label: nameOf(peer) },
+  ];
+  const setSender = (sender: SearchFilters["sender"]) => setFilters((current) => ({ ...current, sender }));
+  const setContent = (has: SearchFilters["has"]) => setFilters((current) => ({ ...current, has }));
+  const trigger = (
+    <IconButton label="Filter results" className="relative shrink-0">
+      <SlidersHorizontal aria-hidden="true" />
+      {filtered && <span aria-hidden="true" className="absolute top-1.5 right-1.5 size-2 rounded-full bg-primary" />}
+    </IconButton>
+  );
 
   return (
-    <div className="relative shrink-0 border-b border-border" onKeyDown={(event) => { if (event.key === "Escape") onClose(); }}>
+    <div className="relative shrink-0 border-b border-border" onKeyDown={(event) => {
+      if (event.key === "Escape" && event.target instanceof Node && event.currentTarget.contains(event.target)) onClose();
+    }}>
       <div className="flex items-center gap-2 px-3 py-2">
         <label className="flex h-9 min-w-0 flex-1 items-center gap-2 rounded-lg border border-input bg-background px-2.5 transition-colors focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50">
           <Search aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
@@ -66,37 +115,46 @@ export function ThreadSearch({ device, conversationId, peer, self, lastMessageAt
           />
           {query && <IconButton label="Clear search" size="icon-xs" type="button" onClick={() => { setQuery(""); input.current?.focus(); }}><X aria-hidden="true" /></IconButton>}
         </label>
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            render={
-              <IconButton label="Filter results" className="relative shrink-0">
-                <SlidersHorizontal aria-hidden="true" />
-                {filtered && <span aria-hidden="true" className="absolute top-1.5 right-1.5 size-2 rounded-full bg-primary" />}
-              </IconButton>
-            }
-          />
-          <DropdownMenuContent align="end" className="w-52">
-            <DropdownMenuGroup>
-            <DropdownMenuLabel>From</DropdownMenuLabel>
-            <DropdownMenuRadioGroup value={filters.sender} onValueChange={(sender) => setFilters({ ...filters, sender: sender as SearchFilters["sender"] })}>
-              <DropdownMenuRadioItem value="anyone">Anyone</DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="me">{nameOf(self)} (you)</DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="them">{nameOf(peer)}</DropdownMenuRadioItem>
-            </DropdownMenuRadioGroup>
-            </DropdownMenuGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-            <DropdownMenuLabel>Contains</DropdownMenuLabel>
-            <DropdownMenuRadioGroup value={filters.has} onValueChange={(has) => setFilters({ ...filters, has: has as SearchFilters["has"] })}>
-              <DropdownMenuRadioItem value="any">Anything</DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="link">Links</DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="poll">Polls</DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="voice">Voice messages</DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="gif">GIFs</DropdownMenuRadioItem>
-            </DropdownMenuRadioGroup>
-            </DropdownMenuGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {mobile ? (
+          <Drawer showSwipeHandle>
+            <DrawerTrigger render={trigger} />
+            <DrawerContent>
+              <DrawerHeader><DrawerTitle>Filter results</DrawerTitle></DrawerHeader>
+              <div className="min-h-0 space-y-3 overflow-y-auto px-4 py-3">
+                <DrawerFilterGroup label="From" options={senderOptions} value={filters.sender} onChange={setSender} />
+                <DrawerFilterGroup label="Contains" options={contentOptions} value={filters.has} onChange={setContent} />
+              </div>
+              <DrawerFooter className="pb-[max(1rem,env(safe-area-inset-bottom))]">
+                <DrawerClose render={<Button type="button" />}>Done</DrawerClose>
+              </DrawerFooter>
+            </DrawerContent>
+          </Drawer>
+        ) : (
+          <DropdownMenu>
+            <DropdownMenuTrigger render={trigger} />
+            <DropdownMenuContent align="end" className="w-52">
+              <DropdownMenuGroup>
+                <DropdownMenuLabel>From</DropdownMenuLabel>
+                <DropdownMenuRadioGroup value={filters.sender} onValueChange={(sender) => {
+                  const option = senderOptions.find(({ value }) => value === sender);
+                  if (option) setSender(option.value);
+                }}>
+                  {senderOptions.map(({ value, label }) => <DropdownMenuRadioItem key={value} value={value}>{label}</DropdownMenuRadioItem>)}
+                </DropdownMenuRadioGroup>
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator />
+              <DropdownMenuGroup>
+                <DropdownMenuLabel>Contains</DropdownMenuLabel>
+                <DropdownMenuRadioGroup value={filters.has} onValueChange={(has) => {
+                  const option = contentOptions.find(({ value }) => value === has);
+                  if (option) setContent(option.value);
+                }}>
+                  {contentOptions.map(({ value, label }) => <DropdownMenuRadioItem key={value} value={value}>{label}</DropdownMenuRadioItem>)}
+                </DropdownMenuRadioGroup>
+              </DropdownMenuGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
         <IconButton label="Close search" className="shrink-0" onClick={onClose}><X aria-hidden="true" /></IconButton>
       </div>
 
