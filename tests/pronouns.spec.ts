@@ -86,6 +86,9 @@ test("onboarding and profile editing save suggested and custom pronouns", async 
   let pronouns = "";
   let profileCreations = 0;
   await page.route("**/api/**", (route) => route.fulfill({ json: {} }));
+  await page.route("**/api/github", (route) =>
+    route.fulfill({ json: { configured: true, github: null } }),
+  );
   await page.route("**/api/profiles/*/availability", (route) =>
     route.fulfill({
       json: { available: !route.request().url().includes("/taken_handle/") },
@@ -236,7 +239,7 @@ test("onboarding and profile editing save suggested and custom pronouns", async 
   await expect(connectionsTab).toHaveAttribute("aria-selected", "true");
   await expect(
     dialog.getByRole("tabpanel", { name: "Connections" }),
-  ).toContainText("This part of ysocial is on its way.");
+  ).toContainText("GitHub");
   await expect(field).toBeHidden();
   await expect(done).toBeHidden();
   expect(updates).toHaveLength(0);

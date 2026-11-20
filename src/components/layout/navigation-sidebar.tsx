@@ -13,6 +13,7 @@ import { LegalMenu } from "./legal-menu";
 import { AccountMenu } from "@/features/auth/account-menu";
 import type { AuthState } from "@/features/auth/use-auth";
 import { NotificationsBell } from "@/features/notifications/notifications";
+import { SiteWordmark } from "./site-wordmark";
 
 export function NavigationSidebar({
   showAccount = false,
@@ -43,13 +44,7 @@ export function NavigationSidebar({
             height={48}
             className="lg:hidden"
           />
-          <img
-            src="/logo.png"
-            alt="ysocial"
-            width={1708}
-            height={644}
-            className="hidden h-auto w-32 object-contain object-left lg:block"
-          />
+          <SiteWordmark className="hidden w-32 lg:block" />
         </Link>
         <nav
           aria-label="Main navigation"

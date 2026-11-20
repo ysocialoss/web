@@ -206,9 +206,18 @@ const sessionSchema = z.union([
     suggestedHandle: z.string(),
   }),
 ]);
+const githubAccountSchema = z.object({
+  login: z.string().regex(/^[a-z\d][a-z\d_-]{0,99}$/i),
+  contributionCount: z.number().int().nonnegative().nullable(),
+});
+const githubSettingsSchema = z.object({
+  configured: z.boolean(),
+  github: githubAccountSchema.nullable(),
+});
 const profileSchema = z.object({
   profile: userSchema.extend({
     isOg: z.boolean().default(false),
+    github: githubAccountSchema.nullable().default(null),
     badges: z.array(z.object({
       id: z.uuid(),
       icon: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
@@ -613,6 +622,15 @@ function attemptSignal(ms: number, signal?: AbortSignal) {
 }
 const postPath = (id: string) => `/api/posts/${encodeURIComponent(id)}`;
 export const api = {
+  githubSettings: (signal: AbortSignal) =>
+    request("/api/github", githubSettingsSchema, "GET", undefined, signal),
+  connectGithub: (returnTo?: "profile") => request("/api/github/connect", z.object({
+    url: z.url().refine((value) => {
+      const url = new URL(value);
+      return url.origin === "https://github.com" && url.pathname === "/login/oauth/authorize";
+    }),
+  }), "POST", returnTo ? { returnTo } : undefined),
+  disconnectGithub: () => request("/api/github", z.undefined(), "DELETE"),
   pronounRecommendations: (signal: AbortSignal) =>
     request(
       "/api/profiles/pronouns/recommendations",

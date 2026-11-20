@@ -72,6 +72,7 @@ function AppShell() {
   // State, not a ref: the section is recreated when the signed-in session
   // arrives, and the scroll listeners must follow the live element.
   const [scroller, setScroller] = useState<HTMLElement | null>(null);
+  const [wordmarkReady, setWordmarkReady] = useState(false);
   const logoClickCount = useRef(0);
   const navigate = useNavigate();
   const { pathname, key: navigationKey } = useLocation();
@@ -80,12 +81,44 @@ function AppShell() {
   const hideAccountSidebar =
     /^@[a-z0-9_]{3,32}$/.test(profileHandle ?? "") ||
     matchPath("/profile", pathname) !== null;
+  useEffect(() => {
+    // Paint the base logo before enabling the tint on a direct Settings visit.
+    let frame = requestAnimationFrame(() => {
+      frame = requestAnimationFrame(() => setWordmarkReady(true));
+    });
+    return () => cancelAnimationFrame(frame);
+  }, []);
+  useEffect(() => {
+    if (pathname !== "/") logoClickCount.current = 0;
+  }, [pathname]);
+
   function handleLogoClick(event: MouseEvent<HTMLAnchorElement>) {
+    if (
+      pathname !== "/" ||
+      event.defaultPrevented ||
+      event.button !== 0 ||
+      event.altKey ||
+      event.ctrlKey ||
+      event.metaKey ||
+      event.shiftKey
+    )
+      return;
+
     logoClickCount.current += 1;
-    if (logoClickCount.current === 4) {
+    if (logoClickCount.current === 3) {
       logoClickCount.current = 0;
       event.preventDefault();
       navigate("/asettings");
+    } else if (
+      logoClickCount.current === 2 &&
+      window.matchMedia("(prefers-reduced-motion: no-preference)").matches
+    ) {
+      event.currentTarget.animate(
+        [0, -5, 5, -3, 3, 0].map((offset) => ({
+          transform: `translateX(${offset}px)`,
+        })),
+        { duration: 360 },
+      );
     }
   }
   const navigationType = useNavigationType();
@@ -152,7 +185,12 @@ function AppShell() {
       }
       holdPrompt={auth.showApprovalWelcome}
     >
-      <div className="relative flex h-dvh min-h-0 flex-col">
+      <div
+        className="relative flex h-dvh min-h-0 flex-col"
+        data-settings-page={
+          wordmarkReady && matchPath("/asettings", pathname) ? "" : undefined
+        }
+      >
         <MobileHeader auth={auth} onLogoClick={handleLogoClick} />
         {awaitingApproval && <div aria-hidden="true" className="h-[calc(4rem+env(safe-area-inset-top))] shrink-0 md:hidden" />}
         <ConnectionBanner />
