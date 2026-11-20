@@ -7,6 +7,7 @@ import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
 import { GifPicker } from "@/features/gifs/gif-picker";
 import type { GifSearchItem } from "@/lib/api";
+import { microphoneErrorMessage } from "@/lib/microphone";
 import type { MessageGif, MessagePoll } from "./message-payload";
 import { pollLimits } from "./message-payload";
 
@@ -161,8 +162,9 @@ export function VoiceRecorderBar({ onCancel, onSend }: { onCancel: () => void; o
             active.stop();
           }
         }, 100);
-      } catch {
-        if (!cancelled) setError("Microphone access was blocked. Allow it in your browser to record.");
+      } catch (failure) {
+        stream?.getTracks().forEach((track) => track.stop());
+        if (!cancelled) setError(microphoneErrorMessage(failure));
       }
     })();
     return () => {
