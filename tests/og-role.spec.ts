@@ -3,7 +3,13 @@ import { expect, test } from "@playwright/test";
 test.beforeEach(async ({ page }) => {
   const [ogMember, newMember, adminMember, developer] = [
     { id: "11111111-1111-4111-8111-111111111111", handle: "og_member", displayName: "OG Member", avatarUrl: null, isOg: true },
-    { id: "22222222-2222-4222-8222-222222222222", handle: "new_member", displayName: "New Member", avatarUrl: null },
+    {
+      id: "22222222-2222-4222-8222-222222222222",
+      handle: "new_member",
+      displayName: "New Member",
+      avatarUrl: null,
+      github: { login: "new-member", contributionCount: 0 },
+    },
     {
       id: "33333333-3333-4333-8333-333333333333",
       handle: "admin_member",
@@ -17,6 +23,7 @@ test.beforeEach(async ({ page }) => {
       displayName: "Dev User",
       avatarUrl: null,
       isOg: false,
+      github: { login: "contributor-login", contributionCount: 23 },
       badges: [{ id: "55555555-5555-4555-8555-555555555555", icon: "terminal", tooltip: "Developed this" }],
     },
   ] as const;
@@ -69,6 +76,8 @@ test("profiles show OG and explicitly assigned badges with tooltips", async ({ p
 
   await page.goto("/@new_member");
   await expect(page.getByRole("heading", { name: "New Member" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "@new-member on GitHub" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Contributor/ })).toHaveCount(0);
   await expect(badge).toHaveCount(0);
   const adminBadge = page.getByRole("button", { name: "Admin", exact: true });
   const developerBadge = page.getByRole("button", { name: "Developed this" });
@@ -85,6 +94,27 @@ test("profiles show OG and explicitly assigned badges with tooltips", async ({ p
   await expect(developerBadge.locator("span")).toHaveCSS("mask-image", /\/api\/profiles\/badge-icons\/terminal/);
   await developerBadge.hover();
   await expect(tooltip).toHaveText("Developed this");
+  const githubLink = page.getByRole("link", { name: "@contributor-login on GitHub" });
+  await expect(githubLink).toHaveAttribute("href", "https://github.com/contributor-login");
+  await expect(githubLink).toHaveText("");
+  await githubLink.hover();
+  await expect(page.getByText("@contributor-login on GitHub", { exact: true })).toBeVisible();
+  const contributorBadge = page.getByRole("button", { name: "Contributor · 23" });
+  await expect(contributorBadge).toHaveText("23");
+  await expect(developerBadge.or(contributorBadge).last()).toHaveAccessibleName("Contributor · 23");
+  await contributorBadge.hover();
+  await expect(page.getByRole("tooltip", { name: "Contributor · 23 public ysocialoss contributions" })).toBeVisible();
+
+  const githubUrl = "https://github.com/contributor-login";
+  await page.context().route(githubUrl, (route) => route.fulfill({ body: "GitHub profile" }));
+  await githubLink.click();
+  const confirmation = page.getByRole("alertdialog", { name: "Open external link?" });
+  await expect(confirmation.getByText(githubUrl, { exact: true })).toBeVisible();
+  const newTab = page.context().waitForEvent("page");
+  await confirmation.getByRole("button", { name: "Open link" }).click();
+  const githubPage = await newTab;
+  await expect(githubPage).toHaveURL(githubUrl);
+  await githubPage.close();
 });
 
 test.describe("profile badges on touch screens", () => {

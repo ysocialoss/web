@@ -7,7 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { api, type Post } from "@/lib/api";
 import { countFormat } from "@/lib/count-format";
 import { cn } from "@/lib/utils";
-import { ExternalPostLink } from "@/features/feed/external-post-link";
+import { ExternalLink } from "@/components/ui/external-link";
 import { PostText } from "@/features/feed/post-text";
 import { dmApi, type LinkPreview } from "./dm-api";
 
@@ -147,16 +147,16 @@ export function LinkCard({ href }: { href: string }) {
   if (preview.kind === "image") {
     return image ? (
       <div ref={ref}>
-        <ExternalPostLink href={preview.href} className="inline-block max-w-full overflow-hidden rounded-xl border outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <ExternalLink href={preview.href} className="inline-block max-w-full overflow-hidden rounded-xl border outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <img src={image} alt={preview.title} loading="lazy" decoding="async" onError={() => setImageFailed(true)} className="block max-h-80 max-w-full object-contain" />
-        </ExternalPostLink>
+        </ExternalLink>
       </div>
     ) : <div ref={ref} />;
   }
   const icon = preview.iconKey ? dmApi.linkPreviewAsset("icon", href, preview.iconKey) : undefined;
   return (
     <div ref={ref} className="w-full max-w-md">
-      <ExternalPostLink
+      <ExternalLink
         href={preview.href}
         className="block overflow-hidden rounded-xl border bg-card text-sm text-card-foreground outline-none transition-colors hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring"
       >
@@ -169,7 +169,7 @@ export function LinkCard({ href }: { href: string }) {
           <span dir="auto" className="line-clamp-2 font-medium wrap-anywhere">{preview.title}</span>
           {preview.description && <span dir="auto" className={cn("line-clamp-2 text-muted-foreground")}>{preview.description}</span>}
         </span>
-      </ExternalPostLink>
+      </ExternalLink>
     </div>
   );
 }

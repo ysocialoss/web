@@ -20,6 +20,8 @@ function useNotificationState(userId: string | null, canWrite: boolean) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const request = useRef<AbortController | null>(null);
+  const countRequest = useRef(0);
+  const reading = useRef(new Set<string>());
   const previewVisibility = useRef<boolean | undefined>(undefined);
   const [hideContent, setHideContent] = useState(false);
   const applyPrivacy = useCallback((hidden: boolean | undefined) => {
@@ -38,6 +40,7 @@ function useNotificationState(userId: string | null, canWrite: boolean) {
       request.current?.abort();
       const controller = new AbortController();
       request.current = controller;
+      const countVersion = ++countRequest.current;
       setLoading(true);
       setError("");
       try {
@@ -48,17 +51,20 @@ function useNotificationState(userId: string | null, canWrite: boolean) {
         );
         if (controller.signal.aborted) return;
         applyPrivacy(result.hideContent);
-        setItems((previous) =>
-          cursor
-            ? [
-                ...previous,
-                ...result.notifications.filter(
-                  (item) => !previous.some((old) => old.id === item.id),
-                ),
-              ]
-            : result.notifications,
-        );
-        setUnreadCount(result.unreadCount);
+        setItems((previous) => {
+          const existing = new Map(previous.map((item) => [item.id, item]));
+          if (cursor)
+            return [
+              ...previous,
+              ...result.notifications.filter((item) => !existing.has(item.id)),
+            ];
+          return result.notifications.map((item) => ({
+            ...item,
+            readAt: item.readAt ?? existing.get(item.id)?.readAt ?? null,
+          }));
+        });
+        if (countVersion === countRequest.current)
+          setUnreadCount(result.unreadCount);
         setNextCursor(result.nextCursor);
       } catch (reason) {
         if (!controller.signal.aborted) setError(errorMessage(reason));
@@ -68,6 +74,16 @@ function useNotificationState(userId: string | null, canWrite: boolean) {
     },
     [userId, applyPrivacy],
   );
+  const syncUnreadCount = useCallback(async (signal?: AbortSignal) => {
+    const countVersion = ++countRequest.current;
+    try {
+      const result = await api.notifications(undefined, false, signal);
+      if (!signal?.aborted && countVersion === countRequest.current)
+        setUnreadCount(result.unreadCount);
+    } catch {
+      /* The next poll or inbox refresh will update the count. */
+    }
+  }, []);
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void refresh();
@@ -76,13 +92,20 @@ function useNotificationState(userId: string | null, canWrite: boolean) {
       if (document.visibilityState !== "visible" || !userId) return;
       const startedWithRequest = request.current;
       const revision = privacyRevision;
+      const countVersion = ++countRequest.current;
       try {
         const result = await api.notifications(
           undefined,
           false,
           controller.signal,
         );
-        if (controller.signal.aborted || request.current !== startedWithRequest || revision !== privacyRevision) return;
+        if (
+          controller.signal.aborted ||
+          request.current !== startedWithRequest ||
+          revision !== privacyRevision ||
+          countVersion !== countRequest.current
+        )
+          return;
         setUnreadCount(result.unreadCount);
         if (result.hideContent !== undefined && result.hideContent !== previewVisibility.current) {
           applyPrivacy(result.hideContent);
@@ -128,14 +151,51 @@ function useNotificationState(userId: string | null, canWrite: boolean) {
       if (registration) return registerPushWorker();
     }).catch(() => {});
   }, [userId]);
-  async function markRead(id?: string) {
+  const markSeen = useCallback(
+    async (ids: string[], reportError = false) => {
+      if (!canWrite) return;
+      const pending = reading.current;
+      const unread = ids.filter((id) => {
+        if (pending.has(id)) return false;
+        pending.add(id);
+        return true;
+      });
+      if (unread.length === 0) return;
+      if (reportError) setError("");
+      const results = await Promise.allSettled(
+        unread.map(async (id) => {
+          await api.readNotification(id);
+          return id;
+        }),
+      );
+      const readIds = new Set(
+        results.flatMap((result) =>
+          result.status === "fulfilled" ? [result.value] : [],
+        ),
+      );
+      for (const id of unread) pending.delete(id);
+      if (reportError) {
+        const failure = results.find((result) => result.status === "rejected");
+        if (failure) setError(errorMessage(failure.reason));
+      }
+      if (readIds.size === 0) return;
+      const readAt = new Date().toISOString();
+      setItems((previous) =>
+        previous.map((item) =>
+          !item.readAt && readIds.has(item.id) ? { ...item, readAt } : item,
+        ),
+      );
+      await syncUnreadCount();
+    },
+    [canWrite, syncUnreadCount],
+  );
+  async function markRead() {
     const newest = items[0];
-    if (!canWrite || busy || (!id && !newest)) return false;
+    if (!canWrite || busy || !newest) return false;
     setBusy(true);
     setError("");
     try {
-      if (id) await api.readNotification(id);
-      else await api.readAllNotifications(newest.createdAt);
+      await api.readAllNotifications(newest.createdAt);
       await refresh();
       return true;
     } catch (reason) {
@@ -154,6 +214,7 @@ function useNotificationState(userId: string | null, canWrite: boolean) {
     busy,
     refresh,
     markRead,
+    markSeen,
     userId,
     hideContent,
     signedIn: !!userId,

@@ -3,6 +3,7 @@ import { api, ApiError, errorMessage } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { cn } from "cn";
 import { updateAuthor } from "@/features/feed/optimistic-actions";
 import { profileChanges } from "./profile-update";
 import { Check, LoaderCircle, X } from "lucide-react";
@@ -34,7 +35,7 @@ export function ProfileForm({
   appearance?: "default" | "dialog";
 }) {
   const dialog = appearance === "dialog";
-  const rowClass = dialog ? "space-y-2 border-b pb-4" : "space-y-2";
+  const fieldSpacing = dialog ? "space-y-3 [&>label]:block" : "space-y-2";
   const id = useId();
   const [baseline, setBaseline] = useState(profile);
   const [draft, setDraft] = useState<ProfileFields>({
@@ -109,8 +110,13 @@ export function ProfileForm({
 
   return (
     <form onSubmit={(event) => void save(event)} className="min-w-0 space-y-4">
-      <fieldset disabled={saving} className="min-w-0 space-y-4">
-        <div className={rowClass}>
+      <fieldset
+        disabled={saving}
+        className={
+          dialog ? "grid min-w-0 gap-4 sm:grid-cols-2" : "min-w-0 space-y-4"
+        }
+      >
+        <div className={fieldSpacing}>
           <label htmlFor={`${id}-name`} className="text-sm font-medium">
             {dialog ? "Name" : "Display name"}
           </label>
@@ -123,12 +129,17 @@ export function ProfileForm({
             autoComplete="nickname"
           />
         </div>
-        <div className={rowClass}>
+        <div className={fieldSpacing}>
           <label htmlFor={`${id}-handle`} className="text-sm font-medium">
             {dialog ? "Username" : "Handle"}
           </label>
           <InputGroup>
-            <InputGroupAddon aria-hidden="true">@</InputGroupAddon>
+            <InputGroupAddon
+              className={dialog ? "pl-3" : undefined}
+              aria-hidden="true"
+            >
+              @
+            </InputGroupAddon>
             <InputGroupInput
               id={`${id}-handle`}
               required
@@ -145,7 +156,11 @@ export function ProfileForm({
                 undefined
               }
             />
-            <InputGroupAddon align="inline-end" aria-hidden="true">
+            <InputGroupAddon
+              align="inline-end"
+              className={dialog ? "pr-3" : undefined}
+              aria-hidden="true"
+            >
               {availability === "available" ? (
                 <Check className="text-primary" />
               ) : availability === "taken" || availability === "invalid" ? (
@@ -164,19 +179,22 @@ export function ProfileForm({
             </p>
           )}
         </div>
-        <div className={rowClass}>
+        <div className="col-span-full">
           <PronounsField
             value={draft.pronouns}
             onChange={(value) => change("pronouns", value)}
           />
         </div>
-        <div className="space-y-2">
+        <div className={cn("col-span-full", fieldSpacing)}>
           <label htmlFor={`${id}-bio`} className="text-sm font-medium">
             Bio
           </label>
           <Textarea
             id={`${id}-bio`}
-            className="min-w-0 resize-none whitespace-pre-wrap wrap-anywhere"
+            className={cn(
+              "min-w-0 resize-none whitespace-pre-wrap wrap-anywhere",
+              dialog && "py-1",
+            )}
             wrap="soft"
             maxLength={bioLimit}
             aria-invalid={draft.bio.length > bioLimit || undefined}
@@ -193,16 +211,12 @@ export function ProfileForm({
           </p>
         </div>
         {error && (
-          <p role="alert" className="text-sm text-destructive">
+          <p role="alert" className="col-span-full text-sm text-destructive">
             {error}
           </p>
         )}
         <div
-          className={
-            dialog
-              ? "-mx-6 border-t px-6 pt-6"
-              : "flex flex-wrap items-center justify-end gap-3"
-          }
+          className={`col-span-full flex flex-wrap items-center justify-end gap-3 ${dialog ? "border-t pt-4" : ""}`}
         >
           <p
             role="status"
@@ -212,14 +226,14 @@ export function ProfileForm({
           >
             {saved ? "Profile saved" : ""}
           </p>
-          {onCancel && !dialog && (
+          {onCancel && (
             <Button type="button" variant="outline" onClick={onCancel}>
               Cancel
             </Button>
           )}
           <Button
             type="submit"
-            className={dialog ? "h-13 w-full text-base font-medium" : undefined}
+            className={dialog ? "min-w-24" : undefined}
             disabled={
               (!dialog && !changed) ||
               !draft.displayName.trim() ||

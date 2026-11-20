@@ -17,7 +17,8 @@ import {
   useNavigationType,
   useParams,
 } from "react-router";
-import { ArrowLeft, Construction, SearchX } from "lucide-react";
+import { ArrowLeft, SearchX } from "lucide-react";
+import { ComingSoonContent } from "@/components/coming-soon-content";
 import { NavigationSidebar } from "@/components/layout/navigation-sidebar";
 import { AccountSidebar } from "@/components/layout/account-sidebar";
 import {
@@ -73,6 +74,7 @@ function AppShell() {
   // State, not a ref: the section is recreated when the signed-in session
   // arrives, and the scroll listeners must follow the live element.
   const [scroller, setScroller] = useState<HTMLElement | null>(null);
+  const [wordmarkReady, setWordmarkReady] = useState(false);
   const logoClickCount = useRef(0);
   const navigate = useNavigate();
   const { pathname, key: navigationKey } = useLocation();
@@ -84,12 +86,44 @@ function AppShell() {
   const hideAccountSidebar =
     /^@[a-z0-9_]{3,32}$/.test(profileHandle ?? "") ||
     matchPath("/profile", pathname) !== null || messagesLayout;
+  useEffect(() => {
+    // Paint the base logo before enabling the tint on a direct Settings visit.
+    let frame = requestAnimationFrame(() => {
+      frame = requestAnimationFrame(() => setWordmarkReady(true));
+    });
+    return () => cancelAnimationFrame(frame);
+  }, []);
+  useEffect(() => {
+    if (pathname !== "/") logoClickCount.current = 0;
+  }, [pathname]);
+
   function handleLogoClick(event: MouseEvent<HTMLAnchorElement>) {
+    if (
+      pathname !== "/" ||
+      event.defaultPrevented ||
+      event.button !== 0 ||
+      event.altKey ||
+      event.ctrlKey ||
+      event.metaKey ||
+      event.shiftKey
+    )
+      return;
+
     logoClickCount.current += 1;
-    if (logoClickCount.current === 4) {
+    if (logoClickCount.current === 3) {
       logoClickCount.current = 0;
       event.preventDefault();
       navigate("/asettings");
+    } else if (
+      logoClickCount.current === 2 &&
+      window.matchMedia("(prefers-reduced-motion: no-preference)").matches
+    ) {
+      event.currentTarget.animate(
+        [0, -5, 5, -3, 3, 0].map((offset) => ({
+          transform: `translateX(${offset}px)`,
+        })),
+        { duration: 360 },
+      );
     }
   }
   const navigationType = useNavigationType();
@@ -166,7 +200,12 @@ function AppShell() {
         !!auth.session?.authenticated && !auth.session.needsOnboarding && !auth.session.pendingApproval && !auth.session.ban
       }
      >
-      <div className="relative flex h-dvh min-h-0 flex-col">
+      <div
+        className="relative flex h-dvh min-h-0 flex-col"
+        data-settings-page={
+          wordmarkReady && matchPath("/asettings", pathname) ? "" : undefined
+        }
+      >
         {!threadView && <MobileHeader auth={auth} onLogoClick={handleLogoClick} />}
         {awaitingApproval && <div aria-hidden="true" className="h-[calc(4rem+env(safe-area-inset-top))] shrink-0 md:hidden" />}
         <ConnectionBanner />
@@ -361,13 +400,7 @@ function ComingSoon({ title }: { title: string }) {
       <IconLink to="/" label="Back" onClick={goBack}>
         <ArrowLeft />
       </IconLink>
-      <div className="flex flex-col items-center gap-3 py-16 text-center">
-        <Construction className="size-9 text-muted-foreground" />
-        <h1 className="text-xl font-semibold">{title}</h1>
-        <p className="text-sm text-muted-foreground">
-          This part of ysocial is on its way.
-        </p>
-      </div>
+      <ComingSoonContent title={title} heading="h1" />
     </div>
   );
 }

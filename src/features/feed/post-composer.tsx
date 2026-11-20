@@ -253,7 +253,7 @@ function AuthenticatedPostComposer({
     setPublished(true);
   }
 
-  const textClass = "py-1.5 text-sm leading-6 md:text-base";
+  const textClass = "py-1.5 text-base leading-6 md:text-base";
   return (
     <>
     <Dialog open={gifPickerOpen} onOpenChange={setGifPickerOpen}>

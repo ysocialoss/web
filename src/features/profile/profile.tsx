@@ -14,6 +14,7 @@ import {
   CalendarDays,
   Camera,
   Gem,
+  GitPullRequest,
   Pencil,
   UserCheck,
   UserPlus,
@@ -27,9 +28,13 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { IconButton, IconLink } from "@/components/ui/icon-button";
+import { GithubMark } from "@/components/ui/github-mark";
+import { ExternalLink } from "@/components/ui/external-link";
+import { buttonVariants } from "@/components/ui/button-variants";
+import { cn } from "@/lib/utils";
 import { useGoBack } from "@/hooks/use-go-back";
 import { Button } from "@/components/ui/button";
-import { Link, useNavigate } from "react-router";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Dialog,
@@ -44,6 +49,7 @@ import { BannerEditor } from "./banner-editor";
 import { AvatarCropper } from "./avatar-cropper";
 import { RecentAvatars } from "./recent-avatars";
 import { ProfileForm } from "./profile-form";
+import { ProfileEditDialogContent, type ProfileEditTab } from "./profile-edit-dialog";
 import { PostCard } from "@/features/feed/post-card";
 import { useFeed } from "@/features/feed/use-feed";
 import { ProfileSkeleton } from "@/components/loading-skeletons";
@@ -101,7 +107,10 @@ export function ProfilePage({
 }) {
   const [loadedProfile, setProfile] = useState<Profile | null>(null);
   const [pictureDialogOpen, setPictureDialogOpen] = useState(false);
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const hasGithubResult = searchParams.has("github");
+  const [editDialogOpen, setEditDialogOpen] = useState(hasGithubResult);
+  const [editTab, setEditTab] = useState<ProfileEditTab>(hasGithubResult ? "connections" : "profile");
   const [savingProfile, setSavingProfile] = useState(false);
   const navigate = useNavigate();
   const [error, setError] = useState("");
@@ -162,6 +171,9 @@ export function ProfilePage({
           }),
         }
       : null;
+  const github = profile?.profile.github;
+  const contributionCount = github?.contributionCount ?? 0;
+  const formattedContributionCount = contributionCount.toLocaleString();
   /** "X reposted" for a post on the Reposts tab; the person's own quotes have none. */
   function repostContextFor(post: Post) {
     if (!profile) return null;
@@ -178,6 +190,15 @@ export function ProfilePage({
   }
   const avatarUrl = profile?.profile.avatarUrl;
   const friends = profile?.isFollowing && profile.isFollowedBy;
+  function closeEditDialog() {
+    setEditDialogOpen(false);
+    if (hasGithubResult) {
+      const next = new URLSearchParams(searchParams);
+      next.delete("github");
+      setSearchParams(next, { replace: true });
+    }
+  }
+
   function toggleFollow() {
     if (profile && viewer && feed.canPost)
       mutateFollow(profile, viewer.id, !profile.isFollowing);
@@ -440,6 +461,17 @@ export function ProfilePage({
                     />
                   </ProfileBadge>
                 ))}
+                {contributionCount > 0 && (
+                  <ProfileBadge
+                    label={`Contributor · ${formattedContributionCount}`}
+                    tooltip={`Contributor · ${formattedContributionCount} public ysocialoss ${contributionCount === 1 ? "contribution" : "contributions"}`}
+                  >
+                    <span className="flex items-center gap-1 text-xs font-medium text-teal-700 dark:text-teal-300">
+                      <GitPullRequest className="size-4" aria-hidden="true" />
+                      {formattedContributionCount}
+                    </span>
+                  </ProfileBadge>
+                )}
               </div>
               <p className="wrap-anywhere text-sm text-muted-foreground">
                 @{profile.profile.handle}
@@ -454,30 +486,36 @@ export function ProfilePage({
               <Dialog
                 open={editDialogOpen}
                 onOpenChange={(open) => {
-                  if (!savingProfile) setEditDialogOpen(open);
+                  if (savingProfile) return;
+                  if (open) {
+                    setEditTab("profile");
+                    setEditDialogOpen(true);
+                  } else closeEditDialog();
                 }}
               >
                 <DialogTrigger render={<Button variant="outline" />}>
                   <Pencil aria-hidden="true" />
                   Edit
                 </DialogTrigger>
-                <DialogContent
-                  className="max-h-[90dvh] overflow-y-auto p-6 sm:max-w-lg"
-                  showCloseButton={!savingProfile}
+                <ProfileEditDialogContent
+                  saving={savingProfile}
+                  tab={editTab}
+                  onTabChange={setEditTab}
+                  onGithubChange={(github) => {
+                    setProfile((current) =>
+                      current?.profile.id === profile.profile.id
+                        ? { ...current, profile: { ...current.profile, github } }
+                        : current,
+                    );
+                  }}
                 >
-                  <DialogHeader>
-                    <DialogTitle>Edit profile</DialogTitle>
-                    <DialogDescription>
-                      Update your name, handle, pronouns, and bio.
-                    </DialogDescription>
-                  </DialogHeader>
                   {editDialogOpen && (
                     <ProfileForm
                       appearance="dialog"
                       userId={profile.profile.id}
                       profile={profile.profile}
                       onSavingChange={setSavingProfile}
-                      onCancel={() => setEditDialogOpen(false)}
+                      onCancel={closeEditDialog}
                       onSaved={(updated) => {
                         setProfile((current) =>
                           current
@@ -488,13 +526,13 @@ export function ProfilePage({
                             : current,
                         );
                         onProfileSaved(profile.profile.id, updated);
-                        setEditDialogOpen(false);
+                        closeEditDialog();
                         if (updated.handle !== handle)
                           navigate(`/@${updated.handle}`, { replace: true });
                       }}
                     />
                   )}
-                </DialogContent>
+                </ProfileEditDialogContent>
               </Dialog>
             )}
             {viewer && !feed.readOnly && profile.profile.id !== viewer.id && !profile.profile.bannedAt && (
@@ -585,6 +623,18 @@ export function ProfilePage({
             <p className="mt-3 whitespace-pre-wrap wrap-anywhere text-sm">
               {profile.profile.bio}
             </p>
+          )}
+          {github && (
+            <ExternalLink
+              className={cn(
+                buttonVariants({ variant: "ghost", size: "icon" }),
+                "mt-2 -ml-1 size-7",
+              )}
+              label={`@${github.login} on GitHub`}
+              href={`https://github.com/${github.login}`}
+            >
+              <GithubMark />
+            </ExternalLink>
           )}
           <p className="my-4 flex items-center gap-2 text-xs text-muted-foreground">
             <CalendarDays className="size-3.5" aria-hidden="true" />

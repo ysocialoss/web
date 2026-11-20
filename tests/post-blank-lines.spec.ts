@@ -29,8 +29,10 @@ test("the composer silently limits blank lines when typing and pasting", async (
     }),
   );
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
   const draft = page.getByRole("textbox", { name: "What's on your mind?" });
+  await expect(draft).toHaveCSS("font-size", "16px");
   await draft.fill("First");
   for (let i = 0; i < 5; i++) await draft.press("Enter");
   await expect(draft).toHaveValue("First\n\n\n");

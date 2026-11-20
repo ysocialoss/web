@@ -278,7 +278,7 @@ function BannerPicker({
               Select GIF
             </TabsTrigger>
           </TabsList>
-          <TabsContent value="upload">
+          <TabsContent value="upload" className="inert:hidden">
             <input
               ref={input}
               hidden
@@ -325,7 +325,7 @@ function BannerPicker({
               </Button>
             )}
           </TabsContent>
-          <TabsContent value="gifs" className="grid gap-3">
+          <TabsContent value="gifs" className="grid gap-3 inert:hidden">
             <form
               className="flex gap-2"
               onSubmit={(event) => {

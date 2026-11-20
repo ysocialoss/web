@@ -29,6 +29,7 @@ import { updateAuthor } from "@/features/feed/optimistic-actions";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { ProfileForm } from "@/features/profile/profile-form";
 import { NotificationSettings } from "./notification-settings";
+import { GithubSettings } from "./github-settings";
 
 type SettingsUser = Extract<Session, { needsOnboarding: false }>["user"];
 
@@ -48,6 +49,7 @@ export function SettingsPage({ auth }: { auth: AuthState }) {
             user={session.user}
             auth={auth}
           />
+          <GithubSettings />
           <NotificationSettings userId={session.user.id} />
         </div>
       ) : session.authenticated ? (

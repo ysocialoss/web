@@ -23,6 +23,7 @@ import { BannerEditor } from "@/features/profile/banner-editor";
 import { AvatarCropper } from "@/features/profile/avatar-cropper";
 import { RecentAvatars } from "@/features/profile/recent-avatars";
 import { ProfileForm } from "@/features/profile/profile-form";
+import { ProfileEditDialogContent } from "@/features/profile/profile-edit-dialog";
 import { updateAuthor } from "@/features/feed/optimistic-actions";
 import type { AuthState } from "@/features/auth/use-auth";
 
@@ -191,16 +192,7 @@ export function ProfileCard({
                   @{user.handle}
                 </span>
               </DialogTrigger>
-              <DialogContent
-                className="max-h-[90dvh] overflow-y-auto p-6 sm:max-w-lg"
-                showCloseButton={!saving}
-              >
-                <DialogHeader>
-                  <DialogTitle>Edit profile</DialogTitle>
-                  <DialogDescription>
-                    Update your name, handle, pronouns, and bio.
-                  </DialogDescription>
-                </DialogHeader>
+              <ProfileEditDialogContent saving={saving}>
                 {loadError ? (
                   <p role="alert" className="text-sm text-destructive">
                     {loadError}
@@ -223,7 +215,7 @@ export function ProfileCard({
                     Loading your profile…
                   </p>
                 )}
-              </DialogContent>
+              </ProfileEditDialogContent>
             </Dialog>
           ) : (
             <>

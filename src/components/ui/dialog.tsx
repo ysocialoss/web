@@ -7,6 +7,7 @@ import { cn } from "cn";
 import { Button } from "@/components/ui/button";
 import { XIcon } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useAnimatedPopupHeight } from "@/hooks/use-animated-popup-height";
 import {
   Drawer,
   DrawerClose,
@@ -88,6 +89,7 @@ function DialogOverlay({
 function DialogContent({
   className,
   children,
+  ref,
   showCloseButton = true,
   ...props
 }: Omit<DialogPrimitive.Popup.Props, "render" | "className" | "style"> &
@@ -95,9 +97,10 @@ function DialogContent({
     showCloseButton?: boolean;
   }) {
   const mobile = React.useContext(DialogMobileContext);
+  const animatedRef = useAnimatedPopupHeight(ref);
   if (mobile) {
     return (
-      <DrawerContent {...props}>
+      <DrawerContent ref={ref} {...props}>
         <div
           className={cn(
             "relative grid min-h-0 gap-4 overflow-y-auto overscroll-contain p-4 pb-[max(1rem,env(safe-area-inset-bottom))]",
@@ -128,9 +131,11 @@ function DialogContent({
     <DialogPortal>
       <DialogOverlay />
       <DialogPrimitive.Popup
+        ref={animatedRef}
         data-slot="dialog-content"
         className={cn(
           "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 duration-100 outline-none sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+          "data-resizing:overflow-hidden [&:is(.overflow-auto,.overflow-y-auto)]:[scrollbar-gutter:stable]",
           className,
         )}
         {...props}

@@ -10,6 +10,7 @@ import { FloatingNavigation } from "@/components/ui/floating-navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useNewPostTarget } from "@/features/feed/new-post-target";
 import { useDmUnread } from "@/features/dms/dm-unread";
+import { SiteWordmark } from "./site-wordmark";
 
 export function MobileHeader({
   auth,
@@ -38,13 +39,7 @@ export function MobileHeader({
             onClick={onLogoClick}
             className="flex min-h-11 items-center rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            <img
-              src="/logo.png"
-              alt="ysocial"
-              width={1708}
-              height={644}
-              className="h-auto w-28"
-            />
+            <SiteWordmark className="block w-28" />
           </Link>
           <div className="flex items-center gap-1">
             <LegalMenu className="size-11" />

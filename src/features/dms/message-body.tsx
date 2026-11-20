@@ -2,7 +2,7 @@ import { Fragment, memo, useState, type ReactNode } from "react";
 import { Globe } from "lucide-react";
 import { Link } from "react-router";
 import { Button } from "@/components/ui/button";
-import { ExternalPostLink } from "@/features/feed/external-post-link";
+import { ExternalLink } from "@/components/ui/external-link";
 import { messageLinks, type MessageEmbed } from "./message-links";
 import { LinkCard, PostCard } from "./embeds";
 
@@ -12,7 +12,7 @@ function MessageLink({ href, children, className }: { href: string; children: Re
   const url = new URL(href);
   return url.origin === globalThis.location?.origin
     ? <Link to={href} className={className}>{children}</Link>
-    : <ExternalPostLink href={href} className={className}>{children}</ExternalPostLink>;
+    : <ExternalLink href={href} className={className}>{children}</ExternalLink>;
 }
 
 export const MessageBody = memo(function MessageBody({ text }: { text: string }) {

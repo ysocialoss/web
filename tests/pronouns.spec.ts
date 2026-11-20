@@ -1,4 +1,35 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator } from "@playwright/test";
+
+async function popupResizeHeights(tab: Locator) {
+  return tab.evaluate(async (element) => {
+    const popup = element.closest<HTMLElement>('[role="dialog"]');
+    const scrollport = element.closest<HTMLElement>(".overflow-y-auto");
+    const tabList = element.closest<HTMLElement>('[role="tablist"]');
+    if (!(element instanceof HTMLElement) || !popup || !scrollport || !tabList)
+      throw new Error("Expected a tab inside a dialog");
+
+    const heights = [popup.offsetHeight];
+    const widths = [tabList.offsetWidth];
+    let animated = false;
+    let scrollbarDuringResize = false;
+    element.click();
+    const deadline = performance.now() + 350;
+    do {
+      await new Promise<number>((resolve) => requestAnimationFrame(resolve));
+      heights.push(popup.offsetHeight);
+      widths.push(tabList.offsetWidth);
+      if (popup.hasAttribute("data-resizing")) {
+        scrollbarDuringResize ||= getComputedStyle(scrollport).overflowY !== "hidden";
+      }
+      animated ||= popup.getAnimations().some(
+        ({ effect }) =>
+          effect instanceof KeyframeEffect &&
+          effect.getKeyframes().some((frame) => "height" in frame),
+      );
+    } while (performance.now() < deadline);
+    return { heights, animated, widths, scrollbarDuringResize };
+  });
+}
 
 test.use({ locale: "de-DE", reducedMotion: "reduce" });
 
@@ -55,6 +86,9 @@ test("onboarding and profile editing save suggested and custom pronouns", async 
   let pronouns = "";
   let profileCreations = 0;
   await page.route("**/api/**", (route) => route.fulfill({ json: {} }));
+  await page.route("**/api/github", (route) =>
+    route.fulfill({ json: { configured: true, github: null } }),
+  );
   await page.route("**/api/profiles/*/availability", (route) =>
     route.fulfill({
       json: { available: !route.request().url().includes("/taken_handle/") },
@@ -178,8 +212,43 @@ test("onboarding and profile editing save suggested and custom pronouns", async 
   await expect(page.getByText("hän", { exact: true })).toBeVisible();
   const edit = page.getByRole("button", { name: "Edit", exact: true });
   const done = page.getByRole("button", { name: "Done", exact: true });
+  await page.emulateMedia({ reducedMotion: "no-preference" });
   await edit.click();
   await field.fill("  ze/zir, 她  ");
+  const dialog = page.getByRole("dialog", { name: "Edit profile" });
+  const fieldGaps = await dialog.locator("form label").evaluateAll((labels) =>
+    labels.map((label) => {
+      const field = label.nextElementSibling;
+      if (!field) throw new Error("Expected a field after its label");
+      return Math.round(
+        field.getBoundingClientRect().top - label.getBoundingClientRect().bottom,
+      );
+    }),
+  );
+  expect(fieldGaps).toHaveLength(4);
+  expect(new Set(fieldGaps).size).toBe(1);
+  const profileTab = dialog.getByRole("tab", { name: "Profile", exact: true });
+  const connectionsTab = dialog.getByRole("tab", { name: "Connections" });
+  await expect(profileTab).toHaveAttribute("aria-selected", "true");
+  const desktopResize = await popupResizeHeights(connectionsTab);
+  expect(desktopResize.heights.at(-1)).toBeLessThan(desktopResize.heights[0]);
+  expect(new Set(desktopResize.heights).size).toBeGreaterThan(2);
+  expect(desktopResize.animated).toBe(true);
+  expect(desktopResize.scrollbarDuringResize).toBe(false);
+  expect(new Set(desktopResize.widths).size).toBe(1);
+  await expect(connectionsTab).toHaveAttribute("aria-selected", "true");
+  await expect(
+    dialog.getByRole("tabpanel", { name: "Connections" }),
+  ).toContainText("GitHub");
+  await expect(field).toBeHidden();
+  await expect(done).toBeHidden();
+  expect(updates).toHaveLength(0);
+  const desktopGrowth = await popupResizeHeights(profileTab);
+  expect(desktopGrowth.heights.at(-1)).toBeGreaterThan(desktopGrowth.heights[0]);
+  expect(desktopGrowth.animated).toBe(true);
+  expect(desktopGrowth.scrollbarDuringResize).toBe(false);
+  expect(new Set(desktopGrowth.widths).size).toBe(1);
+  await expect(field).toHaveValue("  ze/zir, 她  ");
   await done.click();
   await expect(page.getByText("ze/zir, 她", { exact: true })).toBeVisible();
   await edit.click();
@@ -187,4 +256,45 @@ test("onboarding and profile editing save suggested and custom pronouns", async 
   await done.click();
   await expect(page.getByText("ze/zir, 她", { exact: true })).toBeHidden();
   expect(updates).toEqual([{ pronouns: "ze/zir, 她" }, { pronouns: "" }]);
+
+  await page.goto("/");
+  await page.getByRole("button", { name: "Edit profile", exact: true }).click();
+  await connectionsTab.click();
+  await expect(
+    dialog.getByRole("tabpanel", { name: "Connections" }),
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+
+  await page.setViewportSize({ width: 390, height: 740 });
+  await page.goto(`/@${user.handle}`);
+  await edit.click();
+  const mobileResize = await popupResizeHeights(connectionsTab);
+  expect(mobileResize.heights.at(-1)).toBeLessThan(mobileResize.heights[0]);
+  expect(new Set(mobileResize.heights).size).toBeGreaterThan(2);
+  expect(mobileResize.animated).toBe(true);
+  expect(mobileResize.scrollbarDuringResize).toBe(false);
+  expect(new Set(mobileResize.widths).size).toBe(1);
+  await expect(
+    dialog.getByRole("tabpanel", { name: "Connections" }),
+  ).toBeVisible();
+  const mobileGrowth = await popupResizeHeights(profileTab);
+  expect(mobileGrowth.heights.at(-1)).toBeGreaterThan(mobileGrowth.heights[0]);
+  expect(mobileGrowth.animated).toBe(true);
+  expect(mobileGrowth.scrollbarDuringResize).toBe(false);
+  expect(new Set(mobileGrowth.widths).size).toBe(1);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  const reducedMotionResize = await popupResizeHeights(connectionsTab);
+  expect(reducedMotionResize.heights.at(-1)).toBeLessThan(
+    reducedMotionResize.heights[0],
+  );
+  expect(reducedMotionResize.animated).toBe(false);
+
+  await page.setViewportSize({ width: 390, height: 500 });
+  await profileTab.click();
+  const scrollport = dialog.locator(".overflow-y-auto");
+  await expect(scrollport).toHaveCSS("overflow-y", "auto");
+  expect(
+    await scrollport.evaluate((element) => element.scrollHeight - element.clientHeight),
+  ).toBeGreaterThan(0);
 });
