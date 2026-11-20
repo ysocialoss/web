@@ -1,6 +1,6 @@
-import type { ReactNode } from "react";
+import type { ComponentProps, ReactNode } from "react";
 import { Link2, UserRound } from "lucide-react";
-import { ComingSoonContent } from "@/components/coming-soon-content";
+import { GithubSettings } from "@/features/settings/github-settings";
 import {
   DialogContent,
   DialogHeader,
@@ -8,12 +8,20 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
+export type ProfileEditTab = "profile" | "connections";
+
 export function ProfileEditDialogContent({
   children,
   saving,
+  tab,
+  onTabChange,
+  onGithubChange,
 }: {
   children: ReactNode;
   saving: boolean;
+  tab?: ProfileEditTab;
+  onTabChange?: (tab: ProfileEditTab) => void;
+  onGithubChange?: ComponentProps<typeof GithubSettings>["onGithubChange"];
 }) {
   return (
     <DialogContent
@@ -25,7 +33,14 @@ export function ProfileEditDialogContent({
           Edit profile
         </DialogTitle>
       </DialogHeader>
-      <Tabs defaultValue="profile" className="min-w-0 gap-5">
+      <Tabs
+        className="min-w-0 gap-5"
+        defaultValue="profile"
+        value={tab}
+        onValueChange={(value) => {
+          if (value === "profile" || value === "connections") onTabChange?.(value);
+        }}
+      >
         <TabsList aria-label="Edit profile sections" className="w-full">
           <TabsTrigger value="profile" disabled={saving}>
             <UserRound aria-hidden="true" />
@@ -40,7 +55,7 @@ export function ProfileEditDialogContent({
           {children}
         </TabsContent>
         <TabsContent value="connections" className="inert:hidden">
-          <ComingSoonContent title="Connections" />
+          <GithubSettings returnTo="profile" onGithubChange={onGithubChange} />
         </TabsContent>
       </Tabs>
     </DialogContent>
