@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { decryptMessage, deviceAccess, matchDevice, verifyDirectory } from "./dm-crypto.ts";
+import { decodePayload, notificationLabel } from "./message-payload.ts";
 import { pinConversation, readLocalDevice, rememberRemovals, trustedRoot } from "./dm-storage.ts";
 
 const device = z.object({
@@ -35,7 +36,7 @@ export async function chatNotificationPreview(userId: string, notificationId: st
     const sender = peer.verified.get(message.senderDeviceId);
     if (!sender) return;
     await rememberRemovals(userId, own);
-    const text = (await decryptMessage(conversationId, local, sender, message)).replace(/\s+/gu, " ").trim();
+    const text = notificationLabel(decodePayload(await decryptMessage(conversationId, local, sender, message))).replace(/\s+/gu, " ").trim();
     signal.throwIfAborted();
     if (!await pinConversation(userId, conversationId, message.senderId) || !await trustedRoot(userId, peer.root, true)) return;
     await rememberRemovals(userId, peer);
