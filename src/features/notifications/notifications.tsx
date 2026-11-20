@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Bell,
   CheckCheck,
   Heart,
+  Mail,
   MessageCircle,
   Quote,
   Repeat2,
@@ -25,6 +26,7 @@ import { useNotifications } from "./notifications-context";
 import { PushSettings } from "./push-settings";
 import { cn } from "@/lib/utils";
 import { usePageTitle } from "@/hooks/use-page-title";
+import { chatNotificationPreview } from "@/features/dms/notification-preview";
 
 const kinds = {
   like: {
@@ -60,10 +62,20 @@ const kinds = {
     color:
       "bg-violet-100 text-violet-600 dark:bg-violet-950 dark:text-violet-400",
   },
+  dm_invite: {
+    icon: Mail,
+    text: "wants to chat with you",
+    color: "bg-violet-100 text-violet-600 dark:bg-violet-950 dark:text-violet-400",
+  },
+  dm_message: {
+    icon: MessageCircle,
+    text: "sent you a message",
+    color: "bg-sky-100 text-sky-600 dark:bg-sky-950 dark:text-sky-400",
+  },
 };
 
 function NotificationsContent({ onNavigate }: { onNavigate?: () => void }) {
-  const { items, loading, nextCursor, error, refresh, markRead, signedIn, canWrite } =
+  const { items, loading, nextCursor, error, refresh, markRead, signedIn, canWrite, userId, hideContent } =
     useNotifications();
   const navigate = useNavigate();
   const visible = items;
@@ -112,7 +124,9 @@ function NotificationsContent({ onNavigate }: { onNavigate?: () => void }) {
                     if (!item.readAt) void markRead(item.id);
                     onNavigate?.();
                     navigate(
-                      item.postId
+                      item.conversationId
+                        ? `/messages/${item.conversationId}`
+                        : item.postId
                         ? `/posts/${item.postId}`
                         : `/@${item.actor.handle}`,
                     );
@@ -146,11 +160,12 @@ function NotificationsContent({ onNavigate }: { onNavigate?: () => void }) {
                       </span>{" "}
                       {kind.text}
                     </p>
-                    {item.preview && (
+                    {!hideContent && item.preview && (
                       <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
                         {item.preview}
                       </p>
                     )}
+                    {!hideContent && item.chatPreview && userId && <ChatPreview userId={userId} id={item.id} />}
                     <time
                       dateTime={item.createdAt}
                       className="mt-1.5 block text-xs text-muted-foreground"
@@ -222,6 +237,32 @@ function NotificationsContent({ onNavigate }: { onNavigate?: () => void }) {
       </div>}
     </>
   );
+}
+
+function ChatPreview({ userId, id }: { userId: string; id: string }) {
+  const element = useRef<HTMLSpanElement>(null);
+  const [preview, setPreview] = useState<string>();
+  useEffect(() => {
+    const controller = new AbortController();
+    function load() {
+      void chatNotificationPreview(userId, id, AbortSignal.any([controller.signal, AbortSignal.timeout(5_000)]))
+        .then((result) => {
+          if (!controller.signal.aborted) setPreview(result?.text);
+        });
+    }
+    const observer = typeof IntersectionObserver === "undefined" ? undefined : new IntersectionObserver((entries) => {
+      if (!entries.some((entry) => entry.isIntersecting)) return;
+      observer?.disconnect();
+      load();
+    });
+    if (observer && element.current) observer.observe(element.current);
+    else load();
+    return () => {
+      observer?.disconnect();
+      controller.abort();
+    };
+  }, [id, userId]);
+  return <span ref={element} className={preview ? "mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground" : "block h-px"} dir="auto">{preview}</span>;
 }
 
 function MarkAllRead() {
