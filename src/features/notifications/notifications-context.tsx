@@ -8,7 +8,9 @@ import {
   type ReactNode,
 } from "react";
 import { api, errorMessage, type SocialNotification } from "@/lib/api";
+import { subscribeDm } from "@/features/dms/dm-live";
 import { NotificationPrompt } from "./notification-prompt";
+import { registerPushWorker, supportsPush } from "./enable-push";
 
 function useNotificationState(userId: string | null, canWrite: boolean) {
   const [items, setItems] = useState<SocialNotification[]>([]);
@@ -20,6 +22,18 @@ function useNotificationState(userId: string | null, canWrite: boolean) {
   const request = useRef<AbortController | null>(null);
   const countRequest = useRef(0);
   const reading = useRef(new Set<string>());
+  const previewVisibility = useRef<boolean | undefined>(undefined);
+  const [hideContent, setHideContent] = useState(false);
+  const applyPrivacy = useCallback((hidden: boolean | undefined) => {
+    if (hidden === undefined) return;
+    previewVisibility.current = hidden;
+    setHideContent(hidden);
+    if (hidden) {
+      setItems((previous) => previous.map((item) => item.chatPreview || item.preview
+        ? { ...item, chatPreview: false, preview: null }
+        : item));
+    }
+  }, []);
   const refresh = useCallback(
     async (cursor?: string) => {
       if (!userId) return;
@@ -36,6 +50,7 @@ function useNotificationState(userId: string | null, canWrite: boolean) {
           controller.signal,
         );
         if (controller.signal.aborted) return;
+        applyPrivacy(result.hideContent);
         setItems((previous) => {
           const existing = new Map(previous.map((item) => [item.id, item]));
           if (cursor)
@@ -57,7 +72,7 @@ function useNotificationState(userId: string | null, canWrite: boolean) {
         if (!controller.signal.aborted) setLoading(false);
       }
     },
-    [userId],
+    [userId, applyPrivacy],
   );
   const syncUnreadCount = useCallback(async (signal?: AbortSignal) => {
     const countVersion = ++countRequest.current;
@@ -72,12 +87,48 @@ function useNotificationState(userId: string | null, canWrite: boolean) {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void refresh();
-    // Poll only the count while idle. Opening the panel refreshes its contents.
-    const poll = () => {
+    // Keep the badge and privacy setting current even without a live connection.
+    const poll = async () => {
       if (document.visibilityState !== "visible" || !userId) return;
-      void syncUnreadCount(controller.signal);
+      const startedWithRequest = request.current;
+      const revision = privacyRevision;
+      const countVersion = ++countRequest.current;
+      try {
+        const result = await api.notifications(
+          undefined,
+          false,
+          controller.signal,
+        );
+        if (
+          controller.signal.aborted ||
+          request.current !== startedWithRequest ||
+          revision !== privacyRevision ||
+          countVersion !== countRequest.current
+        )
+          return;
+        setUnreadCount(result.unreadCount);
+        if (result.hideContent !== undefined && result.hideContent !== previewVisibility.current) {
+          applyPrivacy(result.hideContent);
+          void refresh();
+        }
+      } catch {
+        /* The panel exposes errors with a retry action. */
+      }
     };
     const controller = new AbortController();
+    let privacyRevision = 0;
+    let liveRefresh: ReturnType<typeof setTimeout> | undefined;
+    const unsubscribe = userId && canWrite ? subscribeDm(userId, (event) => {
+      if (event.type === "previews") {
+        privacyRevision++;
+        request.current?.abort();
+        applyPrivacy(event.hidden);
+      }
+      if (event.type === "ready" || event.type === "notifications" || event.type === "previews") {
+        clearTimeout(liveRefresh);
+        liveRefresh = setTimeout(() => void refresh(), 100);
+      }
+    }) : undefined;
     const timer = setInterval(() => void poll(), 30_000);
     const onPush = () => {
       void refresh();
@@ -86,12 +137,20 @@ function useNotificationState(userId: string | null, canWrite: boolean) {
     navigator.serviceWorker?.addEventListener("message", onPush);
     return () => {
       clearInterval(timer);
+      clearTimeout(liveRefresh);
+      unsubscribe?.();
       controller.abort();
       request.current?.abort();
       window.removeEventListener("focus", onPush);
       navigator.serviceWorker?.removeEventListener("message", onPush);
     };
-  }, [refresh, syncUnreadCount, userId]);
+  }, [refresh, userId, canWrite, applyPrivacy]);
+  useEffect(() => {
+    if (!userId || !supportsPush()) return;
+    void navigator.serviceWorker.getRegistration("/").then((registration) => {
+      if (registration) return registerPushWorker();
+    }).catch(() => {});
+  }, [userId]);
   const markSeen = useCallback(
     async (ids: string[], reportError = false) => {
       if (!canWrite) return;
@@ -156,6 +215,8 @@ function useNotificationState(userId: string | null, canWrite: boolean) {
     refresh,
     markRead,
     markSeen,
+    userId,
+    hideContent,
     signedIn: !!userId,
     canWrite,
   };

@@ -9,11 +9,15 @@ export function supportsPush() {
   );
 }
 
+export function registerPushWorker() {
+  return navigator.serviceWorker.register("/sw.js", { type: "module" });
+}
+
 export async function enablePush() {
   // Keep the permission request in the user gesture, before any network await.
   const permission = await Notification.requestPermission();
   if (permission !== "granted") return permission;
-  await navigator.serviceWorker.register("/sw.js");
+  await registerPushWorker();
   const registration = await navigator.serviceWorker.ready;
   let subscription = await registration.pushManager.getSubscription();
   const config = await api.pushConfig();

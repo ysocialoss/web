@@ -1,5 +1,5 @@
 import type { MouseEventHandler } from "react";
-import { House, MessageCircle, Plus, Search, UserRound } from "lucide-react";
+import { House, Mail, MessageCircle, Plus, Search, UserRound } from "lucide-react";
 import { Link, useLocation } from "react-router";
 import { LegalMenu } from "./legal-menu";
 import { ProgressiveBlur } from "@/components/ui/progressive-blur";
@@ -9,6 +9,7 @@ import { NotificationsBell } from "@/features/notifications/notifications";
 import { FloatingNavigation } from "@/components/ui/floating-navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useNewPostTarget } from "@/features/feed/new-post-target";
+import { useDmUnread } from "@/features/dms/dm-unread";
 import { SiteWordmark } from "./site-wordmark";
 
 export function MobileHeader({
@@ -54,6 +55,7 @@ export function MobileHeader({
 export function MobileNavigation({ auth }: { auth: AuthState }) {
   const { pathname } = useLocation();
   const newPost = useNewPostTarget();
+  const { unread } = useDmUnread();
   const session = auth.session;
   const user =
     session?.authenticated && !session.needsOnboarding ? session.user : null;
@@ -81,11 +83,14 @@ export function MobileNavigation({ auth }: { auth: AuthState }) {
       icon: <House aria-hidden="true" />,
     },
     { to: "/search", label: "Search", icon: <Search aria-hidden="true" /> },
+    { to: "/messages", label: "Messages", icon: <Mail aria-hidden="true" />, badge: unread },
     { to: profilePath, label: "Profile", icon: profileIcon },
   ];
   const activeTo = pathname.startsWith("/posts/")
     ? "/"
-    : (items.find(({ to }) => to === pathname)?.to ?? null);
+    : pathname.startsWith("/messages/")
+      ? "/messages"
+      : (items.find(({ to }) => to === pathname)?.to ?? null);
 
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-0 z-30 px-[max(1rem,env(safe-area-inset-left),env(safe-area-inset-right))] pb-[max(1rem,env(safe-area-inset-bottom))] md:hidden">

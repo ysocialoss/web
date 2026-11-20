@@ -6,7 +6,7 @@
   "scripts": {
     "test": "playwright test",
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && vite build --config vite.push.config.ts",
     "lint": "eslint .",
     "format": "prettier --write \"**/*.{ts,tsx}\"",
     "typecheck": "tsc --noEmit",
@@ -31,6 +31,7 @@
     "input-otp": "^1.5.0",
     "linkifyjs": "^4.4.0",
     "lucide-react": "^1.70.0",
+    "motion": "^12.43.0",
     "react": "^19.3.1",
     "react-audio-visualize": "^1.2.0",
     "react-day-picker": "^10.0.2",

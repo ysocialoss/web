@@ -49,7 +49,9 @@ import { recallScroll, rememberScroll } from "@/lib/scroll-memory";
 import { useGoBack } from "@/hooks/use-go-back";
 import { SettingsPage } from "@/features/settings/settings";
 import { NotificationsProvider } from "@/features/notifications/notifications-context";
+import { DmUnreadProvider } from "@/features/dms/dm-unread";
 import { NotificationsPage } from "@/features/notifications/notifications";
+import { MessagesPage } from "@/features/dms/messages-page";
 
 export function App() {
   return (
@@ -78,9 +80,13 @@ function AppShell() {
   const { pathname, key: navigationKey } = useLocation();
   const profileHandle = matchPath("/:profileHandle", pathname)?.params
     .profileHandle;
+  const messagesLayout = !!matchPath("/messages/*", pathname) &&
+    (auth.session === null ? !auth.error :
+      auth.session.authenticated && !auth.session.needsOnboarding && !auth.session.pendingApproval && !auth.session.ban);
+  const threadView = messagesLayout && pathname.replace(/\/+$/, "") !== "/messages";
   const hideAccountSidebar =
     /^@[a-z0-9_]{3,32}$/.test(profileHandle ?? "") ||
-    matchPath("/profile", pathname) !== null;
+    matchPath("/profile", pathname) !== null || messagesLayout;
   useEffect(() => {
     // Paint the base logo before enabling the tint on a direct Settings visit.
     let frame = requestAnimationFrame(() => {
@@ -185,13 +191,23 @@ function AppShell() {
       }
       holdPrompt={auth.showApprovalWelcome}
     >
+     <DmUnreadProvider
+      userId={
+        auth.session?.authenticated && !auth.session.needsOnboarding
+          ? auth.session.user.id
+          : null
+      }
+      enabled={
+        !!auth.session?.authenticated && !auth.session.needsOnboarding && !auth.session.pendingApproval && !auth.session.ban
+      }
+     >
       <div
         className="relative flex h-dvh min-h-0 flex-col"
         data-settings-page={
           wordmarkReady && matchPath("/asettings", pathname) ? "" : undefined
         }
       >
-        <MobileHeader auth={auth} onLogoClick={handleLogoClick} />
+        {!threadView && <MobileHeader auth={auth} onLogoClick={handleLogoClick} />}
         {awaitingApproval && <div aria-hidden="true" className="h-[calc(4rem+env(safe-area-inset-top))] shrink-0 md:hidden" />}
         <ConnectionBanner />
         {awaitingApproval && <ApprovalBanner />}
@@ -213,8 +229,15 @@ function AppShell() {
             aria-label="Main content"
             tabIndex={0}
             className={cn(
-              "content-scroll min-h-0 min-w-0 overflow-x-hidden overflow-y-auto overscroll-y-contain px-4 pt-4 pb-[calc(6.5rem+env(safe-area-inset-bottom))] has-[[data-skeleton-scroll-lock]]:overflow-y-hidden sm:px-10 sm:pt-6 md:pb-6 lg:px-12",
-              awaitingApproval ? "max-md:pt-3" : "max-md:pt-[calc(4.75rem+env(safe-area-inset-top))]",
+              messagesLayout
+                ? cn(
+                    "flex min-h-0 min-w-0 flex-col overflow-hidden",
+                    threadView
+                      ? "max-md:pt-0 max-md:pb-0"
+                      : "max-md:pt-[calc(4rem+env(safe-area-inset-top))] max-md:pb-[calc(4.5rem+env(safe-area-inset-bottom))]",
+                  )
+                : "content-scroll min-h-0 min-w-0 overflow-x-hidden overflow-y-auto overscroll-y-contain px-4 pt-4 pb-[calc(6.5rem+env(safe-area-inset-bottom))] has-[[data-skeleton-scroll-lock]]:overflow-y-hidden sm:px-10 sm:pt-6 md:pb-6 lg:px-12",
+              !messagesLayout && (awaitingApproval ? "max-md:pt-3" : "max-md:pt-[calc(4.75rem+env(safe-area-inset-top))]"),
             )}
           >
             <Account auth={auth} />
@@ -249,10 +272,8 @@ function AppShell() {
                 path="/login"
                 element={<LoginRoute session={auth.session} />}
               />
-              <Route
-                path="/messages"
-                element={<ComingSoon title="Messages" />}
-              />
+              <Route path="/messages/:conversationId?" element={<MessagesPage session={auth.session} sessionError={auth.error} />} />
+              <Route path="/messages/devices" element={<MessagesPage session={auth.session} sessionError={auth.error} managingDevices />} />
               <Route
                 path="/search"
                 element={<SearchPage session={auth.session} />}
@@ -288,8 +309,9 @@ function AppShell() {
           </section>
           {!hideAccountSidebar && <AccountSidebar auth={auth} />}
         </main>
-        <MobileNavigation auth={auth} />
+        {!threadView && <MobileNavigation auth={auth} />}
       </div>
+     </DmUnreadProvider>
     </NotificationsProvider>
   );
 }

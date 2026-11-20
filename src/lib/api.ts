@@ -274,13 +274,16 @@ const notificationSchema = z.object({
   kind: z.enum(["like", "repost", "reply", "follow", "mention", "quote"]),
   actor: userSchema,
   postId: z.string().nullable(),
+  conversationId: z.uuid().nullish(),
   preview: z.string().nullable(),
+  chatPreview: z.boolean().optional(),
   createdAt: z.string(),
   readAt: z.string().nullable(),
 });
 export type SocialNotification = z.infer<typeof notificationSchema>;
 const notificationsSchema = z.object({
   notifications: z.array(notificationSchema),
+  hideContent: z.boolean().optional(),
   unreadCount: z.number(),
   nextCursor: z.string().nullable(),
 });
@@ -543,7 +546,7 @@ export function errorMessage(error: unknown) {
         : "YS-0003";
   return `${message} (${code})`;
 }
-async function sendRequest<T>(
+export async function sendRequest<T>(
   path: string,
   schema: z.ZodType<T>,
   method = "GET",
@@ -666,6 +669,7 @@ export const api = {
         publicKey: z.string().nullable(),
         subscribed: z.boolean(),
         promptDismissed: z.boolean(),
+        hideContent: z.boolean().default(false),
         mutedUntil: z.string().nullable(),
         mutedForever: z.boolean(),
       }),
@@ -677,6 +681,8 @@ export const api = {
     request("/api/notifications/push", z.undefined(), "PUT", subscription),
   dismissNotificationPrompt: () =>
     request("/api/notifications/push/prompt-dismissal", z.undefined(), "PUT"),
+  setNotificationContentHidden: (hideContent: boolean) =>
+    request("/api/notifications/previews", z.undefined(), "PATCH", { hideContent }),
   mutePush: (endpoint: string, duration: "1h" | "8h" | "forever" | "off") =>
     request(
       "/api/notifications/push/mute",
