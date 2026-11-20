@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { requestLimit, type Conversation } from "./dm-api";
 import { countLabel } from "./dm-unread";
 import { nameOf, PersonAvatar } from "./message-row";
+import { ConversationListSkeleton } from "./messages-loading";
 
 type Filter = "all" | "requests" | "unread";
 
@@ -103,18 +104,13 @@ export function ConversationList({
       </header>
       <nav aria-label="Conversations" className="min-h-0 flex-1 space-y-0.5 overflow-y-auto overscroll-contain p-2">
         {error && <p role="alert" className="px-2 py-2 text-sm text-destructive">{error}</p>}
-        {!conversations && !error && <p role="status" className="px-2 py-2 text-sm text-muted-foreground">Loading conversations…</p>}
+        {!conversations && !error && <ConversationListSkeleton />}
         {conversations && shown.length === 0 && !error && (
           <div className="flex flex-col items-center gap-2 px-4 py-10 text-center text-sm text-muted-foreground">
             <Mail aria-hidden="true" className="size-6" />
             <p>
               {filter === "requests" ? "No message requests." : filter === "unread" ? "You’re all caught up." : "No conversations yet."}
             </p>
-            {filter === "all" && (
-              <button type="button" onClick={onNew} className="font-medium text-foreground underline underline-offset-4 outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                Start one
-              </button>
-            )}
           </div>
         )}
         {shown.map((conversation) => {

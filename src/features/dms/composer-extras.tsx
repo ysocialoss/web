@@ -58,8 +58,9 @@ function PollDialog({ open, onOpenChange, onCreate }: { open: boolean; onOpenCha
     return () => clearTimeout(reset);
   }, [open]);
   const cleaned = options.map((option) => option.trim());
-  const unique = new Set(cleaned.map((option) => option.toLowerCase())).size === cleaned.length;
-  const valid = title.trim().length > 0 && cleaned.every(Boolean) && unique && cleaned.length >= 2;
+  const filled = cleaned.filter(Boolean);
+  const unique = new Set(filled.map((option) => option.toLowerCase())).size === filled.length;
+  const valid = title.trim().length > 0 && filled.length === cleaned.length && unique && filled.length >= 2;
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="gap-3">

@@ -74,10 +74,11 @@ async function deviceState(userId: string, signal: AbortSignal): Promise<State> 
 }
 
 export function DmDeviceGate({
-  userId, managingDevices, children,
+  userId, managingDevices, loading, children,
 }: {
   userId: string;
   managingDevices: boolean;
+  loading: ReactNode;
   children: (device: LocalDevice, pendingCount: number) => ReactNode;
 }) {
   const [state, setState] = useState<State>({ kind: "loading" });
@@ -121,6 +122,7 @@ export function DmDeviceGate({
       ? <DeviceSettings state={state} refresh={refreshNow} />
       : children(state.device, state.requests.length);
   }
+  if (state.kind === "loading" && !refreshError) return loading;
 
   const waiting = state.kind === "pending" || state.kind === "confirm";
   return (
@@ -137,7 +139,6 @@ export function DmDeviceGate({
         </div>
         {(error || refreshError) && <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">{error || refreshError}</p>}
         {refreshError && <Button variant="outline" className="self-center" onClick={() => refreshNow()}>Retry</Button>}
-        {state.kind === "loading" && !refreshError && <p role="status" className="text-center text-sm text-muted-foreground">Checking this browser…</p>}
         {state.kind === "revoked" && (
           <>
             <p className="text-center text-sm text-muted-foreground">Setting it up again requires approval from one of your other devices and starts a new message history here.</p>

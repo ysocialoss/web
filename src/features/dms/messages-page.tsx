@@ -13,24 +13,30 @@ import { useDmUnread } from "./dm-unread";
 import { openConversation } from "./dm-send";
 import { NewMessageDialog } from "./new-message-dialog";
 import { MessagingOff, useMessagingPreference } from "./messaging-preference";
+import { ChatDevicesSkeleton, MessagesLayout, MessagesSkeleton } from "./messages-loading";
 import { Thread } from "./thread";
 
-export function MessagesPage({ session, managingDevices = false }: { session: Session | null; managingDevices?: boolean }) {
-  usePageTitle(managingDevices ? "Chat devices" : "Messages");
+export function MessagesPage({ session, sessionError, managingDevices = false }: { session: Session | null; sessionError: string; managingDevices?: boolean }) {
+  const title = managingDevices ? "Chat devices" : "Messages";
+  usePageTitle(title);
   const { conversationId } = useParams();
+  const loading = managingDevices ? <ChatDevicesSkeleton /> : <MessagesSkeleton showThread={!!conversationId} />;
+  if (session === null && !sessionError) return loading;
   if (!session?.authenticated || session.needsOnboarding || session.pendingApproval || session.ban) {
     return (
       <div className="mx-auto max-w-xl space-y-2 px-4 py-5 sm:px-8">
-        <h1 className="text-xl font-semibold">Messages</h1>
-        <p className="text-sm text-muted-foreground">
-          {session === null ? "Loading…" : !session.authenticated ? <Link to="/login" className="underline">Sign in to use Messages.</Link>
-            : "Messages are available to approved accounts in good standing."}
-        </p>
+        <h1 className="text-xl font-semibold">{title}</h1>
+        {session && (
+          <p className="text-sm text-muted-foreground">
+            {!session.authenticated ? <Link to="/login" className="underline">Sign in to use Messages.</Link>
+              : "Messages are available to approved accounts in good standing."}
+          </p>
+        )}
       </div>
     );
   }
   return (
-    <DmDeviceGate key={session.user.id} userId={session.user.id} managingDevices={managingDevices}>
+    <DmDeviceGate key={session.user.id} userId={session.user.id} managingDevices={managingDevices} loading={loading}>
       {(device, pending) => <Inbox device={device} conversationId={conversationId} pending={pending} />}
     </DmDeviceGate>
   );
@@ -102,18 +108,17 @@ function Inbox({ device, conversationId, pending }: { device: LocalDevice; conve
 
   if (messaging.enabled === false) return <MessagingOff onEnable={() => messaging.change(true)} error={messaging.error} />;
   return (
-    <div className="flex h-full min-h-0 min-w-0">
-      <aside aria-label="Conversations" className={`w-full shrink-0 flex-col border-border md:flex md:w-72 md:border-r xl:w-80 ${conversationId ? "hidden" : "flex"}`}>
-        <ConversationList
-          conversations={conversations}
-          error={error}
-          userId={device.userId}
-          typing={typing}
-          pendingDevices={pending}
-          onNew={() => setComposing(true)}
-          onClose={(conversation) => void close(conversation)}
-        />
-      </aside>
+    <MessagesLayout showThread={!!conversationId} sidebar={(
+      <ConversationList
+        conversations={conversations}
+        error={error}
+        userId={device.userId}
+        typing={typing}
+        pendingDevices={pending}
+        onNew={() => setComposing(true)}
+        onClose={(conversation) => void close(conversation)}
+      />
+    )}>
       {target && !conversationId ? (
         <OpenTarget key={target} handle={target} device={device} onOpened={changed} />
       ) : conversationId ? (
@@ -129,7 +134,7 @@ function Inbox({ device, conversationId, pending }: { device: LocalDevice; conve
         </div>
       )}
       <NewMessageDialog open={composing} onOpenChange={setComposing} device={device} selfId={device.userId} onOpened={changed} />
-    </div>
+    </MessagesLayout>
   );
 }
 

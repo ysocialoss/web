@@ -81,7 +81,8 @@ function AppShell() {
   const profileHandle = matchPath("/:profileHandle", pathname)?.params
     .profileHandle;
   const messagesLayout = !!matchPath("/messages/*", pathname) &&
-    !!auth.session?.authenticated && !auth.session.needsOnboarding && !auth.session.pendingApproval && !auth.session.ban;
+    (auth.session === null ? !auth.error :
+      auth.session.authenticated && !auth.session.needsOnboarding && !auth.session.pendingApproval && !auth.session.ban);
   const threadView = messagesLayout && pathname.replace(/\/+$/, "") !== "/messages";
   const hideAccountSidebar =
     /^@[a-z0-9_]{3,32}$/.test(profileHandle ?? "") ||
@@ -271,8 +272,8 @@ function AppShell() {
                 path="/login"
                 element={<LoginRoute session={auth.session} />}
               />
-              <Route path="/messages/:conversationId?" element={<MessagesPage session={auth.session} />} />
-              <Route path="/messages/devices" element={<MessagesPage session={auth.session} managingDevices />} />
+              <Route path="/messages/:conversationId?" element={<MessagesPage session={auth.session} sessionError={auth.error} />} />
+              <Route path="/messages/devices" element={<MessagesPage session={auth.session} sessionError={auth.error} managingDevices />} />
               <Route
                 path="/search"
                 element={<SearchPage session={auth.session} />}

@@ -9,6 +9,8 @@ import type { LocalDevice } from "./dm-crypto";
 import { openConversation } from "./dm-send";
 import { nameOf, PersonAvatar } from "./message-row";
 
+const searchTerm = (query: string) => query.trim().replace(/^@/, "");
+
 export function NewMessageDialog({
   open, onOpenChange, device, selfId, onOpened, onPick, title = "New message", description = "Find someone by their name or @handle.",
 }: {
@@ -24,19 +26,20 @@ export function NewMessageDialog({
   const navigate = useNavigate();
   const listId = useId();
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<SearchUser[]>([]);
-  const [searching, setSearching] = useState(false);
+  const [results, setResults] = useState<{ term: string; users: SearchUser[] }>();
   const [active, setActive] = useState(0);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const input = useRef<HTMLInputElement>(null);
-  const term = query.trim().replace(/^@/, "");
+  const term = searchTerm(query);
+  const searchedTerm = results?.term;
+  const searching = !!term && term !== searchedTerm;
 
   useEffect(() => {
     if (!open) return;
     const reset = setTimeout(() => {
       setQuery("");
-      setResults([]);
+      setResults(undefined);
       setError("");
       setActive(0);
     }, 0);
@@ -44,28 +47,25 @@ export function NewMessageDialog({
   }, [open]);
 
   useEffect(() => {
-    if (!open || !term) return;
+    if (!open || !searching) return;
     const controller = new AbortController();
     const timer = setTimeout(() => {
-      setSearching(true);
       api.searchUsers(term, undefined, controller.signal).then(({ users }) => {
         if (controller.signal.aborted) return;
-        setResults(users.filter((user) => user.id !== selfId).slice(0, 8));
+        setResults({ term, users: users.filter((user) => user.id !== selfId).slice(0, 8) });
         setActive(0);
         setError("");
       }).catch(() => {
-        if (!controller.signal.aborted) setResults([]);
-      }).finally(() => {
-        if (!controller.signal.aborted) setSearching(false);
+        if (!controller.signal.aborted) setResults({ term, users: [] });
       });
     }, 180);
     return () => {
       clearTimeout(timer);
       controller.abort();
     };
-  }, [open, term, selfId]);
+  }, [open, searching, term, selfId]);
 
-  const shown = term ? results : [];
+  const shown = term ? results?.users ?? [] : [];
 
   async function choose(user: SearchUser) {
     if (busy) return;
@@ -113,7 +113,11 @@ export function NewMessageDialog({
           <input
             ref={input}
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) => {
+              const value = event.target.value;
+              setQuery(value);
+              if (!searchTerm(value)) setResults(undefined);
+            }}
             onKeyDown={onKeyDown}
             placeholder="Search people"
             aria-label="Recipient"
@@ -130,7 +134,7 @@ export function NewMessageDialog({
           />
           {searching && <LoaderCircle aria-hidden="true" className="size-4 shrink-0 animate-spin text-muted-foreground motion-reduce:animate-none" />}
         </label>
-        <div id={listId} role="listbox" aria-label="People" className="-mx-1 max-h-72 min-h-24 overflow-y-auto overscroll-contain px-1">
+        <div id={listId} role="listbox" aria-label="People" aria-busy={searching} className="-mx-1 max-h-72 min-h-24 overflow-y-auto overscroll-contain px-1">
           {shown.map((user, index) => (
             <div
               key={user.id}
@@ -152,8 +156,11 @@ export function NewMessageDialog({
               </div>
             </div>
           ))}
-          {term && !searching && shown.length === 0 && <p className="px-2 py-6 text-center text-sm text-muted-foreground">No one found for “{term}”.</p>}
-          {!term && <p className="px-2 py-6 text-center text-sm text-muted-foreground">Start typing a name or handle.</p>}
+          {term && searchedTerm ? shown.length === 0 && (
+            <p className="px-2 py-6 text-center text-sm text-muted-foreground">No one found for “{searchedTerm}”.</p>
+          ) : (
+            <p className="px-2 py-6 text-center text-sm text-muted-foreground">Start typing a name or handle.</p>
+          )}
         </div>
         {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
       </DialogContent>

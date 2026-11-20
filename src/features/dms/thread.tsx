@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { ArrowLeft, Ban, Search, CornerUpLeft, EyeOff, LockKeyhole, LoaderCircle, SendHorizontal, ShieldCheck, ShieldQuestion, X } from "lucide-react";
+import { ArrowLeft, Ban, Search, CornerUpLeft, EyeOff, LockKeyhole, LoaderCircle, Mail, SendHorizontal, ShieldCheck, ShieldQuestion, X } from "lucide-react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { ActionMenu } from "@/components/ui/action-menu";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,7 @@ import { TypingBubble } from "./typing-bubble";
 import { Collapse } from "@/components/ui/collapse";
 import { ThreadSearch } from "./thread-search";
 import { MessageRow, nameOf, PersonAvatar, type RowActions } from "./message-row";
+import { ThreadSkeleton } from "./messages-loading";
 
 const dateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: "medium" });
 const withEmoji = (text: string) => {
@@ -468,6 +469,8 @@ export function Thread({ id, device, onChange }: { id: string; device: LocalDevi
   const blocked = context?.inviteStatus === "declined" && context.invitedBy === device.userId;
   const hasHistory = !!context && !locked;
 
+  if (!messages && !readError) return <ThreadSkeleton />;
+
   return (
     <section aria-label={peer ? `Conversation with ${nameOf(peer)}` : "Conversation"} className="flex min-h-0 min-w-0 flex-1 flex-col bg-background">
       <header className="flex shrink-0 items-center gap-1.5 border-b border-border px-2 py-2 pt-[max(0.5rem,env(safe-area-inset-top))] sm:px-4 md:pt-2">
@@ -566,10 +569,9 @@ export function Thread({ id, device, onChange }: { id: string; device: LocalDevi
               {loadingOlder && <><LoaderCircle aria-hidden="true" className="size-3.5 animate-spin motion-reduce:animate-none" /> Loading earlier messages…</>}
             </div>
           )}
-          {!messages && !readError && <p role="status" className="px-2 text-sm text-muted-foreground">Loading messages…</p>}
           {hasHistory && messages?.length === 0 && !readError && (
             <p className="px-2 text-sm text-muted-foreground">
-              {needsDevice || paused ? "No messages yet." : asked ? `Say hello. @${context.peer.handle} will see this as a message request.` : accepted ? "No messages on this device yet." : null}
+              {needsDevice || paused || asked ? "No messages yet." : accepted ? "No messages on this device yet." : null}
             </p>
           )}
           {hasHistory && messages && messages.length > 0 && (
@@ -590,6 +592,26 @@ export function Thread({ id, device, onChange }: { id: string; device: LocalDevi
       </div>}
       {actionError && <p role="alert" className="shrink-0 px-4 py-1 text-xs text-destructive">{actionError}</p>}
 
+      {asked && !needsDevice && !paused && (
+        <div role="status" className="mb-2 flex shrink-0 items-start gap-3 border-y border-border bg-muted px-3 py-3 sm:px-4">
+          <span className="grid size-8 shrink-0 place-items-center rounded-full bg-background text-muted-foreground">
+            <Mail aria-hidden="true" className="size-4" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+              <p className="text-sm font-semibold">Message request</p>
+              <span className="rounded-full border border-border bg-background px-2.5 py-0.5 text-xs font-medium text-muted-foreground tabular-nums">
+                {Math.min(requestLimit, Math.max(sentInRequest, context.requestSent))} of {requestLimit} sent
+              </span>
+            </div>
+            <p className="mt-1 text-sm text-muted-foreground">
+              You’re asking to start a conversation. {requestOpen
+                ? `You can send up to ${requestLimit} messages before the other person accepts.`
+                : "You’ve reached the limit. The other person needs to accept before you can send more."}
+            </p>
+          </div>
+        </div>
+      )}
       {(accepted || asked) && (
         <form onSubmit={(event) => void submit(event)} className="shrink-0 px-3 pt-1 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
           {needsDevice || paused ? (
@@ -600,11 +622,6 @@ export function Thread({ id, device, onChange }: { id: string; device: LocalDevi
                   : context.peerOptedOut ? `@${context.peer.handle} has turned off Messages.`
                   : `@${context.peer.handle} has turned off Messages.`}
               </span>
-            </p>
-          ) : asked ? (
-            <p className="px-1 pb-1.5 text-xs text-muted-foreground">
-              Message request · {Math.min(requestLimit, Math.max(sentInRequest, context.requestSent))} of {requestLimit} sent
-              {!requestOpen && ". They need to accept before you can send more."}
             </p>
           ) : null}
           {tooLong && <p role="alert" className="px-1 pb-1 text-xs text-destructive">This message is too long.</p>}
