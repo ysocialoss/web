@@ -50,7 +50,7 @@ import { useGoBack } from "@/hooks/use-go-back";
 import { SettingsPage } from "@/features/settings/settings";
 import { NotificationsProvider } from "@/features/notifications/notifications-context";
 import { DmUnreadProvider } from "@/features/dms/dm-unread";
-import { NotificationsPage } from "@/features/notifications/notifications";
+import { ActivityPage, NotificationsPage } from "@/features/notifications/notifications";
 import { MessagesPage } from "@/features/dms/messages-page";
 
 export function App() {
@@ -304,6 +304,7 @@ function AppShell() {
                 element={<ComingSoon title="Communities" />}
               />
               <Route path="/notifications" element={<NotificationsPage />} />
+              <Route path="/activity" element={<ActivityPage />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </section>
