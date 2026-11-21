@@ -5,13 +5,14 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "@/components/ui/popover";
+import { toast } from "@/components/ui/toast-manager";
 import { dmError, type DmUser } from "@/features/dms/dm-api";
 import { type LocalDevice } from "@/features/dms/dm-crypto";
 import { recentContacts, sendTextTo, type Recent } from "@/features/dms/dm-send";
 import { NewMessageDialog } from "@/features/dms/new-message-dialog";
-import type { Post } from "@/lib/api";
+import { errorMessage } from "@/lib/api";
+import { writeClipboard } from "@/lib/clipboard";
 import { cn } from "@/lib/utils";
-import type { FeedState } from "./use-feed";
 
 const LONG_PRESS_MS = 520;
 const name = (user: DmUser) => user.displayName.trim() || user.handle;
@@ -55,7 +56,19 @@ function Tile({ caption, selected, status, onClick, children }: {
 
 const circle = "size-12 rounded-full [corner-shape:round]";
 
-export function ShareButton({ post, feed, disabled, className }: { post: Post; feed: FeedState; disabled: boolean; className?: string }) {
+type ShareTarget =
+  | { kind: "post"; id: string }
+  | { kind: "profile"; handle: string };
+
+export function ShareButton({
+  target,
+  viewerId,
+  disabled = false,
+}: {
+  target: ShareTarget;
+  viewerId: string | null;
+  disabled?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [recent, setRecent] = useState<Recent>();
@@ -69,8 +82,8 @@ export function ShareButton({ post, feed, disabled, className }: { post: Post; f
   const held = useRef(false);
   const timer = useRef<number | undefined>(undefined);
   const closing = useRef<number | undefined>(undefined);
-  const viewerId = feed.viewerId;
-  const link = new URL(`/posts/${post.id}`, window.location.origin).href;
+  const path = target.kind === "post" ? `/posts/${target.id}` : `/@${target.handle}`;
+  const link = new URL(path, window.location.origin).href;
 
   useEffect(() => () => {
     clearTimeout(press.current);
@@ -88,7 +101,24 @@ export function ShareButton({ post, feed, disabled, className }: { post: Post; f
   }, [open, viewerId]);
 
   async function copy() {
-    if (!(await feed.copyPostLink(post))) return;
+    try {
+      await writeClipboard(link);
+    } catch (error) {
+      const id = toast.add({
+        type: "error",
+        title: "Couldn't copy link",
+        description: errorMessage(error),
+        timeout: 0,
+        actionProps: {
+          children: "Retry",
+          onClick: () => {
+            toast.close(id);
+            void copy();
+          },
+        },
+      });
+      return;
+    }
     setCopied(true);
     window.clearTimeout(timer.current);
     timer.current = window.setTimeout(() => setCopied(false), 1800);
@@ -154,7 +184,7 @@ export function ShareButton({ post, feed, disabled, className }: { post: Post; f
               size="sm"
               label={copied ? "Link copied" : "Share"}
               disabled={disabled}
-              className={cn("gap-1.5 px-2 text-muted-foreground [-webkit-touch-callout:none] select-none", copied && "text-primary", className)}
+              className={cn("gap-1.5 px-2 text-muted-foreground [-webkit-touch-callout:none] select-none", copied && "text-primary")}
               onContextMenu={(event) => event.preventDefault()}
               onPointerDown={(event) => {
                 if (event.button !== 0) return;
@@ -177,7 +207,7 @@ export function ShareButton({ post, feed, disabled, className }: { post: Post; f
           </span>
         </PopoverTrigger>
         <PopoverContent align="end" className="w-[26rem] max-w-[calc(100vw-1.5rem)] gap-3 p-4">
-          <PopoverTitle className="text-sm font-semibold">Share post</PopoverTitle>
+          <PopoverTitle className="text-sm font-semibold">Share {target.kind}</PopoverTitle>
           <ul className="-mx-1 flex flex-nowrap gap-x-2 overflow-x-auto overscroll-x-contain px-1 pb-1 [scrollbar-width:thin]">
             <Tile caption={copied ? "Copied" : "Copy link"} onClick={() => void copy()}>
               <span className={cn(circle, "grid place-items-center bg-muted text-foreground", copied && "text-primary")}>
@@ -205,7 +235,7 @@ export function ShareButton({ post, feed, disabled, className }: { post: Post; f
             ))}
           </ul>
           {!viewerId ? (
-            <p className="rounded-lg bg-muted/50 px-3 py-3 text-center text-sm text-muted-foreground">Sign in to send posts in Messages.</p>
+            <p className="rounded-lg bg-muted/50 px-3 py-3 text-center text-sm text-muted-foreground">Sign in to send {target.kind === "post" ? "posts" : "profiles"} in Messages.</p>
           ) : recent?.state === "setup" ? (
             <p className="rounded-lg bg-muted/50 px-3 py-3 text-center text-sm text-muted-foreground">
               Messages isn’t set up on this browser yet. <Link to="/messages" className="font-medium text-foreground underline underline-offset-4">Open Messages</Link>

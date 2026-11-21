@@ -52,6 +52,7 @@ import { ProfileForm } from "./profile-form";
 import { ProfileEditDialogContent, type ProfileEditTab } from "./profile-edit-dialog";
 import { PostCard } from "@/features/feed/post-card";
 import { useFeed } from "@/features/feed/use-feed";
+import { ShareButton } from "@/features/sharing/share-button";
 import { ProfileSkeleton } from "@/components/loading-skeletons";
 import { usePageTitle } from "@/hooks/use-page-title";
 import {
@@ -482,6 +483,10 @@ export function ProfilePage({
                 </p>
               )}
             </div>
+            <ShareButton
+              target={{ kind: "profile", handle: profile.profile.handle }}
+              viewerId={viewerId}
+            />
             {canEditProfile && (
               <Dialog
                 open={editDialogOpen}

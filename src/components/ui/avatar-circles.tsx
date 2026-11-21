@@ -1,4 +1,4 @@
-import { Link } from "react-router";
+import { ProfileHoverLink } from "@/features/profile/profile-hover-link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 
@@ -34,9 +34,9 @@ export function AvatarCircles({
       )}
     >
       {people.map((person) => (
-        <Link
+        <ProfileHoverLink
           key={person.id}
-          to={`/@${person.handle}`}
+          handle={person.handle}
           title={person.displayName}
           aria-label={`${person.displayName}, @${person.handle}`}
           className="rounded-full outline-none transition-transform duration-200 hover:z-10 hover:-translate-y-0.5 focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-ring"
@@ -60,7 +60,7 @@ export function AvatarCircles({
               {person.displayName.slice(0, 2)}
             </AvatarFallback>
           </Avatar>
-        </Link>
+        </ProfileHoverLink>
       ))}
       {extra > 0 && (
         <span

@@ -1,8 +1,11 @@
 import { isWebsiteLink, splitPostLinks, type PostLink } from "../feed/post-links.ts";
 
 type LinkTarget = { href: string; hostname: string };
+const profilePath = /^\/@([a-z0-9_]{3,32})\/?$/;
+
 export type MessageEmbed =
   | (LinkTarget & { kind: "post"; link: Extract<PostLink, { kind: "post" }> })
+  | (LinkTarget & { kind: "profile"; handle: string })
   | (LinkTarget & { kind: "youtube"; videoId: string })
   | (LinkTarget & { kind: "image" | "website" | "link" });
 
@@ -17,11 +20,13 @@ function youtubeId(url: URL) {
   return id && /^[\w-]{11}$/.test(id) ? id : null;
 }
 
-function embedFor(link: PostLink): MessageEmbed | undefined {
+function embedFor(link: PostLink, origin?: string): MessageEmbed | undefined {
   const url = new URL(link.href);
   if (url.username || url.password) return;
   const target = { href: url.href, hostname: url.hostname };
   if (link.kind === "post") return { ...target, kind: "post", link };
+  const handle = url.origin === origin ? profilePath.exec(url.pathname)?.[1] : undefined;
+  if (handle) return { ...target, kind: "profile", handle };
   const host = url.hostname.replace(/\.$/, "");
   if (url.protocol !== "https:" || !host.includes(".") || !isWebsiteLink(link) || /\.(?:local|localhost|internal)$/i.test(host)) {
     return { ...target, kind: "link" };
@@ -37,7 +42,7 @@ export function messageLinks(text: string, development = false, origin?: string)
   const embeds = new Map<string, MessageEmbed>();
   for (const part of parts) {
     if (part.kind === "text") continue;
-    const embed = embedFor(part);
+    const embed = embedFor(part, origin);
     if (embed && !embeds.has(embed.href)) embeds.set(embed.href, embed);
     if (embeds.size === 3) break;
   }

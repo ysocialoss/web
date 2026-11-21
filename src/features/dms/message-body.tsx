@@ -4,7 +4,7 @@ import { Link } from "react-router";
 import { Button } from "@/components/ui/button";
 import { ExternalLink } from "@/components/ui/external-link";
 import { messageLinks, type MessageEmbed } from "./message-links";
-import { LinkCard, PostCard } from "./embeds";
+import { LinkCard, PostCard, ProfileCard } from "./embeds";
 
 const visibleLink = "text-primary underline underline-offset-2 focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-ring";
 
@@ -17,10 +17,12 @@ function MessageLink({ href, children, className }: { href: string; children: Re
 
 export const MessageBody = memo(function MessageBody({ text }: { text: string }) {
   const { parts, embeds } = messageLinks(text, import.meta.env.DEV, globalThis.location?.origin);
-  const onlyPost = embeds.length === 1 && embeds[0].kind === "post" && parts.every((part) => part.kind !== "text" || !part.text.trim());
+  const onlyCard =
+    (embeds[0]?.kind === "post" || embeds[0]?.kind === "profile") &&
+    parts.filter((part) => part.kind !== "text" || part.text.trim()).length === 1;
   return (
     <div className="min-w-0">
-      {!onlyPost && <p dir="auto" className="text-sm leading-relaxed wrap-anywhere whitespace-pre-wrap">
+      {!onlyCard && <p dir="auto" className="text-sm leading-relaxed wrap-anywhere whitespace-pre-wrap">
         {parts.map((part, index) => {
           if (part.kind === "text") return <Fragment key={index}>{part.text}</Fragment>;
           const url = new URL(part.href);
@@ -31,6 +33,7 @@ export const MessageBody = memo(function MessageBody({ text }: { text: string })
       {embeds.length > 0 && (
         <div className="mt-2 max-w-md space-y-2">
           {embeds.map((embed) => embed.kind === "post" ? <PostCard key={embed.href} postId={embed.link.postId} href={embed.href} />
+            : embed.kind === "profile" ? <ProfileCard key={embed.href} handle={embed.handle} />
             : embed.kind === "website" ? <LinkCard key={embed.href} href={embed.href} />
             : <MediaEmbed key={embed.href} embed={embed} />)}
         </div>

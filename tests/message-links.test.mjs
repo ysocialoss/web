@@ -23,6 +23,24 @@ test("only recognized public post, video, and image destinations get rich embeds
   assert.equal(messageLinks("https://team.internal/image.png").embeds[0].kind, "link");
 });
 
+test("only same-origin profile links resolve to profile cards", () => {
+  const origin = "https://ysocial.cc";
+  const text = "Meet https://ysocial.cc/@profile_tester?ref=chat.";
+  const { parts, embeds } = messageLinks(text, false, origin);
+  assert.equal(parts.map(({ text }) => text).join(""), text);
+  assert.deepEqual(embeds, [{
+    kind: "profile",
+    href: "https://ysocial.cc/@profile_tester?ref=chat",
+    hostname: "ysocial.cc",
+    handle: "profile_tester",
+  }]);
+
+  assert.equal(messageLinks("http://localhost:3000/@profile_tester", true, "http://localhost:3000").embeds[0].kind, "profile");
+  assert.equal(messageLinks("https://ysocial.cns-preview.de/@profile_tester", false, origin).embeds[0].kind, "link");
+  assert.equal(messageLinks("https://example.org/@profile_tester", false, origin).embeds[0].kind, "website");
+  assert.equal(messageLinks("https://ysocial.cc/@profile_tester/posts", false, origin).embeds[0].kind, "link");
+});
+
 test("website metadata reads use credentialless requests, reject redirects, and cap the HTML read", async (t) => {
   const href = "https://example.org/article";
   const signal = new AbortController().signal;

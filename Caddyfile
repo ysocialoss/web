@@ -61,6 +61,25 @@
 		}
 	}
 
+	@profilebot {
+		path_regexp profile ^/@([a-zA-Z0-9_]{3,32})/?$
+		header_regexp User-Agent (?i)(bot|crawl|spider|slurp|facebookexternalhit|embedly|preview|whatsapp|telegram|discord|slack|signal|mastodon|bluesky|skype|vkshare|pinterest|linkedin|twitter|imessage)
+	}
+	handle @profilebot {
+		rewrite * /api/og/profiles/{re.profile.1}
+		reverse_proxy {$API_UPSTREAM:127.0.0.1:3100} {
+			transport http {
+				dial_timeout 3s
+			}
+			@fallback status 4xx 5xx
+			handle_response @fallback {
+				rewrite * /index.html
+				root * {$WEB_ROOT:dist}
+				file_server
+			}
+		}
+	}
+
 	handle /assets/* {
 		root * {$WEB_ROOT:dist}
 		header >Cache-Control "public, max-age=31536000, immutable" {

@@ -9,6 +9,7 @@ import { countFormat } from "@/lib/count-format";
 import { cn } from "@/lib/utils";
 import { ExternalLink } from "@/components/ui/external-link";
 import { PostText } from "@/features/feed/post-text";
+import { useProfileCard } from "@/features/profile/profile-card-cache";
 import { dmApi, type LinkPreview } from "./dm-api";
 
 const compact = new Intl.NumberFormat(undefined, countFormat);
@@ -117,6 +118,45 @@ export function PostCard({ postId, href }: { postId: string; href: string }) {
         ? <Link to={target.pathname + target.search} aria-label={label} className="absolute inset-0 z-0 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring" />
         : <a href={href} aria-label={label} className="absolute inset-0 z-0 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring" />}
       <div className="pointer-events-none relative z-10">{body}</div>
+    </div>
+  );
+}
+
+export function ProfileCard({ handle }: { handle: string }) {
+  const [ref, visible] = useVisible<HTMLDivElement>();
+  const { card, failed } = useProfileCard(handle, visible);
+  const profile = card?.profile;
+  const name = profile?.displayName.trim();
+  const bio = profile?.bio.trim();
+  const loading = !profile && card !== null && !failed;
+
+  return (
+    <div ref={ref}>
+      <Link
+        to={`/@${handle}`}
+        aria-busy={loading}
+        className="block w-full max-w-md space-y-2 overflow-hidden rounded-xl border bg-card px-3.5 py-3 text-sm text-card-foreground outline-none transition-colors hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <span className="flex min-w-0 items-center gap-2.5">
+          <Avatar className="size-10 shrink-0">
+            {profile?.avatarUrl && (
+              <AvatarImage src={profile.avatarUrl} alt="" referrerPolicy="no-referrer" />
+            )}
+            <AvatarFallback>{(name || handle).slice(0, 2)}</AvatarFallback>
+          </Avatar>
+          <span className="min-w-0 flex-1 leading-tight">
+            {name && <bdi className="block truncate font-semibold">{name}</bdi>}
+            <span className={cn("block truncate", name ? "text-xs text-muted-foreground" : "font-semibold")}>
+              @{handle}
+            </span>
+            {(card === null || failed) && (
+              <span className="block text-xs text-muted-foreground">Preview unavailable</span>
+            )}
+          </span>
+          <ArrowUpRight aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
+        </span>
+        {bio && <span dir="auto" className="line-clamp-2 wrap-anywhere">{bio}</span>}
+      </Link>
     </div>
   );
 }

@@ -6,6 +6,7 @@ import { Check, LoaderCircle, Pencil, Trash2, X } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { IconButton } from "@/components/ui/icon-button";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
+import { ProfileHoverLink } from "@/features/profile/profile-hover-link";
 import { MentionLink } from "./mention-text";
 import { MentionTextarea } from "./mention-textarea";
 import { PostActions } from "./post-actions";
@@ -85,7 +86,6 @@ export function PostCard({
   const validCaption = (length > 0 || hasAttachment) && length <= 2000;
   const changed = finalContent.trim() !== post.content.trim();
   const jumbo = post.gif || post.voice ? 0 : emojiOnlyCount(post.content);
-  const profilePath = `/@${post.author.handle}`;
   const openable = !focused && !optimistic && !editing;
   const openTimer = useRef<number | undefined>(undefined);
   useEffect(() => () => window.clearTimeout(openTimer.current), []);
@@ -183,8 +183,8 @@ export function PostCard({
             />
             <span className="sr-only">{optimistic ? "Sending post…" : ""}</span>
           </div>
-          <Link
-            to={profilePath}
+          <ProfileHoverLink
+            handle={post.author.handle}
             aria-label={`View ${post.author.displayName}'s profile`}
             aria-hidden={optimistic || undefined}
             tabIndex={optimistic ? -1 : undefined}
@@ -202,23 +202,23 @@ export function PostCard({
                 {post.author.displayName.slice(0, 2)}
               </AvatarFallback>
             </Avatar>
-          </Link>
+          </ProfileHoverLink>
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-start gap-2">
             <div className="flex flex-1 flex-wrap items-baseline gap-x-2 text-sm">
-              <Link
-                to={profilePath}
+              <ProfileHoverLink
+                handle={post.author.handle}
                 className="font-semibold hover:underline underline-offset-4"
               >
                 {post.author.displayName}
-              </Link>
-              <Link
-                to={profilePath}
+              </ProfileHoverLink>
+              <ProfileHoverLink
+                handle={post.author.handle}
                 className="text-xs text-muted-foreground hover:text-foreground"
               >
                 @{post.author.handle}
-              </Link>
+              </ProfileHoverLink>
               <Link
                 to={`/posts/${post.id}`}
                 className="text-xs text-muted-foreground"

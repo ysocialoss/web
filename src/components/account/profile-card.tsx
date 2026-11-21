@@ -191,6 +191,11 @@ export function ProfileCard({
                 <span className="block truncate text-xs text-muted-foreground hover:underline">
                   @{user.handle}
                 </span>
+                {user.pronouns && (
+                  <bdi className="block truncate text-xs text-muted-foreground hover:underline">
+                    {user.pronouns}
+                  </bdi>
+                )}
               </DialogTrigger>
               <ProfileEditDialogContent saving={saving}>
                 {loadError ? (
@@ -228,6 +233,11 @@ export function ProfileCard({
               >
                 @{user.handle}
               </Link>
+              {user.pronouns && (
+                <p className="truncate text-xs text-muted-foreground">
+                  <bdi>{user.pronouns}</bdi>
+                </p>
+              )}
             </>
           )
         ) : (

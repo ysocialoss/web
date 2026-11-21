@@ -32,7 +32,6 @@ import {
   rememberPosts,
   subscribeToActions,
 } from "./optimistic-actions";
-import { toast } from "@/components/ui/toast-manager";
 import { projectRepostContext } from "./repost-context";
 import { applyLive } from "./live-insert";
 import { useLiveUpdates } from "./use-live-updates";
@@ -47,23 +46,6 @@ const feedCache = new Map<
     nextCursor: string | null;
   }
 >();
-
-async function writeClipboard(text: string) {
-  try {
-    await navigator.clipboard.writeText(text);
-    return;
-  } catch (error) {
-    const field = document.createElement("textarea");
-    field.value = text;
-    field.setAttribute("readonly", "");
-    field.style.cssText = "position:fixed;opacity:0;pointer-events:none";
-    document.body.append(field);
-    field.select();
-    const copied = document.execCommand("copy");
-    field.remove();
-    if (!copied) throw error;
-  }
-}
 
 export function useFeed(
   session: Session | null,
@@ -337,28 +319,6 @@ export function useFeed(
       onConfirmed,
     });
   }
-  async function copyPostLink(post: Post): Promise<boolean> {
-    const url = new URL(`/posts/${post.id}`, window.location.origin).href;
-    try {
-      await writeClipboard(url);
-      return true;
-    } catch (error) {
-      const id = toast.add({
-        type: "error",
-        title: "Couldn't copy link",
-        description: errorMessage(error),
-        timeout: 0,
-        actionProps: {
-          children: "Retry",
-          onClick: () => {
-            toast.close(id);
-            void copyPostLink(post);
-          },
-        },
-      });
-      return false;
-    }
-  }
   return {
     feedPosts: [
       ...visibleLocalPosts.map((entry) => entry.post),
@@ -400,7 +360,6 @@ export function useFeed(
     canPost,
     readOnly,
     pending: optimisticPostIds,
-    copyPostLink,
     unread,
     revealNew,
     refresh: () => {
