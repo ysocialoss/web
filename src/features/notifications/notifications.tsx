@@ -25,6 +25,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useNotifications } from "./notifications-context";
 import { PushSettings } from "./push-settings";
 import { cn } from "@/lib/utils";
+import { PostCard } from "@/features/dms/embeds";
 import type { SocialNotification } from "@/lib/api";
 import { usePageTitle } from "@/hooks/use-page-title";
 
@@ -242,7 +243,20 @@ function NotificationsContent({
                       {!item.readAt && <span className="sr-only"> Unread</span>}
                     </Link>
                   </p>
-                  {!hideContent && item.preview && (
+                  {grouped && !hideContent && item.postId && !item.chatPreview && (
+                    <div
+                      className="relative z-10 mt-2"
+                      onClickCapture={() => {
+                        if (!item.readAt) void markSeen([item.id], true);
+                      }}
+                    >
+                      <PostCard
+                        postId={item.postId}
+                        href={`${window.location.origin}/posts/${item.postId}`}
+                      />
+                    </div>
+                  )}
+                  {!(grouped && item.postId && !item.chatPreview) && !hideContent && item.preview && (
                     <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
                       {item.preview}
                     </p>
