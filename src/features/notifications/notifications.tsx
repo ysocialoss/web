@@ -25,6 +25,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useNotifications } from "./notifications-context";
 import { PushSettings } from "./push-settings";
 import { cn } from "@/lib/utils";
+import type { SocialNotification } from "@/lib/api";
 import { usePageTitle } from "@/hooks/use-page-title";
 
 const kinds = {
@@ -63,12 +64,31 @@ const kinds = {
   },
 };
 
+function groupNotifications(items: SocialNotification[]) {
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  const groups: { title: string; items: SocialNotification[] }[] = [
+    { title: "Priority", items: [] },
+    { title: "Today", items: [] },
+    { title: "Older", items: [] },
+  ];
+  for (const item of items) {
+    if (!item.readAt && item.kind !== "like") groups[0].items.push(item);
+    else if (new Date(item.createdAt) >= startOfToday)
+      groups[1].items.push(item);
+    else groups[2].items.push(item);
+  }
+  return groups.filter((group) => group.items.length > 0);
+}
+
 function NotificationsContent({
   onNavigate,
   markVisibleAsRead = false,
+  grouped = false,
 }: {
   onNavigate?: () => void;
   markVisibleAsRead?: boolean;
+  grouped?: boolean;
 }) {
   const {
     items,
@@ -81,7 +101,7 @@ function NotificationsContent({
     canWrite,
     hideContent,
   } = useNotifications();
-  const list = useRef<HTMLUListElement>(null);
+  const list = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!markVisibleAsRead || !canWrite || !list.current) return;
     const rows = list.current.querySelectorAll<HTMLElement>("[data-unread-id]");
@@ -141,8 +161,19 @@ function NotificationsContent({
             ))}
           </div>
         )}
-        <ul ref={list} className="divide-y">
-          {visible.map((item) => {
+        <div ref={list}>
+          {(grouped
+            ? groupNotifications(visible)
+            : [{ title: "", items: visible }]
+          ).map((group) => (
+            <section key={group.title} aria-label={group.title || undefined}>
+              {group.title && (
+                <h2 className="px-4 pt-5 pb-2 text-sm font-semibold text-muted-foreground">
+                  {group.title}
+                </h2>
+              )}
+              <ul className="divide-y">
+          {group.items.map((item) => {
             const kind = kinds[item.kind],
               Icon = kind.icon;
             const actorName = item.actor.displayName || item.actor.handle;
@@ -167,7 +198,7 @@ function NotificationsContent({
                 data-unread-id={item.readAt ? undefined : item.id}
                 className={cn(
                   "relative flex items-start gap-3 px-4 py-4 transition-colors hover:bg-muted",
-                  !item.readAt && "bg-primary/5",
+                  !item.readAt && !grouped && "bg-primary/5",
                 )}
               >
                 <ProfileHoverLink
@@ -228,7 +259,10 @@ function NotificationsContent({
               </li>
             );
           })}
-        </ul>
+              </ul>
+            </section>
+          ))}
+        </div>
         {!loading && !error && visible.length === 0 && (
           <div
             role="status"
@@ -280,7 +314,7 @@ function NotificationsContent({
           </Button>
         )}
       </div>
-      {canWrite && <div className="shrink-0 border-t p-3">
+      {canWrite && !grouped && <div className="shrink-0 border-t p-3">
         <PushSettings />
       </div>}
     </>
@@ -382,6 +416,16 @@ export function NotificationsPage() {
         <MarkAllRead />
       </div>
       <NotificationsContent />
+    </div>
+  );
+}
+
+export function ActivityPage() {
+  usePageTitle("Activity");
+  return (
+    <div className="mx-auto max-w-xl pb-24">
+      <h1 className="px-4 pt-4 text-xl font-semibold">Activity</h1>
+      <NotificationsContent grouped />
     </div>
   );
 }
