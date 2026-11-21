@@ -14,6 +14,7 @@ import { LegalMenu } from "./legal-menu";
 import { AccountMenu } from "@/features/auth/account-menu";
 import type { AuthState } from "@/features/auth/use-auth";
 import { NotificationsBell } from "@/features/notifications/notifications";
+import { useNotifications } from "@/features/notifications/notifications-context";
 import { SiteWordmark } from "./site-wordmark";
 
 export function NavigationSidebar({
@@ -27,6 +28,7 @@ export function NavigationSidebar({
 }) {
   const newPost = useNewPostTarget();
   const { unread } = useDmUnread();
+  const { unreadCount, signedIn } = useNotifications();
   return (
     <aside
       aria-label="Sidebar"
@@ -52,7 +54,7 @@ export function NavigationSidebar({
           aria-label="Main navigation"
           className="flex w-full flex-col gap-1"
         >
-          {navigation.map(({ label, icon: Icon, to, disabled }) => (
+          {navigation.filter((entry) => !entry.auth || signedIn).map(({ label, icon: Icon, to, disabled }) => (
             <Tooltip key={to}>
               <TooltipTrigger
                 render={
@@ -76,7 +78,7 @@ export function NavigationSidebar({
                     <NavLink
                       to={to}
                       end={to === "/"}
-                      aria-label={to === "/messages" && unread > 0 ? `${label}, ${unread} unread` : label}
+                      aria-label={(() => { const n = to === "/messages" ? unread : to === "/activity" ? unreadCount : 0; return n > 0 ? `${label}, ${n} unread` : label; })()}
                       className={({ isActive }) =>
                         `group/nav flex h-10 w-full items-center gap-3 rounded-lg px-3 outline-none transition-[background-color,color,transform] duration-200 hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97] ${isActive ? "bg-muted font-semibold text-foreground" : "font-medium text-muted-foreground hover:text-foreground"}`
                       }
@@ -88,6 +90,14 @@ export function NavigationSidebar({
                               className="size-5 transition-transform duration-200 group-hover/nav:scale-110"
                               strokeWidth={isActive ? 2.25 : 2}
                             />
+                            {to === "/activity" && unreadCount > 0 && (
+                              <span
+                                aria-hidden="true"
+                                className="absolute -top-1.5 -right-2 grid h-4 min-w-4 place-items-center rounded-full bg-primary px-1 text-[0.65rem] leading-none font-bold text-primary-foreground ring-2 ring-background"
+                              >
+                                {countLabel(unreadCount)}
+                              </span>
+                            )}
                             {to === "/messages" && unread > 0 && (
                               <span
                                 aria-hidden="true"
