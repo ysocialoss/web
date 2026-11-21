@@ -1,4 +1,5 @@
 import { PublishedVoicePlayer } from "./voice-player";
+import { PostImages } from "./post-images";
 import { useEffect, useId, useRef, useState, type MouseEvent } from "react";
 import { Link, useNavigate } from "react-router";
 import { formatDistance } from "date-fns";
@@ -82,10 +83,10 @@ export function PostCard({
     ? renderShortcodes(content, emojiIndex)
     : content;
   const length = Array.from(finalContent.trim()).length;
-  const hasAttachment = Boolean(post.gif || post.poll || post.voice);
+  const hasAttachment = Boolean(post.gif || post.poll || post.voice || post.imageIds.length);
   const validCaption = (length > 0 || hasAttachment) && length <= 2000;
   const changed = finalContent.trim() !== post.content.trim();
-  const jumbo = post.gif || post.voice ? 0 : emojiOnlyCount(post.content);
+  const jumbo = post.gif || post.voice || post.imageIds.length ? 0 : emojiOnlyCount(post.content);
   const openable = !focused && !optimistic && !editing;
   const openTimer = useRef<number | undefined>(undefined);
   useEffect(() => () => window.clearTimeout(openTimer.current), []);
@@ -383,6 +384,7 @@ export function PostCard({
               className="mt-2 max-h-96 w-auto max-w-full rounded-xl object-contain"
             />
           )}
+          <PostImages ids={post.imageIds} />
           {post.quote && <QuotedPostCard quote={post.quote} />}
           {post.poll && (
             <PostPoll

@@ -9,6 +9,7 @@ import { countFormat } from "@/lib/count-format";
 import { cn } from "@/lib/utils";
 import { ExternalLink } from "@/components/ui/external-link";
 import { PostText } from "@/features/feed/post-text";
+import { PostImages } from "@/features/feed/post-images";
 import { useProfileCard } from "@/features/profile/profile-card-cache";
 import { dmApi, type LinkPreview } from "./dm-api";
 
@@ -90,6 +91,7 @@ export function PostCard({ postId, href }: { postId: string; href: string }) {
         </span>
       )}
       {post.gif && <img src={post.gif.url} alt={post.gif.title || "GIF"} loading="lazy" decoding="async" referrerPolicy="no-referrer" className="max-h-52 max-w-full rounded-lg object-contain" />}
+      <PostImages ids={post.imageIds} compact />
       <span className="flex items-center gap-4 pt-0.5 text-xs text-muted-foreground">
         <Count icon={Heart} value={post.likes} label="likes" />
         <Count icon={MessageCircle} value={post.replies} label="replies" />

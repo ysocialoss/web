@@ -6,6 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import type { PostQuote } from "@/lib/api";
 import { PostText } from "./post-text";
+import { PostImages } from "./post-images";
 
 /**
  * The post a quote embeds: author, text, GIF and a poll hint. It opens the
@@ -105,6 +106,7 @@ export function QuotedPostCard({
           className="mt-2 max-h-48 w-auto max-w-full rounded-lg object-contain"
         />
       )}
+      <PostImages ids={post.imageIds} compact />
       {post.pollTitle && (
         <p className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
           <ChartNoAxesColumn className="size-3.5 shrink-0" aria-hidden="true" />

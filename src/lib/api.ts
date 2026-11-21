@@ -21,10 +21,12 @@ const activityUserSchema = userSchema.extend({
 });
 export const repostAudienceSchema = z.enum(["public", "friends"]);
 export type RepostAudience = z.infer<typeof repostAudienceSchema>;
+const postImageIdsSchema = z.array(z.uuid()).default([]);
 /** The post embedded in a quote, one level deep. */
 const quotedPostSchema = z.object({
   id: z.string(),
   content: z.string(),
+  imageIds: postImageIdsSchema,
   gif: z
     .object({ url: z.string(), title: z.string() })
     .nullable()
@@ -94,6 +96,7 @@ const basePostSchema = z.object({
   parentId: z.string().nullable(),
   content: z.string(),
   gif: postGifSchema.nullable().default(null),
+  imageIds: postImageIdsSchema,
   voice: voiceSchema.nullable().default(null),
   poll: pollSchema.nullable().default(null),
   createdAt: z.string(),
@@ -345,6 +348,14 @@ const traceCodes: Record<string, number> = {
   voice_processing_unavailable: 5016,
   voice_processing_busy: 5017,
   voice_not_configured: 5018,
+  invalid_post_image: 5019,
+  post_image_rejected: 5020,
+  post_image_check_unavailable: 5021,
+  post_image_busy: 5022,
+  post_image_draft_limit: 5023,
+  invalid_post_image_selection: 5024,
+  post_image_not_found: 5025,
+  post_image_upload_forbidden: 5026,
   // gif
   invalid_gif_selection: 6001,
   invalid_search: 6002,
@@ -468,6 +479,18 @@ function friendlyMessage(error: unknown) {
     if (error.message === "account_banned")
       return "Your account is banned.";
     if (error.message === "voice_too_short") return "Record at least 2 seconds.";
+    if (error.message === "invalid_post_image")
+      return "Choose a static JPEG, PNG, or WebP image.";
+    if (error.message === "post_image_rejected")
+      return "This image was flagged as NSFW and could not be attached.";
+    if (error.message === "post_image_check_unavailable" || error.message === "post_image_busy")
+      return "Image screening is temporarily unavailable. Try choosing the image again.";
+    if (error.message === "post_image_draft_limit")
+      return "You have too many unsent images. Remove some or publish your draft.";
+    if (error.message === "invalid_post_image_selection")
+      return "An image attachment expired or was removed. Choose the images again.";
+    if (error.status === 413 && error.endpoint?.includes("/api/post-images"))
+      return "Images can be up to 8 MB each.";
     if (error.message === "voice_too_long") return "Voice messages can be at most 2 minutes long.";
     if (error.message === "invalid_voice" || error.message === "voice_audio_required")
       return "This recording could not be read. Please record it again.";
@@ -624,7 +647,15 @@ function attemptSignal(ms: number, signal?: AbortSignal) {
   return signal ? AbortSignal.any([signal, timeout]) : timeout;
 }
 const postPath = (id: string) => `/api/posts/${encodeURIComponent(id)}`;
+export const postImageUrl = (id: string) => `/api/post-images/${encodeURIComponent(id)}`;
 export const api = {
+  uploadPostImage: (file: File, signal: AbortSignal) =>
+    sendRequest("/api/post-images", z.object({ id: z.uuid() }), "POST",
+      file.slice(0, file.size, "application/octet-stream"), attemptSignal(45_000, signal), {
+        "X-Post-Image-Name": encodeURIComponent(Array.from(file.name).slice(0, 255).join("")),
+      }),
+  discardPostImage: (id: string) =>
+    sendRequest(postImageUrl(id), z.undefined(), "DELETE", undefined, AbortSignal.timeout(10_000)),
   githubSettings: (signal: AbortSignal) =>
     request("/api/github", githubSettingsSchema, "GET", undefined, signal),
   connectGithub: (returnTo?: "profile") => request("/api/github/connect", z.object({
@@ -979,12 +1010,14 @@ export const api = {
     poll?: PollDraft,
     quotedPostId?: string,
     voiceToken?: string,
+    attachmentIds?: string[],
   ) =>
     request("/api/posts", postResponseSchema, "POST", {
       content,
       clientId,
       gifToken,
       voiceToken,
+      attachmentIds,
       poll,
       quotedPostId,
     }, voiceToken ? AbortSignal.timeout(15_000) : undefined),
@@ -1003,12 +1036,14 @@ export const api = {
     gifToken?: string,
     poll?: PollDraft,
     voiceToken?: string,
+    attachmentIds?: string[],
   ) =>
     request(`${postPath(id)}/replies`, postResponseSchema, "POST", {
       content,
       clientId,
       gifToken,
       voiceToken,
+      attachmentIds,
       poll,
     }, voiceToken ? AbortSignal.timeout(15_000) : undefined),
   vote: (id: string, optionIndex: number) =>
