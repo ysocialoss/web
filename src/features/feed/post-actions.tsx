@@ -13,12 +13,12 @@ import { ActionMenu } from "@/components/ui/action-menu";
 import { IconButton } from "@/components/ui/icon-button";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/lib/utils";
+import { ShareButton } from "@/features/sharing/share-button";
 import { countFormat } from "@/lib/count-format";
 import type { Post } from "@/lib/api";
 import { toast } from "@/components/ui/toast-manager";
 import type { FeedState } from "./use-feed";
 import { QuoteDialog } from "./quote-dialog";
-import { ShareButton } from "./share-button";
 
 const actionClass = (extra?: string | false) =>
   cn("gap-1.5 px-2 text-muted-foreground", extra);
@@ -149,7 +149,11 @@ export function PostActions({ post, feed }: { post: Post; feed: FeedState }) {
           repostButton
         );
       })()}
-      <ShareButton post={post} feed={feed} disabled={optimistic} className={actionClass()} />
+      <ShareButton
+        target={{ kind: "post", id: post.id }}
+        viewerId={feed.viewerId}
+        disabled={optimistic}
+      />
       {quoting && (
         <QuoteDialog post={post} feed={feed} open={quoting} onOpenChange={setQuoting} />
       )}

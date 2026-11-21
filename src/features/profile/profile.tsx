@@ -49,10 +49,10 @@ import { BannerEditor } from "./banner-editor";
 import { AvatarCropper } from "./avatar-cropper";
 import { RecentAvatars } from "./recent-avatars";
 import { ProfileForm } from "./profile-form";
-import { ProfileShareButton } from "./profile-share-button";
 import { ProfileEditDialogContent, type ProfileEditTab } from "./profile-edit-dialog";
 import { PostCard } from "@/features/feed/post-card";
 import { useFeed } from "@/features/feed/use-feed";
+import { ShareButton } from "@/features/sharing/share-button";
 import { ProfileSkeleton } from "@/components/loading-skeletons";
 import { usePageTitle } from "@/hooks/use-page-title";
 import {
@@ -483,7 +483,10 @@ export function ProfilePage({
                 </p>
               )}
             </div>
-            <ProfileShareButton handle={profile.profile.handle} />
+            <ShareButton
+              target={{ kind: "profile", handle: profile.profile.handle }}
+              viewerId={viewerId}
+            />
             {canEditProfile && (
               <Dialog
                 open={editDialogOpen}
