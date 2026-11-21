@@ -537,6 +537,14 @@ export function ProfilePage({
                 </ProfileEditDialogContent>
               </Dialog>
             )}
+            {viewer && !feed.readOnly && profile.profile.id !== viewer.id && !profile.profile.bannedAt && (
+              <Link
+                to={`/messages?to=${encodeURIComponent(profile.profile.handle)}`}
+                className="inline-flex min-h-9 items-center rounded-lg px-3 text-sm font-medium hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring"
+              >
+                Message
+              </Link>
+            )}
             {session && !feed.readOnly &&
               profile.profile.id !== viewer?.id &&
               (viewer ? (

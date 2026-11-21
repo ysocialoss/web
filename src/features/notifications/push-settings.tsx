@@ -11,7 +11,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 
-import { enablePush, supportsPush as supported } from "./enable-push";
+import { enablePush, registerPushWorker, supportsPush as supported } from "./enable-push";
 type PushState =
   | "loading"
   | "unsupported"
@@ -48,7 +48,7 @@ export function PushSettings() {
         return;
       }
       try {
-        const registration = await navigator.serviceWorker.register("/sw.js");
+        const registration = await registerPushWorker();
         const subscription = await registration.pushManager.getSubscription();
         const config = await api.pushConfig(
           subscription?.endpoint,

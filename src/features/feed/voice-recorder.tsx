@@ -20,6 +20,7 @@ import {
   waitForRetry,
   type VoiceDraft,
 } from "@/lib/api";
+import { microphoneErrorMessage } from "@/lib/microphone";
 
 type State =
   | { kind: "idle" }
@@ -283,11 +284,7 @@ export function VoiceRecorder({
         microphoneAllowed = false;
       setState({ kind: "idle" });
       onBusyChange(false);
-      setError(
-        failure instanceof DOMException && failure.name === "NotAllowedError"
-          ? "Microphone access was denied. Allow it in your browser to record."
-          : "Couldn't start the microphone. Check that it is connected and available.",
-      );
+      setError(microphoneErrorMessage(failure));
     }
   }
 

@@ -9,6 +9,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { navigation } from "./navigation";
+import { countLabel, useDmUnread } from "@/features/dms/dm-unread";
 import { LegalMenu } from "./legal-menu";
 import { AccountMenu } from "@/features/auth/account-menu";
 import type { AuthState } from "@/features/auth/use-auth";
@@ -25,6 +26,7 @@ export function NavigationSidebar({
   onLogoClick: MouseEventHandler<HTMLAnchorElement>;
 }) {
   const newPost = useNewPostTarget();
+  const { unread } = useDmUnread();
   return (
     <aside
       aria-label="Sidebar"
@@ -74,17 +76,27 @@ export function NavigationSidebar({
                     <NavLink
                       to={to}
                       end={to === "/"}
-                      aria-label={label}
+                      aria-label={to === "/messages" && unread > 0 ? `${label}, ${unread} unread` : label}
                       className={({ isActive }) =>
                         `group/nav flex h-10 w-full items-center gap-3 rounded-lg px-3 outline-none transition-[background-color,color,transform] duration-200 hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97] ${isActive ? "bg-muted font-semibold text-foreground" : "font-medium text-muted-foreground hover:text-foreground"}`
                       }
                     >
                       {({ isActive }) => (
                         <>
-                          <Icon
-                            className="size-5 shrink-0 transition-transform duration-200 group-hover/nav:scale-110"
-                            strokeWidth={isActive ? 2.25 : 2}
-                          />
+                          <span className="relative shrink-0">
+                            <Icon
+                              className="size-5 transition-transform duration-200 group-hover/nav:scale-110"
+                              strokeWidth={isActive ? 2.25 : 2}
+                            />
+                            {to === "/messages" && unread > 0 && (
+                              <span
+                                aria-hidden="true"
+                                className="absolute -top-1.5 -right-2 grid h-4 min-w-4 place-items-center rounded-full bg-primary px-1 text-[0.65rem] leading-none font-bold text-primary-foreground ring-2 ring-background"
+                              >
+                                {countLabel(unread)}
+                              </span>
+                            )}
+                          </span>
                           <span className="hidden lg:inline">{label}</span>
                         </>
                       )}

@@ -274,6 +274,26 @@ test("permission denial allows another attempt", async ({ page }) => {
   ).toBeEnabled();
 });
 
+test("a missing microphone shows connection guidance and allows another attempt", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    navigator.mediaDevices.getUserMedia = async () => {
+      throw new DOMException("Requested device not found", "NotFoundError");
+    };
+  });
+  await page.goto("/");
+  await requestMicrophone(page);
+  await expect(
+    page.getByRole("alert").filter({
+      hasText: "No microphone found. Connect a microphone and try again.",
+    }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Record voice message", exact: true }),
+  ).toBeEnabled();
+});
+
 test("automatically stops at the maximum and surfaces server length errors", async ({
   page,
 }) => {

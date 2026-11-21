@@ -1,3 +1,5 @@
+import { chatNotificationPreview } from "./src/features/dms/notification-preview.ts";
+
 // Push only. App pages and authenticated API responses are never cached here.
 self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim()));
@@ -6,8 +8,11 @@ self.addEventListener("push", (event) => {
     let payload;
     try { payload = event.data?.json(); } catch { return; }
     if (!payload || typeof payload.body !== "string") return;
-    await self.registration.showNotification("ysocial", {
-      body: payload.body,
+    const preview = typeof payload.chatRecipient === "string" && typeof payload.id === "string"
+      ? await chatNotificationPreview(payload.chatRecipient, payload.id, AbortSignal.timeout(3500))
+      : undefined;
+    await self.registration.showNotification(preview?.author || "ysocial", {
+      body: preview?.text || payload.body,
       icon: typeof payload.icon === "string" ? payload.icon : "/favicon.png",
       badge: "/favicon.png",
       tag: typeof payload.id === "string" ? payload.id : "ysocial",

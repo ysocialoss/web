@@ -1,4 +1,5 @@
 [
+[0,[
 ["😀",["grinning"],["cheerful","cheery","face","grin","happy","laugh","nice","smile","smiling","teeth"]],
 ["😃",["smiley"],["awesome","big","eyes","face","grin","grinning","happy","mouth","open","smile","smiling","teeth","yay","with"]],
 ["😄",["smile"],["eye","eyes","face","grin","grinning","happy","laugh","lol","mouth","open","smiling","with"]],
@@ -164,7 +165,9 @@
 ["🗨️",["left_speech_bubble"],["balloon","bubble","dialog","left","speech"]],
 ["🗯️",["right_anger_bubble"],["anger","angry","balloon","bubble","mad","right"]],
 ["💭",["thought_balloon"],["balloon","bubble","cartoon","cloud","comic","daydream","decisions","dream","idea","invent","invention","realize","think","thoughts","wonder","thought"]],
-["💤",["zzz"],["comic","good","goodnight","night","sleep","sleeping","sleepy","tired"]],
+["💤",["zzz"],["comic","good","goodnight","night","sleep","sleeping","sleepy","tired"]]
+]],
+[1,[
 ["👋",["wave"],["bye","cya","g2g","greetings","gtg","hand","hello","hey","hi","later","outtie","ttfn","ttyl","yo","you","waving"]],
 ["🤚",["raised_back_of_hand"],["back","backhand","hand","raised","of"]],
 ["🖐️",["raised_hand_with_fingers_splayed"],["finger","fingers","hand","raised","splayed","stop","with"]],
@@ -527,7 +530,9 @@
 ["👥",["busts_in_silhouette"],["bff","bust","busts","everyone","friend","friends","people","silhouette","in"]],
 ["🫂",["people_hugging"],["comfort","embrace","farewell","friendship","goodbye","hello","hug","hugging","love","people","thanks"]],
 ["👪",["family"],["child"]],
-["👣",["footprints"],["barefoot","clothing","footprint","omw","print","walk"]],
+["👣",["footprints"],["barefoot","clothing","footprint","omw","print","walk"]]
+]],
+[3,[
 ["🐵",["monkey_face"],["animal","banana","face","monkey"]],
 ["🐒",["monkey"],["animal","banana"]],
 ["🦍",["gorilla"],["animal"]],
@@ -684,7 +689,9 @@
 ["🍃",["leaves"],["blow","flutter","fluttering","leaf","wind","in"]],
 ["🪹",["empty_nest"],["branch","empty","home","nest","nesting"]],
 ["🪺",["nest_with_eggs"],["bird","branch","egg","eggs","nest","nesting","with"]],
-["🍄",["mushroom"],["fungus","toadstool"]],
+["🍄",["mushroom"],["fungus","toadstool"]]
+]],
+[4,[
 ["🍇",["grapes"],["Dionysus","fruit","grape"]],
 ["🍈",["melon"],["cantaloupe","fruit"]],
 ["🍉",["watermelon"],["fruit"]],
@@ -812,7 +819,9 @@
 ["🥄",["spoon"],["eat","tableware"]],
 ["🔪",["hocho","knife"],["chef","cooking","kitchen","tool","weapon"]],
 ["🫙",["jar"],["condiment","container","empty","nothing","sauce","store"]],
-["🏺",["amphora"],["Aquarius","cooking","drink","jug","tool","weapon","zodiac"]],
+["🏺",["amphora"],["Aquarius","cooking","drink","jug","tool","weapon","zodiac"]]
+]],
+[5,[
 ["🌍",["earth_africa"],["Africa","Europe","Europe-Africa","earth","globe","showing","world","europe","africa"]],
 ["🌎",["earth_americas"],["Americas","earth","globe","showing","world","americas"]],
 ["🌏",["earth_asia"],["Asia","Asia-Australia","Australia","earth","globe","showing","world","asia","australia"]],
@@ -1030,7 +1039,9 @@
 ["☄️",["comet"],["space"]],
 ["🔥",["fire"],["af","burn","flame","hot","lit","litaf","tool"]],
 ["💧",["droplet"],["cold","comic","drop","nature","sad","sweat","tear","water","weather"]],
-["🌊",["ocean"],["nature","surf","surfer","surfing","water","wave"]],
+["🌊",["ocean"],["nature","surf","surfer","surfing","water","wave"]]
+]],
+[6,[
 ["🎃",["jack_o_lantern"],["celebration","halloween","jack","lantern","pumpkin","o"]],
 ["🎄",["christmas_tree"],["Christmas","celebration","tree","christmas"]],
 ["🎆",["fireworks"],["boom","celebration","entertainment","yolo"]],
@@ -1115,7 +1126,9 @@
 ["🧵",["thread"],["needle","sewing","spool","string"]],
 ["🪡",["sewing_needle"],["embroidery","needle","sew","sewing","stitches","sutures","tailoring","thread"]],
 ["🧶",["yarn"],["ball","crochet","knit"]],
-["🪢",["knot"],["cord","rope","tangled","tie","twine","twist"]],
+["🪢",["knot"],["cord","rope","tangled","tie","twine","twist"]]
+]],
+[7,[
 ["👓",["eyeglasses"],["clothing","eye","eyewear","glasses"]],
 ["🕶️",["dark_sunglasses"],["dark","eye","eyewear","glasses","sunglasses"]],
 ["🥽",["goggles"],["dive","eye","protection","scuba","swimming","welding"]],
@@ -1376,7 +1389,9 @@
 ["🪬",["hamsa"],["Fatima","Mary","Miriam","amulet","fortune","guide","hand","palm","protect","protection"]],
 ["🗿",["moyai"],["face","statue","stoneface","travel","moai"]],
 ["🪧",["placard"],["card","demonstration","notice","picket","plaque","protest","sign"]],
-["🪪",["identification_card"],["ID","card","credentials","document","identification","license","security"]],
+["🪪",["identification_card"],["ID","card","credentials","document","identification","license","security"]]
+]],
+[8,[
 ["🏧",["atm"],["ATM","automated","bank","cash","money","sign","teller"]],
 ["🚮",["put_litter_in_its_place"],["bin","litter","litterbin","sign","in"]],
 ["🚰",["potable_water"],["drinking","potable","water"]],
@@ -1599,7 +1614,9 @@
 ["💠",["diamond_shape_with_a_dot_inside"],["comic","diamond","dot","geometric","with","a"]],
 ["🔘",["radio_button"],["button","geometric","radio"]],
 ["🔳",["white_square_button"],["button","geometric","outlined","square","white"]],
-["🔲",["black_square_button"],["black","button","geometric","square"]],
+["🔲",["black_square_button"],["black","button","geometric","square"]]
+]],
+[9,[
 ["🏁",["checkered_flag"],["checkered","chequered","finish","flag","flags","game","race","racing","sport","win"]],
 ["🚩",["triangular_flag_on_post"],["construction","flag","golf","post","triangular"]],
 ["🎌",["crossed_flags"],["Japanese","celebration","cross","crossed","flags"]],
@@ -1869,4 +1886,5 @@
 ["🏴󠁧󠁢󠁥󠁮󠁧󠁿",["england"],["flag","gbeng"]],
 ["🏴󠁧󠁢󠁳󠁣󠁴󠁿",["scotland"],["flag","gbsct"]],
 ["🏴󠁧󠁢󠁷󠁬󠁳󠁿",["wales"],["flag","gbwls"]]
+]]
 ]

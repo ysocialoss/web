@@ -79,6 +79,7 @@ function NotificationsContent({
     markSeen,
     signedIn,
     canWrite,
+    hideContent,
   } = useNotifications();
   const list = useRef<HTMLUListElement>(null);
   useEffect(() => {
@@ -210,7 +211,7 @@ function NotificationsContent({
                       {!item.readAt && <span className="sr-only"> Unread</span>}
                     </Link>
                   </p>
-                  {item.preview && (
+                  {!hideContent && item.preview && (
                     <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
                       {item.preview}
                     </p>

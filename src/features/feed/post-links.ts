@@ -15,7 +15,7 @@ export type PostLink =
 
 export type PostPart = { kind: "text"; text: string } | PostLink;
 
-export function splitPostLinks(content: string, development = false) {
+export function splitPostLinks(content: string, development = false, origin?: string) {
   const parts: PostPart[] = [];
   let end = 0;
   for (const { match, url } of findWebLinks(content)) {
@@ -29,7 +29,7 @@ export function splitPostLinks(content: string, development = false) {
     const owned =
       !url.username &&
       !url.password &&
-      (local || (url.hostname === ownedHost && !url.port));
+      (local || url.origin === origin || (url.hostname === ownedHost && !url.port));
     const postId = owned ? postPath.exec(url.pathname)?.[1] : undefined;
     parts.push(
       postId

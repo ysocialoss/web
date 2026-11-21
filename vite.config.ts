@@ -5,6 +5,7 @@ import { defineConfig } from "vite";
 
 // https://vite.dev/config/
 const proxy = {
+  "/api/dms/live": { target: process.env.API_URL || "http://127.0.0.1:3100", ws: true },
   "/api": { target: process.env.API_URL || "http://127.0.0.1:3100" },
   "/auth": { target: process.env.API_URL || "http://127.0.0.1:3100" },
 };

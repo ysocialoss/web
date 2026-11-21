@@ -3,6 +3,7 @@ export type EmojiEntry = {
   name: string;
   aliases: string[];
   keywords: string[];
+  group: number;
 };
 
 export type EmojiIndex = {
@@ -21,6 +22,7 @@ export type EmojiSpan = {
 export type ShortcodeQuery = { start: number; end: number; query: string };
 
 type Row = [string, string[], string[]];
+type Group = [number, Row[]];
 
 export const MIN_QUERY_LENGTH = 2;
 export const MAX_SUGGESTIONS = 40;
@@ -29,15 +31,17 @@ export const JUMBO_MAX = 27;
 const NAME = "[a-z0-9_+-]";
 const TOKEN = `(?<!\\d):(${NAME}{1,32})(?=:)`;
 
-export function buildEmojiIndex(rows: readonly Row[]): EmojiIndex {
+export function buildEmojiIndex(groups: readonly Group[]): EmojiIndex {
   const entries: EmojiEntry[] = [];
   const byName = new Map<string, string>();
   const byEmoji = new Map<string, string>();
-  for (const [emoji, [name, ...aliases], keywords] of rows) {
-    entries.push({ emoji, name, aliases, keywords });
-    byEmoji.set(emoji, name);
-    for (const alias of [name, ...aliases])
-      if (!byName.has(alias)) byName.set(alias, emoji);
+  for (const [group, rows] of groups) {
+    for (const [emoji, [name, ...aliases], keywords] of rows) {
+      entries.push({ emoji, name, aliases, keywords, group });
+      byEmoji.set(emoji, name);
+      for (const alias of [name, ...aliases])
+        if (!byName.has(alias)) byName.set(alias, emoji);
+    }
   }
   return { entries, byName, byEmoji };
 }
@@ -50,7 +54,7 @@ export const peekEmojiIndex = () => loaded;
 export function loadEmojiIndex() {
   loading ??= import("./emoji-data.json")
     .then((module) => {
-      loaded = buildEmojiIndex(module.default as Row[]);
+      loaded = buildEmojiIndex(module.default as Group[]);
       return loaded;
     })
     .catch((error: unknown) => {
