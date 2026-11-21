@@ -4,6 +4,7 @@ import { Link } from "react-router";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import type { Post } from "@/lib/api";
 import type { PostLink } from "./post-links";
+import { PostImages } from "./post-images";
 
 export function PostEmbed({
   link,
@@ -70,6 +71,7 @@ export function PostEmbed({
             className="max-h-40 max-w-full rounded-lg object-contain"
           />
         )}
+        <PostImages ids={post.imageIds} compact />
       </span>
     </span>
   ) : (

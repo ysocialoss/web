@@ -1,10 +1,10 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { ArrowUp, ChartNoAxesColumn, Plus, X } from "lucide-react";
-import { ComingSoonDialog } from "@/components/coming-soon-dialog";
 import { IconButton } from "@/components/ui/icon-button";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { Spinner } from "@/components/ui/spinner";
 import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import { LoginDialogContent } from "@/features/auth/login-dialog-content";
 import { MentionTextarea } from "./mention-textarea";
@@ -26,6 +26,7 @@ import {
 import { QuotedPostCard } from "./quoted-post";
 import { quoteOf } from "./quote";
 import { VoiceRecorder } from "./voice-recorder";
+import { postImageAccept, usePostImageDrafts } from "./post-image-drafts";
 import { renderShortcodes } from "@/lib/emoji";
 import { useEmojiIndex } from "@/lib/use-emoji-index";
 import {
@@ -80,6 +81,7 @@ export function PostComposer({
   }
   return (
     <AuthenticatedPostComposer
+      key={feed.viewerId}
       feed={feed}
       placeholder={placeholder}
       topics={topics}
@@ -164,7 +166,8 @@ function AuthenticatedPostComposer({
 } & QuoteOptions) {
   const [published, setPublished] = useState(false);
   const [gifPickerOpen, setGifPickerOpen] = useState(false);
-  const [soonOpen, setSoonOpen] = useState(false);
+  const images = usePostImageDrafts(feed.viewerId);
+  const imageInput = useRef<HTMLInputElement>(null);
   const [gif, setGif] = useState<GifSearchItem | null>(null);
   const [poll, setPoll] = useState<PollDraft | null>(null);
   const [voice, setVoice] = useState<VoiceDraft>();
@@ -193,7 +196,8 @@ function AuthenticatedPostComposer({
   const valid =
     feed.canPost &&
     !voiceBusy &&
-    (length > 0 || gif !== null || poll !== null || voice !== undefined) &&
+    !images.busy &&
+    (length > 0 || gif !== null || poll !== null || voice !== undefined || images.ids.length > 0) &&
     length <= LIMIT &&
     (parsedPoll === null || parsedPoll.success);
 
@@ -251,9 +255,10 @@ function AuthenticatedPostComposer({
   function publish() {
     if (!valid) return;
     const started = quote
-      ? feed.publishQuote(quote, finalDraft, gif, parsedPoll?.data, onConfirmed, voice)
-      : feed.publishPost(finalDraft, gif, parsedPoll?.data, voice);
+      ? feed.publishQuote(quote, finalDraft, gif, parsedPoll?.data, onConfirmed, voice, images.ids)
+      : feed.publishPost(finalDraft, gif, parsedPoll?.data, voice, images.ids);
     if (!started) return;
+    images.handOff();
     onSubmitted?.();
     setVoice(undefined);
     setVoiceKey((key) => key + 1);
@@ -303,6 +308,28 @@ function AuthenticatedPostComposer({
               </div>
             </div>
           )}
+          {images.cards.length > 0 && (
+            <div className="flex w-full flex-wrap gap-2 pt-2">
+              {images.cards.map((image, index) => (
+                <div key={image.previewUrl} className="relative size-20 overflow-hidden rounded-xl bg-background">
+                  <img src={image.previewUrl} alt={`Attached image ${index + 1}`}
+                    className="size-full object-cover" />
+                  {image.status === "checking" ? (
+                    <div className="absolute inset-0 grid place-items-center bg-black/40 text-white">
+                      <Spinner className="size-5 motion-reduce:animate-none" aria-label={`Checking image ${index + 1}`} />
+                    </div>
+                  ) : (
+                    <IconButton type="button" label={`Remove image ${index + 1}`} size="icon-sm"
+                      className="absolute top-1 right-1 rounded-full bg-background"
+                      onClick={() => images.remove(image)}>
+                      <X />
+                    </IconButton>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+          {images.error && <p role="alert" className="w-full break-words text-sm text-destructive">{images.error}</p>}
           <div
             className="relative min-h-9 min-w-0 flex-1 basis-[calc(100%-0.5rem)] transition-[height] duration-200 ease-out"
             style={{
@@ -398,6 +425,13 @@ function AuthenticatedPostComposer({
               disabled={!feed.canPost}
             />
           )}
+          <input ref={imageInput} type="file" hidden multiple accept={postImageAccept}
+            aria-label="Choose images"
+            onChange={(event) => {
+              const files = Array.from(event.currentTarget.files ?? []);
+              event.currentTarget.value = "";
+              void images.add(files);
+            }} />
           <VoiceRecorder
             key={voiceKey}
             userId={feed.viewerId}
@@ -407,10 +441,11 @@ function AuthenticatedPostComposer({
             renderToolbar={(recordButton) => (
               <div className="-ml-2 flex shrink-0 basis-[calc(100%+0.5rem)] items-center gap-0.5">
                 <IconButton
-                  label="Upload"
+                  label="Attach images"
                   type="button"
                   className="rounded-full text-muted-foreground"
-                  onClick={() => setSoonOpen(true)}
+                  disabled={!feed.canPost || images.busy || images.full}
+                  onClick={() => imageInput.current?.click()}
                 >
                   <Plus aria-hidden="true" />
                 </IconButton>
@@ -494,7 +529,6 @@ function AuthenticatedPostComposer({
         />
       )}
     </Dialog>
-    <ComingSoonDialog open={soonOpen} onOpenChange={setSoonOpen} />
     </>
   );
 }

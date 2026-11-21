@@ -415,6 +415,7 @@ function PostChipLabel({
     post.content.trim().replace(/\s+/g, " ") ||
     post.poll?.title ||
     post.gif?.title ||
+    (post.imageIds.length ? "Image attachment" : "") ||
     "Post";
   return (
     <>
