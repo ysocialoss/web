@@ -70,6 +70,8 @@ export function publishOptimistically({
   const now = new Date();
   const optimistic: Post = {
     id: crypto.randomUUID(),
+    saved: false,
+    pinned: false,
     content,
     gif: gif ? { url: gif.url, title: gif.title } : null,
     voice: voice ?? null,
