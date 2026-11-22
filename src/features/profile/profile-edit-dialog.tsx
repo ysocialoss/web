@@ -1,12 +1,16 @@
-import type { ComponentProps, ReactNode } from "react";
+import { useState, type ComponentProps, type ReactNode } from "react";
 import { Link2, UserRound } from "lucide-react";
 import { GithubSettings } from "@/features/settings/github-settings";
+import { ConnectionsPanel } from "@/features/settings/connections-panel";
 import {
+  Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import type { api, Profile } from "@/lib/api";
+import { ProfileForm } from "./profile-form";
 
 export type ProfileEditTab = "profile" | "connections";
 
@@ -55,9 +59,65 @@ export function ProfileEditDialogContent({
           {children}
         </TabsContent>
         <TabsContent value="connections" className="inert:hidden">
-          <GithubSettings returnTo="profile" onGithubChange={onGithubChange} />
+          <ConnectionsPanel returnTo="profile" onGithubChange={onGithubChange} />
         </TabsContent>
       </Tabs>
     </DialogContent>
+  );
+}
+
+type ProfileFields = Pick<
+  Profile["profile"],
+  "handle" | "displayName" | "bio" | "pronouns"
+>;
+
+export function EditProfileDialog({
+  open,
+  onOpenChange,
+  tab,
+  onTabChange,
+  userId,
+  profile,
+  onSaved,
+  onGithubChange,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  tab: ProfileEditTab;
+  onTabChange: (tab: ProfileEditTab) => void;
+  userId: string;
+  profile: ProfileFields;
+  onSaved: (updated: Awaited<ReturnType<typeof api.updateProfile>>) => void;
+  onGithubChange?: ComponentProps<typeof GithubSettings>["onGithubChange"];
+}) {
+  const [saving, setSaving] = useState(false);
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!saving) onOpenChange(next);
+      }}
+    >
+      <ProfileEditDialogContent
+        saving={saving}
+        tab={tab}
+        onTabChange={onTabChange}
+        onGithubChange={onGithubChange}
+      >
+        {open && (
+          <ProfileForm
+            appearance="dialog"
+            userId={userId}
+            profile={profile}
+            onSavingChange={setSaving}
+            onCancel={() => onOpenChange(false)}
+            onSaved={(updated) => {
+              onSaved(updated);
+              onOpenChange(false);
+            }}
+          />
+        )}
+      </ProfileEditDialogContent>
+    </Dialog>
   );
 }

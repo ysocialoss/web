@@ -20,6 +20,13 @@ function useNotificationState(userId: string | null, canWrite: boolean) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const request = useRef<AbortController | null>(null);
+  const loadedAt = useRef(0);
+  const itemsRef = useRef(items);
+  const counted = useRef(new Set<string>());
+  const syncTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => {
+    itemsRef.current = items;
+  });
   const countRequest = useRef(0);
   const reading = useRef(new Set<string>());
   const previewVisibility = useRef<boolean | undefined>(undefined);
@@ -50,6 +57,8 @@ function useNotificationState(userId: string | null, canWrite: boolean) {
           controller.signal,
         );
         if (controller.signal.aborted) return;
+        loadedAt.current = Date.now();
+        counted.current.clear();
         applyPrivacy(result.hideContent);
         setItems((previous) => {
           const existing = new Map(previous.map((item) => [item.id, item]));
@@ -78,12 +87,15 @@ function useNotificationState(userId: string | null, canWrite: boolean) {
     const countVersion = ++countRequest.current;
     try {
       const result = await api.notifications(undefined, false, signal);
-      if (!signal?.aborted && countVersion === countRequest.current)
+      if (!signal?.aborted && countVersion === countRequest.current) {
+        counted.current.clear();
         setUnreadCount(result.unreadCount);
+      }
     } catch {
       /* The next poll or inbox refresh will update the count. */
     }
   }, []);
+  useEffect(() => () => clearTimeout(syncTimer.current), []);
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void refresh();
@@ -180,12 +192,20 @@ function useNotificationState(userId: string | null, canWrite: boolean) {
       }
       if (readIds.size === 0) return;
       const readAt = new Date().toISOString();
+      let newlyRead = 0;
+      for (const item of itemsRef.current) {
+        if (item.readAt || !readIds.has(item.id) || counted.current.has(item.id)) continue;
+        counted.current.add(item.id);
+        newlyRead++;
+      }
       setItems((previous) =>
         previous.map((item) =>
           !item.readAt && readIds.has(item.id) ? { ...item, readAt } : item,
         ),
       );
-      await syncUnreadCount();
+      if (newlyRead > 0) setUnreadCount((count) => Math.max(0, count - newlyRead));
+      clearTimeout(syncTimer.current);
+      syncTimer.current = setTimeout(() => void syncUnreadCount(), 1200);
     },
     [canWrite, syncUnreadCount],
   );
@@ -219,6 +239,7 @@ function useNotificationState(userId: string | null, canWrite: boolean) {
     hideContent,
     signedIn: !!userId,
     canWrite,
+    isStale: (maxAgeMs = 20_000) => Date.now() - loadedAt.current > maxAgeMs,
   };
 }
 const NotificationsContext = createContext<ReturnType<

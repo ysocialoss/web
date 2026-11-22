@@ -66,7 +66,7 @@ const kinds = {
   },
 };
 
-function groupNotifications(items: SocialNotification[]) {
+function groupNotifications(items: SocialNotification[], priority: ReadonlySet<string>) {
   const startOfToday = new Date();
   startOfToday.setHours(0, 0, 0, 0);
   const groups: { title: string; items: SocialNotification[] }[] = [
@@ -75,7 +75,7 @@ function groupNotifications(items: SocialNotification[]) {
     { title: "Older", items: [] },
   ];
   for (const item of items) {
-    if (!item.readAt && item.kind !== "like") groups[0].items.push(item);
+    if (priority.has(item.id)) groups[0].items.push(item);
     else if (new Date(item.createdAt) >= startOfToday)
       groups[1].items.push(item);
     else groups[2].items.push(item);
@@ -102,8 +102,21 @@ function NotificationsContent({
     signedIn,
     canWrite,
     hideContent,
+    isStale,
   } = useNotifications();
   const list = useRef<HTMLDivElement>(null);
+  const [priority, setPriority] = useState<ReadonlySet<string>>(() => new Set());
+  if (grouped) {
+    const arrived = items.filter(
+      (item) => !item.readAt && item.kind !== "like" && !priority.has(item.id),
+    );
+    if (arrived.length)
+      setPriority(new Set([...priority, ...arrived.map((item) => item.id)]));
+  }
+  useEffect(() => {
+    if (grouped && signedIn && isStale()) void refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [grouped, signedIn]);
   const loadMoreRef = useLoadMore(
     () => {
       if (nextCursor) void refresh(nextCursor);
@@ -149,7 +162,9 @@ function NotificationsContent({
   return (
     <>
       <div
-        className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
+        className={cn(
+          !grouped && "min-h-0 flex-1 overflow-y-auto overscroll-contain",
+        )}
         aria-busy={loading}
       >
         {loading && items.length === 0 && (
@@ -171,7 +186,7 @@ function NotificationsContent({
         )}
         <div ref={list}>
           {(grouped
-            ? groupNotifications(visible)
+            ? groupNotifications(visible, priority)
             : [{ title: "", items: visible }]
           ).map((group) => (
             <section key={group.title} aria-label={group.title || undefined}>
@@ -363,10 +378,27 @@ function MarkAllRead() {
   );
 }
 
-export function NotificationsBell({ className }: { className?: string }) {
+export function NotificationsBell({
+  className,
+  reserveSpace = false,
+}: {
+  className?: string;
+  reserveSpace?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const { unreadCount, refresh, signedIn } = useNotifications();
-  if (!signedIn) return null;
+  if (!signedIn)
+    return reserveSpace ? (
+      <Button
+        variant="ghost"
+        size="icon"
+        className={className}
+        aria-label="Notifications"
+        disabled
+      >
+        <Bell aria-hidden="true" />
+      </Button>
+    ) : null;
   return (
     <Popover
       open={open}
@@ -450,7 +482,7 @@ export function ActivityPage() {
   return (
     <div className="mx-auto max-w-xl pb-24">
       <h1 className="px-4 pt-4 text-xl font-semibold">Activity</h1>
-      <NotificationsContent grouped />
+      <NotificationsContent grouped markVisibleAsRead />
     </div>
   );
 }

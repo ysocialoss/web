@@ -1,4 +1,5 @@
 import {
+  Suspense,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -33,25 +34,30 @@ import { TrendingTopicsStrip } from "@/components/account/trending-topics";
 import { Account, ApprovalBanner } from "@/features/auth/account";
 import { useAuth, type AuthState } from "@/features/auth/use-auth";
 import { usePageTitle } from "@/hooks/use-page-title";
-import { Thread } from "@/features/feed/thread";
-import { TopicPage } from "@/features/topics/topic-page";
-import { SearchPage } from "@/features/search/search-page";
 import { useSearchShortcut } from "@/features/search/use-search-shortcut";
 import { isTopicName, normalizeTopic } from "@/lib/topics";
-import { ProfilePage } from "@/features/profile/profile";
 import type { Session } from "@/lib/api";
 import { useFeed } from "@/features/feed/use-feed";
-import { ProfileSkeleton } from "@/components/loading-skeletons";
+import { PostListSkeleton, ProfileSkeleton } from "@/components/loading-skeletons";
 import { ConnectionBanner } from "@/components/connection-banner";
+import { DynamicFavicon } from "@/components/dynamic-favicon";
 import { StagingNotice } from "@/components/staging-notice";
 import { cn } from "@/lib/utils";
 import { recallScroll, rememberScroll } from "@/lib/scroll-memory";
 import { useGoBack } from "@/hooks/use-go-back";
-import { SettingsPage } from "@/features/settings/settings";
 import { NotificationsProvider } from "@/features/notifications/notifications-context";
 import { DmUnreadProvider } from "@/features/dms/dm-unread";
 import { ActivityPage, NotificationsPage } from "@/features/notifications/notifications";
-import { MessagesPage } from "@/features/dms/messages-page";
+import {
+  AccountSettingsPage,
+  MessagesPage,
+  ProfilePage,
+  SearchPage,
+  SettingsPage,
+  Thread,
+  TopicPage,
+  preloadRoutesWhenIdle,
+} from "@/routes";
 import { AppUpdatePrompt } from "@/features/updates/app-update";
 
 export function App() {
@@ -89,6 +95,9 @@ function AppShell() {
   const hideAccountSidebar =
     /^@[a-z0-9_]{3,32}$/.test(profileHandle ?? "") ||
     matchPath("/profile", pathname) !== null || messagesLayout;
+  useEffect(() => {
+    preloadRoutesWhenIdle();
+  }, []);
   useEffect(() => {
     // Paint the base logo before enabling the tint on a direct Settings visit.
     let frame = requestAnimationFrame(() => {
@@ -203,6 +212,7 @@ function AppShell() {
         !!auth.session?.authenticated && !auth.session.needsOnboarding && !auth.session.pendingApproval && !auth.session.ban
       }
      >
+      <DynamicFavicon />
       <div
         className="relative flex h-dvh min-h-0 flex-col"
         data-settings-page={
@@ -243,6 +253,7 @@ function AppShell() {
             )}
           >
             <Account auth={auth} />
+            <Suspense fallback={<RouteFallback />}>
             <Routes>
               <Route path="/" element={<HomeFeed session={auth.session} />} />
               <Route
@@ -266,6 +277,10 @@ function AppShell() {
               />
               <Route path="/profile" element={<MyProfileRoute auth={auth} />} />
               <Route path="/asettings" element={<SettingsPage auth={auth} />} />
+              <Route
+                path="/settings/account"
+                element={<AccountSettingsPage auth={auth} />}
+              />
               <Route
                 path="/onboarding"
                 element={<OnboardingRoute session={auth.session} />}
@@ -309,6 +324,7 @@ function AppShell() {
               <Route path="/activity" element={<ActivityPage />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
+            </Suspense>
           </section>
           {!hideAccountSidebar && <AccountSidebar auth={auth} />}
         </main>
@@ -317,6 +333,14 @@ function AppShell() {
      </DmUnreadProvider>
     </NotificationsProvider>
   );
+}
+
+function RouteFallback() {
+  const { pathname } = useLocation();
+  if (/^\/@/.test(pathname) || pathname === "/profile") return <ProfileSkeleton />;
+  if (pathname.startsWith("/messages")) return null;
+  if (pathname.startsWith("/settings") || pathname === "/asettings") return null;
+  return <PostListSkeleton />;
 }
 
 function HomeFeed({ session }: { session: Session | null }) {

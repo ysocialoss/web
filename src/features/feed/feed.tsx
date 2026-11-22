@@ -82,7 +82,7 @@ export function Feed({
           {feed.sessionLoading ? (
             <ComposerSkeleton />
           ) : (
-            <PostComposer feed={feed} />
+            <PostComposer feed={feed} inspire />
           )}
         </div>
       )}
