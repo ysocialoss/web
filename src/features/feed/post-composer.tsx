@@ -24,6 +24,7 @@ import {
   type VoiceDraft,
 } from "@/lib/api";
 import { QuotedPostCard } from "./quoted-post";
+import { QuoteText, pickQuote, type ComposerQuote } from "./composer-quote";
 import { quoteOf } from "./quote";
 import { VoiceRecorder } from "./voice-recorder";
 import { postImageAccept, usePostImageDrafts } from "./post-image-drafts";
@@ -50,15 +51,18 @@ export function PostComposer({
   placeholder = "What's on your mind?",
   topics = true,
   dropUp = false,
+  inspire = false,
   ...quoting
 }: {
   feed: FeedState;
   placeholder?: string;
+  inspire?: boolean;
   /** Offer #topic completion. */
   topics?: boolean;
   /** Open suggestion lists above the field (for composers pinned to the bottom). */
   dropUp?: boolean;
 } & QuoteOptions) {
+  const [quote] = useState<ComposerQuote | null>(() => (inspire ? pickQuote() : null));
   if (!feed.sessionLoading && !feed.authenticated) {
     return (
       <Dialog>
@@ -66,11 +70,12 @@ export function PostComposer({
           render={
             <button
               type="button"
+              aria-label={quote ? placeholder : undefined}
               className="mx-auto block w-full max-w-xl rounded-[1.75rem] bg-muted px-4 py-4 text-left text-sm leading-5 text-muted-foreground focus-visible:outline-2 focus-visible:outline-ring sm:px-5 md:text-base md:leading-6"
             />
           }
         >
-          {placeholder}
+          {quote ? <QuoteText quote={quote} /> : placeholder}
         </DialogTrigger>
         <LoginDialogContent
           title="Log in to post"
@@ -86,6 +91,8 @@ export function PostComposer({
       placeholder={placeholder}
       topics={topics}
       dropUp={dropUp}
+      inspire={inspire}
+      initialQuote={quote}
       {...quoting}
     />
   );
@@ -154,6 +161,8 @@ function AuthenticatedPostComposer({
   placeholder,
   topics,
   dropUp,
+  inspire,
+  initialQuote,
   quote,
   autoFocus,
   onSubmitted,
@@ -163,7 +172,10 @@ function AuthenticatedPostComposer({
   placeholder: string;
   topics: boolean;
   dropUp: boolean;
+  inspire: boolean;
+  initialQuote: ComposerQuote | null;
 } & QuoteOptions) {
+  const [inspiration, setInspiration] = useState(initialQuote);
   const [published, setPublished] = useState(false);
   const [gifPickerOpen, setGifPickerOpen] = useState(false);
   const images = usePostImageDrafts(feed.viewerId);
@@ -267,6 +279,7 @@ function AuthenticatedPostComposer({
     textarea.current?.blur();
     setDraft("");
     setPublished(true);
+    if (inspire) setInspiration((current) => pickQuote(current));
   }
 
   const textClass = "py-1.5 text-base leading-6 md:text-base";
@@ -348,8 +361,8 @@ function AuthenticatedPostComposer({
               aria-hidden="true"
               className={`pointer-events-none invisible absolute inset-x-0 top-0 min-h-9 break-words whitespace-pre-wrap ${textClass}`}
             >
-              {draft || " "}
-              {"\u200b"}
+              {draft || (inspiration ? <QuoteText quote={inspiration} /> : " ")}
+              {(draft || !inspiration) && "\u200b"}
             </div>
             <MentionTextarea
               ref={textarea}
@@ -362,7 +375,7 @@ function AuthenticatedPostComposer({
                   ? topicOptionId(suggestionsId, suggestions.index)
                   : undefined
               }
-              placeholder={placeholder}
+              placeholder={inspiration ? undefined : placeholder}
               rows={1}
               value={draft}
               onValueChange={setDraft}
@@ -420,6 +433,14 @@ function AuthenticatedPostComposer({
               style={{ overflowY: scrolls ? "auto" : "hidden" }}
               className={`absolute inset-0 h-full min-h-0 resize-none field-sizing-fixed rounded-none border-0 bg-transparent px-0 shadow-none focus-visible:ring-0 disabled:bg-transparent disabled:opacity-100 dark:bg-transparent dark:disabled:bg-transparent ${textClass}`}
             />
+            {inspiration && !draft && (
+              <p
+                aria-hidden="true"
+                className={`pointer-events-none absolute inset-x-0 top-0 break-words ${textClass}`}
+              >
+                <QuoteText quote={inspiration} />
+              </p>
+            )}
           </div>
           {poll && (
             <PollFields

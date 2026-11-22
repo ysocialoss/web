@@ -119,6 +119,7 @@ export function NewPostDialog({
           feed={feed}
           autoFocus
           placeholder={kind === "reply" ? "Write a reply…" : undefined}
+          inspire={kind !== "reply"}
           onSubmitted={() => {
             setOpen(false);
             if (kind === "post") scrollFeedToTop(anchor.current);

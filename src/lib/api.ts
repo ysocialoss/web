@@ -221,6 +221,12 @@ const profileSchema = z.object({
   profile: userSchema.extend({
     isOg: z.boolean().default(false),
     github: githubAccountSchema.nullable().default(null),
+    connections: z.array(z.object({
+      provider: z.enum(["discord", "twitch"]),
+      username: z.string(),
+      displayName: z.string(),
+      profileUrl: z.url(),
+    })).default([]),
     badges: z.array(z.object({
       id: z.uuid(),
       icon: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
@@ -237,6 +243,7 @@ const profileSchema = z.object({
     bannedByProfileHandle: z.string().nullable().default(null),
     followerCount: z.number().int().nonnegative(),
     followingCount: z.number().int().nonnegative(),
+    postCount: z.number().int().nonnegative().optional(),
   }),
   isFollowing: z.boolean(),
   isFollowedBy: z.boolean(),
@@ -308,6 +315,8 @@ const notificationsSchema = z.object({
   unreadCount: z.number(),
   nextCursor: z.string().nullable(),
 });
+
+export type MuteDuration = "1h" | "8h" | "24h" | "1w" | "forever" | "off";
 
 const traceCodes: Record<string, number> = {
   // auth
@@ -557,6 +566,10 @@ function friendlyMessage(error: unknown) {
     if (error.message === "invalid_topic") return "This isn't a valid topic.";
     if (error.message === "invalid_search")
       return "This search isn't valid. Try something shorter.";
+    if (error.message === "invalid_confirmation")
+      return "That doesn't match your handle.";
+    if (error.message === "protected_account")
+      return "This account can't be deleted here. Ask another admin to remove it.";
     if (error.message === "retry_account_changed")
       return "Sign in to the original account before retrying this action.";
     if (error.message === "blocked")
@@ -694,6 +707,33 @@ export const api = {
       return url.origin === "https://github.com" && url.pathname === "/login/oauth/authorize";
     }),
   }), "POST", returnTo ? { returnTo } : undefined),
+  twitchLive: (handles: string[], signal?: AbortSignal) =>
+    request(
+      `/api/connections/twitch/live?handles=${encodeURIComponent(handles.join(","))}`,
+      z.object({ live: z.record(z.string(), z.object({ login: z.string() })) }),
+      "GET",
+      undefined,
+      signal,
+    ),
+  linkedAccounts: (signal?: AbortSignal) =>
+    request("/api/connections", z.object({
+      providers: z.array(z.object({
+        provider: z.enum(["discord", "twitch"]),
+        configured: z.boolean(),
+        connection: z.object({
+          provider: z.string(),
+          username: z.string(),
+          displayName: z.string(),
+          profileUrl: z.url(),
+        }).nullable(),
+      })),
+    }), "GET", undefined, signal),
+  connectProvider: (provider: string, returnTo: "profile" | "settings") =>
+    request(`/api/connections/${provider}/connect`, z.object({
+      url: z.url().refine((value) => new URL(value).protocol === "https:"),
+    }), "POST", { returnTo }),
+  disconnectProvider: (provider: string) =>
+    request(`/api/connections/${provider}`, z.undefined(), "DELETE"),
   disconnectGithub: () => request("/api/github", z.undefined(), "DELETE"),
   pronounRecommendations: (signal: AbortSignal) =>
     request(
@@ -744,7 +784,7 @@ export const api = {
     request("/api/notifications/push/prompt-dismissal", z.undefined(), "PUT"),
   setNotificationContentHidden: (hideContent: boolean) =>
     request("/api/notifications/previews", z.undefined(), "PATCH", { hideContent }),
-  mutePush: (endpoint: string, duration: "1h" | "8h" | "forever" | "off") =>
+  mutePush: (endpoint: string, duration: MuteDuration) =>
     request(
       "/api/notifications/push/mute",
       z.object({
@@ -782,6 +822,8 @@ export const api = {
       profile,
       signal,
     ),
+  deleteAccount: (handle: string) =>
+    request("/api/profiles/me", z.undefined(), "DELETE", { handle }),
   sessionOnce: (signal?: AbortSignal) =>
     sendRequest("/auth/me", sessionSchema, "GET", undefined,
       attemptSignal(5000, signal)),

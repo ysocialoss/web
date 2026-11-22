@@ -7,6 +7,7 @@ import { Check, LoaderCircle, Pencil, Trash2, X } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { IconButton } from "@/components/ui/icon-button";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
+import { TwitchLive } from "@/features/profile/twitch-live";
 import { ProfileHoverLink } from "@/features/profile/profile-hover-link";
 import { MentionLink } from "./mention-text";
 import { MentionTextarea } from "./mention-textarea";
@@ -31,7 +32,8 @@ import {
 import { useEmojiIndex } from "@/lib/use-emoji-index";
 import type { FeedState } from "./use-feed";
 import { watchPost } from "./live-states";
-import { ReportMenu } from "@/features/reports/report-menu";
+import { ReportMenu, copyLinkAction } from "@/features/reports/report-menu";
+import { useNow } from "@/hooks/use-now";
 import { useBlockedUser } from "@/features/reports/blocked-users";
 
 export function PostCard({
@@ -67,11 +69,7 @@ export function PostCard({
   const [editing, setEditing] = useState(false);
   const [content, setContent] = useState(post.content);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 30_000);
-    return () => clearInterval(timer);
-  }, []);
+  const now = useNow();
   const articleRef = useRef<HTMLElement>(null);
   useEffect(() => {
     const element = articleRef.current;
@@ -218,6 +216,7 @@ export function PostCard({
               >
                 {post.author.displayName}
               </ProfileHoverLink>
+              <TwitchLive handle={post.author.handle} />
               <ProfileHoverLink
                 handle={post.author.handle}
                 className="text-xs text-muted-foreground hover:text-foreground"
@@ -295,6 +294,7 @@ export function PostCard({
               <ReportMenu
                 className="-my-1.5 shrink-0"
                 label="Post options"
+                actions={[copyLinkAction(`/posts/${post.id}`)]}
                 follow={{ handle: post.author.handle }}
                 block={{ id: post.author.id, handle: post.author.handle }}
                 subject={{

@@ -13,11 +13,13 @@ type FloatingNavigationItem = {
 export function FloatingNavigation({
   items,
   activeTo,
+  onPreload,
   label = "Navigation",
   className,
 }: {
   items: readonly FloatingNavigationItem[];
   activeTo: string | null;
+  onPreload?: (to: string) => void;
   label?: string;
   className?: string;
 }) {
@@ -49,6 +51,9 @@ export function FloatingNavigation({
               key={to}
               to={to}
               state={{ navigationTab: true }}
+              onPointerEnter={() => onPreload?.(to)}
+              onTouchStart={() => onPreload?.(to)}
+              onFocus={() => onPreload?.(to)}
               aria-label={badge ? `${itemLabel}, ${badge} unread` : itemLabel}
               aria-current={active ? "page" : undefined}
               data-active={active}

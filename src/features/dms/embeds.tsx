@@ -75,16 +75,41 @@ function PreviewText({ post }: { post: Post }) {
   );
 }
 
+const PREVIEW_TTL_MS = 60_000;
+const previews = new Map<string, { at: number; promise: Promise<Post>; post?: Post }>();
+
+function loadPreview(postId: string) {
+  const hit = previews.get(postId);
+  if (hit && Date.now() - hit.at < PREVIEW_TTL_MS) return hit;
+  const entry: { at: number; promise: Promise<Post>; post?: Post } = {
+    at: Date.now(),
+    promise: api.postPreview(postId, AbortSignal.timeout(10_000)).then(({ post }) => {
+      entry.post = post;
+      return post;
+    }),
+  };
+  entry.promise.catch(() => {
+    if (previews.get(postId) === entry) previews.delete(postId);
+  });
+  previews.set(postId, entry);
+  if (previews.size > 200) previews.delete(previews.keys().next().value!);
+  return entry;
+}
+
 export function PostCard({ postId, href }: { postId: string; href: string }) {
   const [ref, visible] = useVisible<HTMLDivElement>();
-  const [state, setState] = useState<{ post?: Post; failed?: boolean }>({});
+  const [state, setState] = useState<{ post?: Post; failed?: boolean }>(() => {
+    const post = previews.get(postId)?.post;
+    return post ? { post } : {};
+  });
   useEffect(() => {
     if (!visible) return;
-    const controller = new AbortController();
-    api.postPreview(postId, AbortSignal.any([controller.signal, AbortSignal.timeout(10_000)]))
-      .then(({ post }) => { if (!controller.signal.aborted) setState({ post }); })
-      .catch(() => { if (!controller.signal.aborted) setState({ failed: true }); });
-    return () => controller.abort();
+    let live = true;
+    loadPreview(postId).promise.then(
+      (post) => { if (live) setState({ post }); },
+      () => { if (live) setState((current) => (current.post ? current : { failed: true })); },
+    );
+    return () => { live = false; };
   }, [visible, postId]);
   const { post, failed } = state;
   const target = new URL(href);

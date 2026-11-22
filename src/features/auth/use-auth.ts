@@ -10,6 +10,7 @@ import {
 import { showRetryToast } from "@/lib/retry-toast";
 import { toast } from "@/components/ui/toast-manager";
 import { subscribeToLive } from "@/lib/live-events";
+import { rememberSession } from "./session-hint";
 
 function approvalWelcomeKey(userId: string) {
   return `approval-welcome:${userId}`;
@@ -77,6 +78,9 @@ export function useAuth() {
     void reload(controller.signal);
     return () => controller.abort();
   }, [reload]);
+  useEffect(() => {
+    rememberSession(session);
+  }, [session]);
   const bannedAt =
     session?.authenticated && !session.needsOnboarding ? session.ban?.at ?? null : null;
   const pendingUserId =

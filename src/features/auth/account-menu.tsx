@@ -10,6 +10,7 @@ import {
   Monitor,
   Moon,
   RotateCcw,
+  Settings,
   Sun,
   UserPen,
   UserRound,
@@ -27,7 +28,9 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTheme } from "@/components/theme-provider";
 import { cn } from "@/lib/utils";
+import { preloadRoute } from "@/routes";
 import type { AuthState } from "./use-auth";
+import { useSessionHint } from "./session-hint";
 
 const rowClass =
   "flex h-10 w-full items-center gap-3 rounded-lg px-3 text-left text-sm font-medium outline-none transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 max-md:h-12 max-md:text-base [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-muted-foreground";
@@ -73,7 +76,7 @@ const themeOptions = [
   { value: "dark", label: "Dark", icon: Moon },
 ] as const;
 
-function ThemeSwitch() {
+export function ThemeSwitch() {
   const { theme, setTheme } = useTheme();
   return (
     <div className="px-1">
@@ -114,7 +117,7 @@ function AccountAvatar({
   className?: string;
 }) {
   return (
-    <Avatar className={className}>
+    <Avatar hat="top-[-24%] left-[46%]" className={className}>
       {src && <AvatarImage src={src} alt="" referrerPolicy="no-referrer" />}
       <AvatarFallback className="text-xs">
         {initials || <UserRound className="size-4" />}
@@ -128,11 +131,13 @@ export function AccountMenu({ auth }: { auth: AuthState }) {
   const [confirmLogout, setConfirmLogout] = useState(false);
   const [blockedOpen, setBlockedOpen] = useState(false);
   const { session } = auth;
+  const hint = useSessionHint(session);
   const user =
     session?.authenticated && !session.needsOnboarding ? session.user : null;
-  const avatarUrl = session?.authenticated ? session.avatarUrl : null;
-  const initials = user
-    ? (user.displayName.trim() || user.handle).slice(0, 2)
+  const avatarUrl = session?.authenticated ? session.avatarUrl : (hint?.avatarUrl ?? null);
+  const shownUser = user ?? hint;
+  const initials = shownUser
+    ? (shownUser.displayName.trim() || shownUser.handle).slice(0, 2)
     : null;
   const close = () => setOpen(false);
   return (
@@ -148,7 +153,7 @@ export function AccountMenu({ auth }: { auth: AuthState }) {
               title="Account menu"
               disabled={auth.busy || (!session && !auth.error)}
             >
-              {!session && !auth.error ? (
+              {!session && !auth.error && !hint ? (
                 <Skeleton
                   className="size-full rounded-[30%] [corner-shape:squircle]"
                   aria-hidden="true"
@@ -211,6 +216,16 @@ export function AccountMenu({ auth }: { auth: AuthState }) {
           {isStandaloneApp() && (
             <MenuRow icon={RefreshCw} onClick={reloadApp}>
               Reload app
+            </MenuRow>
+          )}
+          {user && (
+            <MenuRow
+              icon={Settings}
+              to="/settings/account"
+              onClick={close}
+              onPointerEnter={() => preloadRoute("/settings/account")}
+            >
+              Account settings
             </MenuRow>
           )}
           {user && (

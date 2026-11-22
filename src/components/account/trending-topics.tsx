@@ -15,8 +15,31 @@ import { topicPath } from "@/lib/topics";
 const REFRESH_EVERY = 60_000;
 
 /** The most used topics of the last 24 hours, kept fresh while the tab is open. */
+const STORAGE_KEY = "trending-topics";
+let remembered: TopicCount[] | null | undefined;
+
+function readRemembered() {
+  if (remembered !== undefined) return remembered;
+  try {
+    const parsed: unknown = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "null");
+    remembered = Array.isArray(parsed) ? (parsed as TopicCount[]) : null;
+  } catch {
+    remembered = null;
+  }
+  return remembered;
+}
+
+function remember(topics: TopicCount[]) {
+  remembered = topics;
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(topics));
+  } catch {
+    remembered = topics;
+  }
+}
+
 function useTrendingTopics() {
-  const [topics, setTopics] = useState<TopicCount[] | null>(null);
+  const [topics, setTopics] = useState<TopicCount[] | null>(readRemembered);
   const [failed, setFailed] = useState(false);
   useEffect(() => {
     let controller: AbortController | undefined;
@@ -26,6 +49,7 @@ function useTrendingTopics() {
       api
         .trendingTopics(own.signal)
         .then((result) => {
+          remember(result.topics);
           setTopics(result.topics);
           setFailed(false);
         })
@@ -53,7 +77,16 @@ function useTrendingTopics() {
 }
 
 export function TrendingTopicsStrip() {
-  const { topics } = useTrendingTopics();
+  const { topics, failed } = useTrendingTopics();
+  if (topics === null && !failed)
+    return (
+      <div aria-hidden="true" className="mx-auto mb-4 flex w-full max-w-xl items-center gap-2 pb-1 lg:hidden">
+        <Skeleton className="h-4 w-14 shrink-0" />
+        {[0, 1, 2, 3].map((pill) => (
+          <Skeleton key={pill} className="h-8 w-20 shrink-0 rounded-full" />
+        ))}
+      </div>
+    );
   if (!topics?.length) return null;
   return (
     <section

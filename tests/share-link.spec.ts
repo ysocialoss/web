@@ -74,6 +74,7 @@ for (const mobile of [false, true]) {
       }),
     );
 
+    const menuEntry = mobile ? "button" : "menuitem";
     const clipboard = () => page.evaluate(() => navigator.clipboard.readText());
     const share = page.getByRole("button", { name: "Share", exact: true });
     for (const { pagePath, linkPath, kind } of [
@@ -87,7 +88,7 @@ for (const mobile of [false, true]) {
       const openShare = async () => {
         if (kind === "post") return share.click();
         await page.getByRole("button", { name: "Profile options" }).click();
-        await page.getByRole("menuitem", { name: "Share profile" }).click();
+        await page.getByRole(menuEntry, { name: "Share profile" }).click();
       };
       await openShare();
       await expect(dialog).toBeVisible();
@@ -107,7 +108,7 @@ for (const mobile of [false, true]) {
         await expect(page.getByRole("button", { name: "Link copied" })).toBeVisible();
       } else {
         await page.getByRole("button", { name: "Profile options" }).click();
-        await page.getByRole("menuitem", { name: "Copy profile link" }).click();
+        await page.getByRole(menuEntry, { name: "Copy profile link" }).click();
         await expect(page.getByText("Link copied")).toBeVisible();
       }
       await expect(dialog).toBeHidden();

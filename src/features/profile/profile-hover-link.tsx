@@ -5,6 +5,7 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
+import { preloadRoute } from "@/routes";
 import { loadProfileCard } from "./profile-card-cache";
 import { UserHoverCard } from "./user-hover-card";
 
@@ -15,7 +16,10 @@ export function ProfileHoverLink({
   onFocus,
   ...props
 }: Omit<ComponentProps<typeof Link>, "to"> & { handle: string }) {
-  const warm = () => void loadProfileCard(handle).catch(() => {});
+  const warm = () => {
+    void loadProfileCard(handle).catch(() => {});
+    preloadRoute(`/@${handle}`);
+  };
   return (
     <HoverCard>
       <HoverCardTrigger
