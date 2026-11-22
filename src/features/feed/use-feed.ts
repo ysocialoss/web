@@ -385,6 +385,14 @@ export function useFeed(
       canPost && viewerId
         ? mutatePost(post, viewerId, { kind: "like", value: !post.liked })
         : false,
+    toggleSave: (post: Post) =>
+      canPost && viewerId
+        ? mutatePost(post, viewerId, { kind: "save", value: !post.saved })
+        : false,
+    togglePin: (post: Post) =>
+      canPost && viewerId && post.author.id === viewerId && !post.parentId
+        ? mutatePost(post, viewerId, { kind: "pin", value: !post.pinned })
+        : false,
     /** Repost with an audience, or undo the repost with `null`. */
     setRepost: (post: Post, audience: RepostAudience | null) =>
       canPost && viewerId

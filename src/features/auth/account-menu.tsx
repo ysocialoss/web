@@ -1,10 +1,12 @@
 import { useState, type ComponentProps } from "react";
+import { IconButton } from "@/components/ui/icon-button";
 import { isStandaloneApp, reloadApp } from "@/features/updates/app-update";
 import { BlockedAccountsDialog } from "@/features/reports/blocked-accounts-dialog";
 import { Link } from "react-router";
 import {
   LogIn,
   Ban,
+  Bookmark,
   LogOut,
   RefreshCw,
   Monitor,
@@ -145,12 +147,11 @@ export function AccountMenu({ auth }: { auth: AuthState }) {
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger
           render={
-            <Button
+            <IconButton
               variant="ghost"
               size="icon"
               className="size-11 rounded-[30%] [corner-shape:squircle] md:size-9"
-              aria-label="Account menu"
-              title="Account menu"
+              label="Account menu"
               disabled={auth.busy || (!session && !auth.error)}
             >
               {!session && !auth.error && !hint ? (
@@ -165,7 +166,7 @@ export function AccountMenu({ auth }: { auth: AuthState }) {
                   className="size-full"
                 />
               )}
-            </Button>
+            </IconButton>
           }
         />
         <PopoverContent
@@ -216,6 +217,16 @@ export function AccountMenu({ auth }: { auth: AuthState }) {
           {isStandaloneApp() && (
             <MenuRow icon={RefreshCw} onClick={reloadApp}>
               Reload app
+            </MenuRow>
+          )}
+          {user && (
+            <MenuRow
+              icon={Bookmark}
+              to="/saved"
+              onClick={close}
+              onPointerEnter={() => preloadRoute("/saved")}
+            >
+              Saved posts
             </MenuRow>
           )}
           {user && (
