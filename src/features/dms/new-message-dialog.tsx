@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
-import { LoaderCircle, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import { useNavigate } from "react-router";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { api, type SearchUser } from "@/lib/api";
@@ -132,7 +132,6 @@ export function NewMessageDialog({
             maxLength={40}
             className="min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-muted-foreground md:text-sm"
           />
-          {searching && <LoaderCircle aria-hidden="true" className="size-4 shrink-0 animate-spin text-muted-foreground motion-reduce:animate-none" />}
         </label>
         <div id={listId} role="listbox" aria-label="People" aria-busy={searching} className="-mx-1 max-h-72 min-h-24 overflow-y-auto overscroll-contain px-1">
           {shown.map((user, index) => (

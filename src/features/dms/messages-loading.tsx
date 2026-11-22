@@ -11,7 +11,7 @@ export function MessagesLayout({ showThread, sidebar, children }: {
   children: ReactNode;
 }) {
   return (
-    <div className="flex h-full min-h-0 min-w-0">
+    <div className="flex h-full min-h-0 min-w-0 [&_[data-slot=skeleton]]:animate-none">
       <aside aria-label="Conversations" className={`w-full shrink-0 flex-col border-border md:flex md:w-72 md:border-r xl:w-80 ${showThread ? "hidden" : "flex"}`}>
         {sidebar}
       </aside>
@@ -61,6 +61,22 @@ export function ConversationListSkeleton() {
   );
 }
 
+export function EarlierMessagesSkeleton() {
+  return (
+    <div aria-hidden="true" data-older-placeholder className="space-y-3 px-2 py-1">
+      {[["w-16", "w-48"], ["w-24", "w-36"]].map(([name, line]) => (
+        <div key={name} className="flex h-10 items-center gap-2.5">
+          <Skeleton immediate className="size-9 shrink-0 rounded-full" />
+          <div className="min-w-0 space-y-2">
+            <Skeleton immediate className={`h-2.5 max-w-full ${name}`} />
+            <Skeleton immediate className={`h-3 max-w-full ${line}`} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function ThreadSkeleton() {
   return (
     <section aria-label="Conversation" className="flex min-h-0 min-w-0 flex-1 flex-col bg-background">
@@ -92,7 +108,7 @@ export function ThreadSkeleton() {
 
 export function ChatDevicesSkeleton() {
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden [&_[data-slot=skeleton]]:animate-none">
       <header className="flex shrink-0 items-center gap-2 border-b border-border px-2 py-2 pt-[max(0.5rem,env(safe-area-inset-top))] sm:px-4 md:pt-2">
         <IconLink label="Back to messages" to="/messages" className="size-10">
           <ArrowLeft aria-hidden="true" className="size-5" />

@@ -45,9 +45,9 @@ function SkeletonShape({ className, ...props }: ComponentProps<"div">) {
   );
 }
 
-function Skeleton(props: ComponentProps<"div">) {
+function Skeleton({ immediate = false, ...props }: ComponentProps<"div"> & { immediate?: boolean }) {
   const ready = useContext(SkeletonReadyContext);
-  if (ready) return <SkeletonShape {...props} />;
+  if (ready || immediate) return <SkeletonShape {...props} />;
   return (
     <SkeletonDelay>
       <SkeletonShape {...props} />

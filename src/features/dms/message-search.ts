@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { dmApi, type DmUser } from "./dm-api";
 import { decryptPage, readContext } from "./dm-context";
 import type { LocalDevice } from "./dm-crypto";
@@ -26,40 +26,47 @@ const CONCURRENCY = 3;
 
 export const fold = (text: string) => text.normalize("NFKD").replace(/\p{M}/gu, "").toLowerCase();
 
-type Entry = { stamp: string | null; peerId: string; messages: IndexedMessage[] };
+type Entry = { stamp: string | null; messages: IndexedMessage[] };
 
-export function useMessageSearch(device: LocalDevice, conversations: Searchable[] | undefined) {
+export function useMessageSearch(device: LocalDevice, conversations: Searchable[] | undefined, active: boolean) {
   const index = useRef(new Map<string, Entry>());
-  const running = useRef(false);
+  const running = useRef<AbortController | null>(null);
   const stale = useRef(new Set<string>());
   const [version, setVersion] = useState(0);
   const [progress, setProgress] = useState({ done: 0, total: 0 });
-  const [enabled, setEnabled] = useState(false);
+  const [failed, setFailed] = useState(false);
   const latest = useRef(conversations);
   useEffect(() => { latest.current = conversations; }, [conversations]);
 
   const build = useCallback(async () => {
     if (running.current) return;
-    running.current = true;
+    const controller = new AbortController();
+    running.current = controller;
+    const { signal } = controller;
+    const failures = new Set<string>();
+    setFailed(false);
     try {
-      while (true) {
+      while (!signal.aborted) {
         const todo = (latest.current ?? []).filter((conversation) => {
           const entry = index.current.get(conversation.id);
-          return !entry || stale.current.has(conversation.id) || entry.stamp !== conversation.lastMessageAt;
+          return !failures.has(conversation.id) && (!entry || stale.current.has(conversation.id) || entry.stamp !== conversation.lastMessageAt);
         });
         if (!todo.length) break;
         setProgress({ done: 0, total: todo.length });
         let done = 0;
         const queue = [...todo];
         await Promise.all(Array.from({ length: CONCURRENCY }, async () => {
-          for (let conversation = queue.shift(); conversation; conversation = queue.shift()) {
+          for (let conversation = queue.shift(); conversation && !signal.aborted; conversation = queue.shift()) {
             stale.current.delete(conversation.id);
             try {
-              const context = await readContext(conversation.id, device);
+              const [context, initial] = await Promise.all([
+                readContext(conversation.id, device, signal),
+                dmApi.messages(conversation.id, device, undefined, signal),
+              ]);
               const messages: IndexedMessage[] = [];
-              let before: string | undefined;
-              for (let page = 0; page < PAGE_CAP; page++) {
-                const result = await dmApi.messages(conversation.id, device, before ? { before } : undefined);
+              let result = initial;
+              for (let page = 1; ; page++) {
+                signal.throwIfAborted();
                 const decrypted = await decryptPage(conversation.id, device, context, result.messages);
                 for (const message of decrypted) {
                   const body = message.text;
@@ -73,12 +80,17 @@ export function useMessageSearch(device: LocalDevice, conversations: Searchable[
                     });
                   }
                 }
-                before = result.messages[0]?.sequence;
-                if (!result.more || !before) break;
+                const before = result.messages[0]?.sequence;
+                if (page === PAGE_CAP || !result.more || !before) break;
+                result = await dmApi.messages(conversation.id, device, { before }, signal);
               }
-              index.current.set(conversation.id, { stamp: conversation.lastMessageAt, peerId: conversation.peer.id, messages });
+              if (signal.aborted) return;
+              index.current.set(conversation.id, { stamp: conversation.lastMessageAt, messages });
             } catch {
-              index.current.set(conversation.id, { stamp: "unreadable", peerId: conversation.peer.id, messages: [] });
+              if (signal.aborted) return;
+              failures.add(conversation.id);
+              stale.current.add(conversation.id);
+              index.current.delete(conversation.id);
             }
             setProgress({ done: ++done, total: todo.length });
             setVersion((current) => current + 1);
@@ -86,23 +98,31 @@ export function useMessageSearch(device: LocalDevice, conversations: Searchable[
         }));
       }
     } finally {
-      running.current = false;
-      setProgress({ done: 0, total: 0 });
+      if (running.current === controller) {
+        running.current = null;
+        setFailed(failures.size > 0);
+        setProgress({ done: 0, total: 0 });
+      }
     }
   }, [device]);
 
   useEffect(() => {
-    if (enabled && conversations?.length) void build();
-  }, [enabled, conversations, build]);
-  useEffect(() => {
-    if (!enabled) return;
-    return subscribeDm(device.userId, (event) => {
-      if (event.type === "conversation" && event.message) {
+    if (!active) return;
+    const unsubscribe = subscribeDm(device.userId, (event) => {
+      if (event.type === "conversation" && event.message && latest.current?.some(({ id }) => id === event.id)) {
         stale.current.add(event.id);
         void build();
       }
     });
-  }, [enabled, device.userId, build]);
+    return () => {
+      unsubscribe();
+      running.current?.abort();
+      running.current = null;
+    };
+  }, [active, device.userId, build]);
+  useEffect(() => {
+    if (active && conversations?.length) void build();
+  }, [active, conversations, build]);
 
   const search = useCallback((query: string, filters: SearchFilters, limit = 60): SearchHit[] => {
     const terms = fold(query).split(/\s+/).filter(Boolean);
@@ -128,5 +148,5 @@ export function useMessageSearch(device: LocalDevice, conversations: Searchable[
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [device.userId, version]);
 
-  return useMemo(() => ({ search, progress, enable: () => setEnabled(true), version }), [search, progress, version]);
+  return { search, progress, failed, retry: build };
 }

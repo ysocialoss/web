@@ -2,7 +2,7 @@ import { useEffect, useRef, type RefObject } from "react";
 
 type Acknowledge = (ids: string[], signal: AbortSignal) => Promise<unknown>;
 
-export function useVisibleMessageReads(list: RefObject<HTMLOListElement | null>, messageVersion: unknown, read: Acknowledge) {
+export function useVisibleMessageReads(list: RefObject<HTMLOListElement | null>, read: Acknowledge) {
   const acknowledged = useRef(new Set<string>());
   const pending = useRef(new Set<string>());
 
@@ -32,6 +32,12 @@ export function useVisibleMessageReads(list: RefObject<HTMLOListElement | null>,
           queued.delete(id);
           seen.add(id);
         }
+        for (const row of observed) {
+          if (seen.has(row.getAttribute("data-readable-message") ?? "")) {
+            observer.unobserve(row);
+            observed.delete(row);
+          }
+        }
       } catch {
         delay = 5000;
       } finally {
@@ -48,23 +54,45 @@ export function useVisibleMessageReads(list: RefObject<HTMLOListElement | null>,
       }
       schedule();
     });
+    const observed = new Set<Element>();
+    function update(row: Node) {
+      if (!(row instanceof Element)) return;
+      const id = row.getAttribute("data-readable-message");
+      if (row.parentElement === element && id && !seen.has(id) && !document.hidden) {
+        if (!observed.has(row)) {
+          observer.observe(row);
+          observed.add(row);
+        }
+      } else if (observed.delete(row)) {
+        observer.unobserve(row);
+      }
+    }
     function observeVisible() {
       observer.disconnect();
+      observed.clear();
       if (document.hidden) return;
-      for (const row of element.querySelectorAll("[data-readable-message]")) {
-        const id = row.getAttribute("data-readable-message");
-        if (id && !seen.has(id)) observer.observe(row);
-      }
+      for (const row of element.children) update(row);
       schedule();
     }
 
+    const mutations = new MutationObserver((records) => {
+      for (const record of records) {
+        if (record.type === "attributes") update(record.target);
+        else if (record.target === element) {
+          record.addedNodes.forEach(update);
+          record.removedNodes.forEach(update);
+        }
+      }
+    });
+    mutations.observe(element, { childList: true, subtree: true, attributeFilter: ["data-readable-message"] });
     observeVisible();
     document.addEventListener("visibilitychange", observeVisible);
     return () => {
       controller.abort();
       clearTimeout(timer);
       observer.disconnect();
+      mutations.disconnect();
       document.removeEventListener("visibilitychange", observeVisible);
     };
-  }, [list, messageVersion, read]);
+  }, [list, read]);
 }
