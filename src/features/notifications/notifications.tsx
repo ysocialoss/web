@@ -21,6 +21,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
+import { DisplayName } from "@/components/display-name";
 import { useNotifications } from "./notifications-context";
 import { PushSettings } from "./push-settings";
 import { cn } from "@/lib/utils";
@@ -141,9 +142,11 @@ function NotificationsContent({ onNavigate }: { onNavigate?: () => void }) {
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm leading-snug">
-                      <span className="font-semibold">
-                        {item.actor.displayName || item.actor.handle}
-                      </span>{" "}
+                      <DisplayName
+                        user={item.actor}
+                        name={item.actor.displayName || item.actor.handle}
+                        className="font-semibold"
+                      />{" "}
                       {kind.text}
                     </p>
                     {item.preview && (

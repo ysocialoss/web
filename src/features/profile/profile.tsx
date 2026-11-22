@@ -39,6 +39,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { DisplayName } from "@/components/display-name";
 import { BannerImage } from "./banner-image";
 import { BannerEditor } from "./banner-editor";
 import { AvatarCropper } from "./avatar-cropper";
@@ -425,7 +426,7 @@ export function ProfilePage({
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-x-1.5">
                 <h1 className="min-w-0 wrap-anywhere text-xl font-semibold">
-                  {profile.profile.displayName}
+                  <DisplayName user={profile.profile} />
                 </h1>
                 {profile.profile.isOg && (
                   <ProfileBadge label="OG member" tooltip="Joined before the big migration">

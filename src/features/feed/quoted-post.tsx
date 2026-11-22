@@ -3,6 +3,7 @@ import { formatDistance } from "date-fns";
 import { ChartNoAxesColumn, Quote } from "lucide-react";
 import { Link, useNavigate } from "react-router";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { DisplayName } from "@/components/display-name";
 import { cn } from "@/lib/utils";
 import type { PostQuote } from "@/lib/api";
 import { PostText } from "./post-text";
@@ -75,7 +76,7 @@ export function QuotedPostCard({
             {(post.author.displayName || post.author.handle).slice(0, 2)}
           </AvatarFallback>
         </Avatar>
-        <span className="truncate font-semibold">{post.author.displayName}</span>
+        <DisplayName user={post.author} className="truncate font-semibold" />
         <span className="truncate text-xs text-muted-foreground">@{post.author.handle}</span>
         <time
           dateTime={post.createdAt}

@@ -18,6 +18,7 @@ import {
   type Session,
 } from "@/lib/api";
 import { ProfileCardSkeleton } from "@/components/loading-skeletons";
+import { DisplayName } from "@/components/display-name";
 import { BannerImage } from "@/features/profile/banner-image";
 import { BannerEditor } from "@/features/profile/banner-editor";
 import { AvatarCropper } from "@/features/profile/avatar-cropper";
@@ -186,7 +187,7 @@ export function ProfileCard({
                   id="profile-heading"
                   className="block truncate text-sm font-semibold hover:underline"
                 >
-                  {user.displayName}
+                  <DisplayName user={user} />
                 </span>
                 <span className="block truncate text-xs text-muted-foreground hover:underline">
                   @{user.handle}
@@ -220,7 +221,7 @@ export function ProfileCard({
           ) : (
             <>
               <h2 id="profile-heading" className="text-sm font-semibold">
-                {user.displayName}
+                <DisplayName user={user} />
               </h2>
               <Link
                 className="text-xs text-muted-foreground"

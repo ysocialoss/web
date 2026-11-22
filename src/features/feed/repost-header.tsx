@@ -2,6 +2,7 @@ import { Repeat2, Users } from "lucide-react";
 import { Link } from "react-router";
 import { cn } from "@/lib/utils";
 import type { RepostContext } from "@/lib/api";
+import { DisplayName } from "@/components/display-name";
 
 /** "X reposted" above a post that surfaced in a list because someone shared it. */
 export function RepostHeader({
@@ -30,7 +31,7 @@ export function RepostHeader({
           to={`/@${repost.by.handle}`}
           className="font-medium underline-offset-4 hover:text-foreground hover:underline"
         >
-          {name}
+          <DisplayName user={repost.by} name={name} />
         </Link>{" "}
         reposted{friends ? " to friends" : ""}
         {repost.others > 0 &&

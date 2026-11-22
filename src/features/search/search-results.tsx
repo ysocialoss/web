@@ -16,6 +16,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { LoadingSkeleton } from "@/components/loading-skeletons";
+import { DisplayName } from "@/components/display-name";
 import { Feed } from "@/features/feed/feed";
 import { useFeed } from "@/features/feed/use-feed";
 import {
@@ -119,9 +120,12 @@ export function UserResult({
         </AvatarFallback>
       </Avatar>
       <div className="min-w-0 flex-1">
-        <p className="truncate font-semibold">
-          {user.displayName || user.handle}
-        </p>
+        <DisplayName
+          as="p"
+          user={user}
+          name={user.displayName || user.handle}
+          className="truncate font-semibold"
+        />
         <p className="truncate text-xs text-muted-foreground">
           @{user.handle} · {plural(user.followerCount, "follower", "followers")}
         </p>

@@ -8,6 +8,7 @@ import { api, errorMessage, type ProfileCard } from "@/lib/api";
 import { countFormat } from "@/lib/count-format";
 import { BannerImage } from "./banner-image";
 import { patchProfileCard, useProfileCard } from "./profile-card-cache";
+import { DisplayName } from "@/components/display-name";
 
 const counts = new Intl.NumberFormat("en", countFormat);
 
@@ -145,7 +146,7 @@ function UserCardBody({ card }: { card: ProfileCard }) {
             to={`/@${profile.handle}`}
             className="block truncate text-base leading-tight font-semibold outline-none hover:underline focus-visible:underline"
           >
-            {name}
+            <DisplayName user={profile} name={name} />
           </Link>
           <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
             <span className="truncate text-sm text-muted-foreground">

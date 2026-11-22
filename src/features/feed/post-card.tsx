@@ -6,6 +6,7 @@ import { Check, LoaderCircle, Pencil, Trash2, X } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { IconButton } from "@/components/ui/icon-button";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
+import { DisplayName } from "@/components/display-name";
 import { MentionLink } from "./mention-text";
 import { MentionTextarea } from "./mention-textarea";
 import { PostActions } from "./post-actions";
@@ -211,7 +212,7 @@ export function PostCard({
                 to={profilePath}
                 className="font-semibold hover:underline underline-offset-4"
               >
-                {post.author.displayName}
+                <DisplayName user={post.author} />
               </Link>
               <Link
                 to={profilePath}

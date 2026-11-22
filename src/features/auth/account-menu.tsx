@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTheme } from "@/components/theme-provider";
+import { DisplayName } from "@/components/display-name";
 import { cn } from "@/lib/utils";
 import type { AuthState } from "./use-auth";
 
@@ -177,9 +178,10 @@ export function AccountMenu({ auth }: { auth: AuthState }) {
                 className="size-11 rounded-[30%] [corner-shape:squircle]"
               />
               <span className="min-w-0">
-                <span className="block truncate text-sm font-semibold">
-                  {user.displayName}
-                </span>
+                <DisplayName
+                  user={user}
+                  className="block truncate text-sm font-semibold"
+                />
                 <span className="block truncate text-xs text-muted-foreground">
                   @{user.handle}
                 </span>

@@ -8,12 +8,43 @@ export const bannerCropSchema = z.object({
   height: z.number(),
 });
 export type BannerCrop = z.infer<typeof bannerCropSchema>;
+const paintStopSchema = z.object({
+  color: z.string().regex(/^#[0-9a-fA-F]{6}$/),
+  at: z.number().min(0).max(1),
+});
+export const paintDefinitionSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("linear"),
+    angle: z.number().min(0).max(360),
+    stops: z.array(paintStopSchema).min(2).max(8),
+  }),
+  z.object({
+    kind: z.literal("radial"),
+    shape: z.enum(["circle", "ellipse"]),
+    stops: z.array(paintStopSchema).min(2).max(8),
+  }),
+]);
+export const paintSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  definition: paintDefinitionSchema,
+});
+export type PaintDefinition = z.infer<typeof paintDefinitionSchema>;
+export type Paint = z.infer<typeof paintSchema>;
+// A paint that fails to parse falls back to the plain name instead of breaking the list.
+const userPaintSchema = paintSchema.nullable().catch(null);
 const userSchema = z.object({
   id: z.string(),
   handle: z.string(),
   displayName: z.string(),
   avatarUrl: z.string().nullable(),
+  paint: userPaintSchema,
 });
+const catalogPaintSchema = paintSchema.extend({
+  isFree: z.boolean(),
+  owned: z.boolean(),
+});
+export type CatalogPaint = z.infer<typeof catalogPaintSchema>;
 const activityUserSchema = userSchema.extend({
   optionLabel: z.string().optional(),
   // Quote activity: the quote post this person wrote.
@@ -112,7 +143,12 @@ const basePostSchema = z.object({
   quote: quoteSchema.nullable().default(null),
   // Who this post answers, for replies shown outside their thread.
   replyTo: z
-    .object({ id: z.string(), handle: z.string(), displayName: z.string() })
+    .object({
+      id: z.string(),
+      handle: z.string(),
+      displayName: z.string(),
+      paint: userPaintSchema,
+    })
     .nullable()
     .default(null),
   // Mutual follows who liked this post: how many, and the first few.
@@ -304,6 +340,9 @@ const traceCodes: Record<string, number> = {
   invalid_profile: 3002,
   invalid_handle: 3003,
   cannot_follow_self: 3004,
+  invalid_paint: 3005,
+  paint_not_found: 3006,
+  paint_not_owned: 3007,
   // paging/inbox/push
   invalid_cursor: 4001,
   invalid_activity_query: 4002,
@@ -470,6 +509,10 @@ function friendlyMessage(error: unknown) {
       return "This profile does not exist.";
     if (error.message === "invalid_profile")
       return "Check your profile details, then try again.";
+    if (error.message === "paint_not_owned")
+      return "You do not own this paint.";
+    if (error.message === "paint_not_found" || error.message === "invalid_paint")
+      return "This paint is no longer available.";
     if (error.message === "gif_search_limit")
       return "GIF search limit reached. Try again later.";
     if (error.message === "gif_search_unavailable")
@@ -1065,6 +1108,31 @@ export const api = {
       profileSchema,
       "GET",
       undefined,
+      signal,
+    ),
+  paints: (signal?: AbortSignal) =>
+    request(
+      "/api/paints",
+      z.object({
+        paints: z
+          .array(z.unknown())
+          .transform((items) =>
+            items.flatMap((item) => {
+              const parsed = catalogPaintSchema.safeParse(item);
+              return parsed.success ? [parsed.data] : [];
+            }),
+          ),
+      }),
+      "GET",
+      undefined,
+      signal,
+    ),
+  setPaint: (paintId: string | null, signal?: AbortSignal) =>
+    request(
+      "/api/paints/me",
+      z.object({ paintId: z.string().nullable() }),
+      "PUT",
+      { paintId },
       signal,
     ),
 };
