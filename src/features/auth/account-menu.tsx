@@ -1,8 +1,12 @@
 import { useState, type ComponentProps } from "react";
+import { isStandaloneApp, reloadApp } from "@/features/updates/app-update";
+import { BlockedAccountsDialog } from "@/features/reports/blocked-accounts-dialog";
 import { Link } from "react-router";
 import {
   LogIn,
+  Ban,
   LogOut,
+  RefreshCw,
   Monitor,
   Moon,
   RotateCcw,
@@ -122,6 +126,7 @@ function AccountAvatar({
 export function AccountMenu({ auth }: { auth: AuthState }) {
   const [open, setOpen] = useState(false);
   const [confirmLogout, setConfirmLogout] = useState(false);
+  const [blockedOpen, setBlockedOpen] = useState(false);
   const { session } = auth;
   const user =
     session?.authenticated && !session.needsOnboarding ? session.user : null;
@@ -203,6 +208,22 @@ export function AccountMenu({ auth }: { auth: AuthState }) {
             </MenuRow>
           )}
           <ThemeSwitch />
+          {isStandaloneApp() && (
+            <MenuRow icon={RefreshCw} onClick={reloadApp}>
+              Reload app
+            </MenuRow>
+          )}
+          {user && (
+            <MenuRow
+              icon={Ban}
+              onClick={() => {
+                close();
+                setBlockedOpen(true);
+              }}
+            >
+              Blocked accounts
+            </MenuRow>
+          )}
           {session?.authenticated && (
             <>
                   <MenuRow
@@ -220,6 +241,7 @@ export function AccountMenu({ auth }: { auth: AuthState }) {
           )}
         </PopoverContent>
       </Popover>
+      <BlockedAccountsDialog open={blockedOpen} onOpenChange={setBlockedOpen} />
       <ConfirmationDialog
         open={confirmLogout}
         onOpenChange={setConfirmLogout}

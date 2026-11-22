@@ -119,7 +119,8 @@ test("sharing a profile delivers a clickable profile card to the recipient", asy
     await page.goto("/messages");
     await expect(page.getByRole("link", { name: /Recipient/ })).toBeVisible();
     await page.goto(profilePath);
-    await page.getByRole("button", { name: "Share", exact: true }).click();
+    await page.getByRole("button", { name: "Profile options" }).click();
+    await page.getByRole("menuitem", { name: "Share profile" }).click();
     const shareMenu = page.getByRole("dialog", { name: "Share profile" });
     await shareMenu.getByRole("button", { name: recipient.displayName }).click();
     await shareMenu.getByRole("button", { name: `Send to ${recipient.displayName}` }).click();

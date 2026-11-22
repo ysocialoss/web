@@ -1,23 +1,27 @@
 import type { MouseEvent } from "react";
-import { useLocation, useNavigate } from "react-router";
+import { useNavigate } from "react-router";
 
-// Links that mean "back" should actually go back in history (so the previous
-// page keeps its scroll position), falling back to a normal link when the
-// app was opened directly on this page.
-export function useGoBack() {
+function historyIndex() {
+  const state: unknown = window.history.state;
+  return state && typeof state === "object" && "idx" in state && typeof state.idx === "number" ? state.idx : 0;
+}
+
+function cameFromThisSite() {
+  if (!document.referrer || window.history.length < 2) return false;
+  try {
+    return new URL(document.referrer).origin === window.location.origin;
+  } catch {
+    return false;
+  }
+}
+
+export function useGoBack(fallback = "/") {
   const navigate = useNavigate();
-  const { key } = useLocation();
   return (event: MouseEvent<HTMLElement>) => {
-    if (
-      key === "default" ||
-      event.metaKey ||
-      event.ctrlKey ||
-      event.shiftKey ||
-      event.altKey ||
-      event.button !== 0
-    )
-      return;
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
     event.preventDefault();
-    void navigate(-1);
+    if (historyIndex() > 0) void navigate(-1);
+    else if (cameFromThisSite()) window.history.back();
+    else void navigate(fallback, { replace: true });
   };
 }

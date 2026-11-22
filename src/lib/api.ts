@@ -240,6 +240,8 @@ const profileSchema = z.object({
   }),
   isFollowing: z.boolean(),
   isFollowedBy: z.boolean(),
+  blocking: z.boolean().default(false),
+  blockedBy: z.boolean().default(false),
   posts: z.array(postSchema),
   // Plain reposts and the person's own quote posts, newest first.
   reposts: z.array(postSchema),
@@ -280,10 +282,26 @@ const notificationSchema = z.object({
   conversationId: z.uuid().nullish(),
   preview: z.string().nullable(),
   chatPreview: z.boolean().optional(),
+  imageIds: z.array(z.string()).default([]),
   createdAt: z.string(),
   readAt: z.string().nullable(),
 });
 export type SocialNotification = z.infer<typeof notificationSchema>;
+const connectionUserSchema = userSchema.extend({
+  bio: z.string(),
+  isSelf: z.boolean(),
+  isFollowing: z.boolean(),
+});
+export type ConnectionUser = z.infer<typeof connectionUserSchema>;
+export const reportReasons = [
+  "spam", "harassment", "hate", "violence", "sexual", "self_harm", "misinformation", "impersonation", "illegal", "other",
+] as const;
+export type ReportReason = (typeof reportReasons)[number];
+export type ReportTarget =
+  | { type: "post"; id: string }
+  | { type: "user"; id: string }
+  | { type: "message"; conversationId: string; messageId: string; messages: { id: string; text: string }[] };
+export type ReportInput = { reason: ReportReason; details: string; target: ReportTarget };
 const notificationsSchema = z.object({
   notifications: z.array(notificationSchema),
   hideContent: z.boolean().optional(),
@@ -365,6 +383,10 @@ const traceCodes: Record<string, number> = {
   // api
   route_not_found: 7001,
   unexpected_response: 7002,
+  invalid_report: 8001,
+  own_content: 8002,
+  report_rate_limited: 8003,
+  blocked: 8004,
 };
 
 export class ApiError extends Error {
@@ -537,6 +559,14 @@ function friendlyMessage(error: unknown) {
       return "This search isn't valid. Try something shorter.";
     if (error.message === "retry_account_changed")
       return "Sign in to the original account before retrying this action.";
+    if (error.message === "blocked")
+      return "You can't interact with this account because one of you blocked the other.";
+    if (error.message === "own_content")
+      return "You can't report your own content.";
+    if (error.message === "report_rate_limited")
+      return "You've sent a lot of reports recently. Try again in a few minutes.";
+    if (error.message === "dm_message_not_found")
+      return "This message is no longer available.";
     if (error.message === "post_id_conflict")
       return "This post was already sent with different content. Reload to view it.";
     if (error.status === 409)
@@ -1109,6 +1139,39 @@ export const api = {
         followerCount: z.number().int().nonnegative(),
       }),
       following ? "PUT" : "DELETE",
+    ),
+  connections: (
+    handle: string,
+    list: "followers" | "following",
+    { cursor, signal }: { cursor?: string; signal?: AbortSignal },
+  ) =>
+    request(
+      `/api/profiles/${encodeURIComponent(handle)}/${list}${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`,
+      z.object({ users: z.array(connectionUserSchema), nextCursor: z.string().nullable() }),
+      "GET",
+      undefined,
+      signal,
+    ),
+  blocks: (signal?: AbortSignal) =>
+    request(
+      "/api/blocks",
+      z.object({ users: z.array(userSchema.extend({ blockedAt: z.string() })) }),
+      "GET",
+      undefined,
+      signal,
+    ),
+  block: (handle: string, blocked: boolean) =>
+    request(
+      `/api/blocks/${encodeURIComponent(handle)}`,
+      z.object({ blocking: z.boolean() }),
+      blocked ? "PUT" : "DELETE",
+    ),
+  report: (input: ReportInput) =>
+    request(
+      "/api/reports",
+      z.object({ status: z.enum(["reported", "already_reported"]) }),
+      "POST",
+      input,
     ),
   profileCard: (handle: string, signal?: AbortSignal) =>
     request(

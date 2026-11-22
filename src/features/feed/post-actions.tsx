@@ -34,7 +34,7 @@ export function PostActions({ post, feed }: { post: Post; feed: FeedState }) {
       title: feed.authenticated
         ? `Choose a handle to ${action} posts`
         : `Log in to ${action} posts`,
-      timeout: 5000,
+      timeout: 4000,
       actionProps: feed.authenticated
         ? {
             children: "Finish profile",

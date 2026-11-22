@@ -107,3 +107,40 @@ test("removes image drafts and publishes a screened image without a caption", as
   await expect(attachment).toBeVisible();
   await expect.poll(() => attachment.evaluate((image) => image instanceof HTMLImageElement && image.naturalWidth)).toBe(1);
 });
+
+test("pasting an image into the composer attaches it", async ({ page }) => {
+  await page.route("**/auth/me", (route) => route.fulfill({
+    json: { authenticated: true, needsOnboarding: false, user, avatarUrl: null, suggestedHandle: user.handle },
+  }));
+  await page.route("**/api/**", (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (path.includes("topics")) return route.fulfill({ json: { topics: [] } });
+    if (path.includes("notifications")) return route.fulfill({
+      json: { notifications: [], unreadCount: 0, nextCursor: null },
+    });
+    return route.fulfill({ json: {} });
+  });
+  await page.route("**/api/posts", (route) => route.fulfill({
+    json: { posts: [], nextCursor: null, serverNow: new Date().toISOString() },
+  }));
+  const names: (string | undefined)[] = [];
+  await page.route("**/api/post-images", (route) => {
+    names.push(route.request().headers()["x-post-image-name"]);
+    expect(route.request().postDataBuffer()).toEqual(png);
+    return route.fulfill({ status: 201, json: { id: draftIds[0] } });
+  });
+
+  await page.goto("/");
+  const composer = page.getByRole("form", { name: "Post composer" });
+  const textbox = composer.getByRole("textbox").first();
+  await textbox.click();
+  await textbox.evaluate((element, bytes) => {
+    const data = new DataTransfer();
+    data.items.add(new File([new Uint8Array(bytes)], "pasted.png", { type: "image/png" }));
+    element.dispatchEvent(new ClipboardEvent("paste", { clipboardData: data, bubbles: true, cancelable: true }));
+  }, [...png]);
+  await expect(composer.getByRole("img", { name: "Attached image 1" })).toBeVisible();
+  await expect(composer.getByRole("button", { name: "Remove image 1" })).toBeVisible();
+  expect(names).toEqual(["pasted.png"]);
+  await expect(textbox).toHaveValue("");
+});

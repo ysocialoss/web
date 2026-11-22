@@ -1,4 +1,4 @@
-import { formatDistanceToNow } from "date-fns";
+import { timeAgo } from "@/lib/time-ago";
 import { ArrowUpRight, ListChecks } from "lucide-react";
 import { Link } from "react-router";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -45,7 +45,7 @@ export function PostEmbed({
             dateTime={post.createdAt}
             title={new Date(post.createdAt).toLocaleString()}
           >
-            {formatDistanceToNow(new Date(post.createdAt), { addSuffix: true })}
+            {timeAgo(post.createdAt)}
           </time>
         </span>
         {post.content && (

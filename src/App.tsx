@@ -52,6 +52,7 @@ import { NotificationsProvider } from "@/features/notifications/notifications-co
 import { DmUnreadProvider } from "@/features/dms/dm-unread";
 import { ActivityPage, NotificationsPage } from "@/features/notifications/notifications";
 import { MessagesPage } from "@/features/dms/messages-page";
+import { AppUpdatePrompt } from "@/features/updates/app-update";
 
 export function App() {
   return (
@@ -59,6 +60,7 @@ export function App() {
       <TooltipProvider delay={250}>
         <Toaster>
           <StagingNotice />
+          <AppUpdatePrompt />
           <AppShell />
         </Toaster>
       </TooltipProvider>

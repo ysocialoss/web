@@ -1,5 +1,5 @@
 import type { MouseEvent, ReactNode } from "react";
-import { formatDistance } from "date-fns";
+import { timeAgo } from "@/lib/time-ago";
 import { ChartNoAxesColumn, Quote } from "lucide-react";
 import { Link, useNavigate } from "react-router";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -83,7 +83,7 @@ export function QuotedPostCard({
           className="shrink-0 text-xs text-muted-foreground"
           title={new Date(post.createdAt).toLocaleString()}
         >
-          {formatDistance(new Date(post.createdAt), new Date(), { addSuffix: true })}
+          {timeAgo(post.createdAt)}
         </time>
       </Header>
       {post.content && (
