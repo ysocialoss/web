@@ -1,5 +1,5 @@
 import { memo, useEffect, useRef, useState, type KeyboardEvent } from "react";
-import { CornerUpLeft, Pencil, SmilePlus, Trash2 } from "lucide-react";
+import { CornerUpLeft, Flag, Pencil, SmilePlus, Trash2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import type { DmUser } from "./dm-api";
 import { messageByteLimit } from "./dm-crypto";
 import type { DisplayMessage } from "./dm-context";
+import { ReportDialog, type MessageContext } from "@/features/reports/report-dialog";
 import { MessageBody } from "./message-body";
 import { MessageReactions } from "./message-reactions";
 import { PollMessage } from "./poll-message";
@@ -57,7 +58,7 @@ export type RowActions = {
 
 export const MessageRow = memo(function MessageRow({
   message, sender, peer, self, conversationId, withHeader, replied, editing, onEditing, flash, selected, onSelect, actions, canWrite,
-  retry, dismiss, sending, onInteraction,
+  retry, dismiss, sending, onInteraction, reportContext,
 }: {
   conversationId: string;
   message: DisplayMessage | OutgoingMessage;
@@ -73,6 +74,7 @@ export const MessageRow = memo(function MessageRow({
   onSelect: (id: string | null) => void;
   actions: RowActions;
   canWrite: boolean;
+  reportContext?: () => MessageContext[];
   retry?: (message: OutgoingMessage) => void;
   dismiss?: (id: string) => void;
   sending?: boolean;
@@ -82,13 +84,14 @@ export const MessageRow = memo(function MessageRow({
   const confirmed = "delivery" in message ? undefined : message;
   const selfId = self.id;
   const mine = sender.id === selfId;
+  const [reporting, setReporting] = useState<MessageContext[] | null>(null);
   const readable = message.text !== null;
   const time = timeFormat.format(new Date(message.createdAt));
   const [trayOpen, setTrayOpen] = useState(false);
   const [voiceActive, setVoiceActive] = useState(false);
   const showReactions = confirmed && (confirmed.reactions.length > 0 || trayOpen);
   const [pickingEmoji, setPickingEmoji] = useState(false);
-  const interacting = pickingEmoji || trayOpen || voiceActive;
+  const interacting = !!reporting || pickingEmoji || trayOpen || voiceActive;
   const touch = useRef<{ id: number; x: number; y: number; time: number; moved: boolean } | null>(null);
   const lastTap = useRef<{ x: number; y: number; time: number } | null>(null);
   const hold = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -371,7 +374,26 @@ export const MessageRow = memo(function MessageRow({
               <Trash2 aria-hidden="true" />{selected && "Delete"}
             </IconButton>
           )}
+          {!mine && reportContext && (
+            <IconButton label="Report message" size={selected ? "sm" : "icon-sm"} className={cn("hover:bg-destructive/10 hover:text-destructive", selected && "h-11 justify-start text-sm")} onClick={() => { onSelect(null); setReporting(reportContext()); }}>
+              <Flag aria-hidden="true" />{selected && "Report"}
+            </IconButton>
+          )}
         </div>
+      )}
+      {reporting && confirmed && (
+        <ReportDialog
+          open
+          onOpenChange={(open) => !open && setReporting(null)}
+          subject={{
+            type: "message",
+            conversationId,
+            messageId: message.id,
+            peerHandle: peer.handle,
+            message: { id: message.id, text: reportText(confirmed) },
+            earlier: reporting,
+          }}
+        />
       )}
     </div>
   );
@@ -440,4 +462,13 @@ function EditBox({ initial, onSave, onCancel }: { initial: string; onSave: (text
       </div>
     </div>
   );
+}
+
+export function reportText(message: DisplayMessage) {
+  return [
+    message.text,
+    message.gif && "[GIF]",
+    message.poll && `[Poll: ${message.poll.title}]`,
+    message.voice && "[Voice message]",
+  ].filter(Boolean).join("\n");
 }

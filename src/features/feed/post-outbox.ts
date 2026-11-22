@@ -50,6 +50,7 @@ export function publishOptimistically({
   gif,
   poll,
   voice,
+  imageIds,
   author,
   parentId,
   quoting,
@@ -59,6 +60,7 @@ export function publishOptimistically({
   gif: GifSearchItem | null;
   poll?: PollDraft;
   voice?: VoiceDraft;
+  imageIds: string[];
   author: Post["author"];
   parentId: string | null;
   /** The post being quoted. A quote is always a top-level post. */
@@ -68,9 +70,12 @@ export function publishOptimistically({
   const now = new Date();
   const optimistic: Post = {
     id: crypto.randomUUID(),
+    saved: false,
+    pinned: false,
     content,
     gif: gif ? { url: gif.url, title: gif.title } : null,
     voice: voice ?? null,
+    imageIds,
     poll: poll
       ? {
           ...poll,
@@ -99,6 +104,7 @@ export function publishOptimistically({
     topics: extractTopics(content),
   };
   let failedToastId: string | undefined;
+  const attachments = imageIds.length ? imageIds : undefined;
   let confirmed = optimistic;
   async function send(retry = false): Promise<boolean> {
     if (inFlight.has(optimistic.id)) return false;
@@ -123,8 +129,8 @@ export function publishOptimistically({
       const { post } = await retryRequest(
         () =>
           parentId
-            ? api.reply(parentId, content, optimistic.id, gif?.token, poll, voice?.token)
-            : api.publish(content, optimistic.id, gif?.token, poll, quoting?.id, voice?.token),
+            ? api.reply(parentId, content, optimistic.id, gif?.token, poll, voice?.token, attachments)
+            : api.publish(content, optimistic.id, gif?.token, poll, quoting?.id, voice?.token, attachments),
         {
           context: parentId ? "publish reply" : "publish post",
           beforeRetry: verifyAccount,
@@ -148,7 +154,7 @@ export function publishOptimistically({
         type: "error",
         title: parentId ? "Reply wasn't sent" : "Post wasn't sent",
         description: errorMessage(error),
-        timeout: 0,
+        timeout: 8000,
         priority: "high",
         actionProps: {
           children: "Retry",

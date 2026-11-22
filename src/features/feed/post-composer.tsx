@@ -1,10 +1,10 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { ArrowUp, ChartNoAxesColumn, Plus, X } from "lucide-react";
-import { ComingSoonDialog } from "@/components/coming-soon-dialog";
 import { IconButton } from "@/components/ui/icon-button";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { Spinner } from "@/components/ui/spinner";
 import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import { LoginDialogContent } from "@/features/auth/login-dialog-content";
 import { MentionTextarea } from "./mention-textarea";
@@ -24,8 +24,10 @@ import {
   type VoiceDraft,
 } from "@/lib/api";
 import { QuotedPostCard } from "./quoted-post";
+import { QuoteText, pickQuote, type ComposerQuote } from "./composer-quote";
 import { quoteOf } from "./quote";
 import { VoiceRecorder } from "./voice-recorder";
+import { postImageAccept, usePostImageDrafts } from "./post-image-drafts";
 import { renderShortcodes } from "@/lib/emoji";
 import { useEmojiIndex } from "@/lib/use-emoji-index";
 import {
@@ -49,15 +51,18 @@ export function PostComposer({
   placeholder = "What's on your mind?",
   topics = true,
   dropUp = false,
+  inspire = false,
   ...quoting
 }: {
   feed: FeedState;
   placeholder?: string;
+  inspire?: boolean;
   /** Offer #topic completion. */
   topics?: boolean;
   /** Open suggestion lists above the field (for composers pinned to the bottom). */
   dropUp?: boolean;
 } & QuoteOptions) {
+  const [quote] = useState<ComposerQuote | null>(() => (inspire ? pickQuote() : null));
   if (!feed.sessionLoading && !feed.authenticated) {
     return (
       <Dialog>
@@ -65,11 +70,12 @@ export function PostComposer({
           render={
             <button
               type="button"
+              aria-label={quote ? placeholder : undefined}
               className="mx-auto block w-full max-w-xl rounded-[1.75rem] bg-muted px-4 py-4 text-left text-sm leading-5 text-muted-foreground focus-visible:outline-2 focus-visible:outline-ring sm:px-5 md:text-base md:leading-6"
             />
           }
         >
-          {placeholder}
+          {quote ? <QuoteText quote={quote} marquee /> : placeholder}
         </DialogTrigger>
         <LoginDialogContent
           title="Log in to post"
@@ -80,10 +86,13 @@ export function PostComposer({
   }
   return (
     <AuthenticatedPostComposer
+      key={feed.viewerId}
       feed={feed}
       placeholder={placeholder}
       topics={topics}
       dropUp={dropUp}
+      inspire={inspire}
+      initialQuote={quote}
       {...quoting}
     />
   );
@@ -152,6 +161,8 @@ function AuthenticatedPostComposer({
   placeholder,
   topics,
   dropUp,
+  inspire,
+  initialQuote,
   quote,
   autoFocus,
   onSubmitted,
@@ -161,10 +172,14 @@ function AuthenticatedPostComposer({
   placeholder: string;
   topics: boolean;
   dropUp: boolean;
+  inspire: boolean;
+  initialQuote: ComposerQuote | null;
 } & QuoteOptions) {
+  const [inspiration, setInspiration] = useState(initialQuote);
   const [published, setPublished] = useState(false);
   const [gifPickerOpen, setGifPickerOpen] = useState(false);
-  const [soonOpen, setSoonOpen] = useState(false);
+  const images = usePostImageDrafts(feed.viewerId);
+  const imageInput = useRef<HTMLInputElement>(null);
   const [gif, setGif] = useState<GifSearchItem | null>(null);
   const [poll, setPoll] = useState<PollDraft | null>(null);
   const [voice, setVoice] = useState<VoiceDraft>();
@@ -193,7 +208,8 @@ function AuthenticatedPostComposer({
   const valid =
     feed.canPost &&
     !voiceBusy &&
-    (length > 0 || gif !== null || poll !== null || voice !== undefined) &&
+    !images.busy &&
+    (length > 0 || gif !== null || poll !== null || voice !== undefined || images.ids.length > 0) &&
     length <= LIMIT &&
     (parsedPoll === null || parsedPoll.success);
 
@@ -251,9 +267,10 @@ function AuthenticatedPostComposer({
   function publish() {
     if (!valid) return;
     const started = quote
-      ? feed.publishQuote(quote, finalDraft, gif, parsedPoll?.data, onConfirmed, voice)
-      : feed.publishPost(finalDraft, gif, parsedPoll?.data, voice);
+      ? feed.publishQuote(quote, finalDraft, gif, parsedPoll?.data, onConfirmed, voice, images.ids)
+      : feed.publishPost(finalDraft, gif, parsedPoll?.data, voice, images.ids);
     if (!started) return;
+    images.handOff();
     onSubmitted?.();
     setVoice(undefined);
     setVoiceKey((key) => key + 1);
@@ -262,6 +279,7 @@ function AuthenticatedPostComposer({
     textarea.current?.blur();
     setDraft("");
     setPublished(true);
+    if (inspire) setInspiration((current) => pickQuote(current));
   }
 
   const textClass = "py-1.5 text-base leading-6 md:text-base";
@@ -275,6 +293,13 @@ function AuthenticatedPostComposer({
           aria-label="Post composer"
           onKeyDown={feed.canPost ? easterEgg.onKeyDown : undefined}
           onKeyUp={easterEgg.onKeyUp}
+          onPaste={(event) => {
+            if (!feed.canPost) return;
+            const files = Array.from(event.clipboardData.files).filter((file) => file.type.startsWith("image/"));
+            if (!files.length) return;
+            if (!event.clipboardData.getData("text/plain")) event.preventDefault();
+            void images.add(files);
+          }}
           onSubmit={(event) => {
             event.preventDefault();
             publish();
@@ -303,6 +328,28 @@ function AuthenticatedPostComposer({
               </div>
             </div>
           )}
+          {images.cards.length > 0 && (
+            <div className="flex w-full flex-wrap gap-2 pt-2">
+              {images.cards.map((image, index) => (
+                <div key={image.previewUrl} className="relative size-20 overflow-hidden rounded-xl bg-background">
+                  <img src={image.previewUrl} alt={`Attached image ${index + 1}`}
+                    className="size-full object-cover" />
+                  {image.status === "checking" ? (
+                    <div className="absolute inset-0 grid place-items-center bg-black/40 text-white">
+                      <Spinner className="size-5 motion-reduce:animate-none" aria-label={`Checking image ${index + 1}`} />
+                    </div>
+                  ) : (
+                    <IconButton type="button" label={`Remove image ${index + 1}`} size="icon-sm"
+                      className="absolute top-1 right-1 rounded-full bg-background"
+                      onClick={() => images.remove(image)}>
+                      <X />
+                    </IconButton>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+          {images.error && <p role="alert" className="w-full break-words text-sm text-destructive">{images.error}</p>}
           <div
             className="relative min-h-9 min-w-0 flex-1 basis-[calc(100%-0.5rem)] transition-[height] duration-200 ease-out"
             style={{
@@ -314,8 +361,8 @@ function AuthenticatedPostComposer({
               aria-hidden="true"
               className={`pointer-events-none invisible absolute inset-x-0 top-0 min-h-9 break-words whitespace-pre-wrap ${textClass}`}
             >
-              {draft || " "}
-              {"\u200b"}
+              {draft || (inspiration ? <QuoteText quote={inspiration} /> : " ")}
+              {(draft || !inspiration) && "\u200b"}
             </div>
             <MentionTextarea
               ref={textarea}
@@ -328,7 +375,7 @@ function AuthenticatedPostComposer({
                   ? topicOptionId(suggestionsId, suggestions.index)
                   : undefined
               }
-              placeholder={placeholder}
+              placeholder={inspiration ? undefined : placeholder}
               rows={1}
               value={draft}
               onValueChange={setDraft}
@@ -386,6 +433,14 @@ function AuthenticatedPostComposer({
               style={{ overflowY: scrolls ? "auto" : "hidden" }}
               className={`absolute inset-0 h-full min-h-0 resize-none field-sizing-fixed rounded-none border-0 bg-transparent px-0 shadow-none focus-visible:ring-0 disabled:bg-transparent disabled:opacity-100 dark:bg-transparent dark:disabled:bg-transparent ${textClass}`}
             />
+            {inspiration && !draft && (
+              <p
+                aria-hidden="true"
+                className={`pointer-events-none absolute inset-x-0 top-0 break-words ${textClass}`}
+              >
+                <QuoteText quote={inspiration} marquee />
+              </p>
+            )}
           </div>
           {poll && (
             <PollFields
@@ -398,6 +453,13 @@ function AuthenticatedPostComposer({
               disabled={!feed.canPost}
             />
           )}
+          <input ref={imageInput} type="file" hidden multiple accept={postImageAccept}
+            aria-label="Choose images"
+            onChange={(event) => {
+              const files = Array.from(event.currentTarget.files ?? []);
+              event.currentTarget.value = "";
+              void images.add(files);
+            }} />
           <VoiceRecorder
             key={voiceKey}
             userId={feed.viewerId}
@@ -407,10 +469,11 @@ function AuthenticatedPostComposer({
             renderToolbar={(recordButton) => (
               <div className="-ml-2 flex shrink-0 basis-[calc(100%+0.5rem)] items-center gap-0.5">
                 <IconButton
-                  label="Upload"
+                  label="Attach images"
                   type="button"
                   className="rounded-full text-muted-foreground"
-                  onClick={() => setSoonOpen(true)}
+                  disabled={!feed.canPost || images.busy || images.full}
+                  onClick={() => imageInput.current?.click()}
                 >
                   <Plus aria-hidden="true" />
                 </IconButton>
@@ -494,7 +557,6 @@ function AuthenticatedPostComposer({
         />
       )}
     </Dialog>
-    <ComingSoonDialog open={soonOpen} onOpenChange={setSoonOpen} />
     </>
   );
 }

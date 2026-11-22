@@ -21,10 +21,12 @@ const activityUserSchema = userSchema.extend({
 });
 export const repostAudienceSchema = z.enum(["public", "friends"]);
 export type RepostAudience = z.infer<typeof repostAudienceSchema>;
+const postImageIdsSchema = z.array(z.uuid()).default([]);
 /** The post embedded in a quote, one level deep. */
 const quotedPostSchema = z.object({
   id: z.string(),
   content: z.string(),
+  imageIds: postImageIdsSchema,
   gif: z
     .object({ url: z.string(), title: z.string() })
     .nullable()
@@ -94,6 +96,7 @@ const basePostSchema = z.object({
   parentId: z.string().nullable(),
   content: z.string(),
   gif: postGifSchema.nullable().default(null),
+  imageIds: postImageIdsSchema,
   voice: voiceSchema.nullable().default(null),
   poll: pollSchema.nullable().default(null),
   createdAt: z.string(),
@@ -102,6 +105,8 @@ const basePostSchema = z.object({
   author: userSchema,
   likes: z.number(),
   liked: z.boolean(),
+  saved: z.boolean().default(false),
+  pinned: z.boolean().default(false),
   replies: z.number(),
   reposts: z.number(),
   reposted: z.boolean(),
@@ -214,10 +219,19 @@ const githubSettingsSchema = z.object({
   configured: z.boolean(),
   github: githubAccountSchema.nullable(),
 });
+const connectionProviderSchema = z.enum(["discord", "twitch", "steam", "spotify", "apple_music"]);
+export type ConnectionProviderName = z.infer<typeof connectionProviderSchema>;
 const profileSchema = z.object({
   profile: userSchema.extend({
     isOg: z.boolean().default(false),
     github: githubAccountSchema.nullable().default(null),
+    connections: z.array(z.object({
+      provider: connectionProviderSchema,
+      username: z.string(),
+      displayName: z.string(),
+      profileUrl: z.url(),
+    })).default([]),
+    domains: z.array(z.string()).default([]),
     badges: z.array(z.object({
       id: z.uuid(),
       icon: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
@@ -234,16 +248,27 @@ const profileSchema = z.object({
     bannedByProfileHandle: z.string().nullable().default(null),
     followerCount: z.number().int().nonnegative(),
     followingCount: z.number().int().nonnegative(),
+    postCount: z.number().int().nonnegative().optional(),
   }),
   isFollowing: z.boolean(),
   isFollowedBy: z.boolean(),
+  blocking: z.boolean().default(false),
+  blockedBy: z.boolean().default(false),
   posts: z.array(postSchema),
+  pinnedPost: postSchema.nullable().default(null),
   // Plain reposts and the person's own quote posts, newest first.
   reposts: z.array(postSchema),
   repostedBy: repostedBySchema,
   replies: z.array(z.object({ post: postSchema, thread: z.array(postSchema) })),
   serverNow: z.string(),
 });
+const domainSchema = z.object({
+  id: z.string(),
+  domain: z.string(),
+  verified: z.boolean(),
+  record: z.object({ type: z.literal("TXT"), host: z.string(), name: z.string(), value: z.string() }).nullable(),
+});
+export type OwnedDomain = z.infer<typeof domainSchema>;
 const profileCardSchema = z.object({
   profile: userSchema.extend({
     bio: z.string(),
@@ -277,16 +302,34 @@ const notificationSchema = z.object({
   conversationId: z.uuid().nullish(),
   preview: z.string().nullable(),
   chatPreview: z.boolean().optional(),
+  imageIds: z.array(z.string()).default([]),
   createdAt: z.string(),
   readAt: z.string().nullable(),
 });
 export type SocialNotification = z.infer<typeof notificationSchema>;
+const connectionUserSchema = userSchema.extend({
+  bio: z.string(),
+  isSelf: z.boolean(),
+  isFollowing: z.boolean(),
+});
+export type ConnectionUser = z.infer<typeof connectionUserSchema>;
+export const reportReasons = [
+  "spam", "harassment", "hate", "violence", "sexual", "self_harm", "misinformation", "impersonation", "illegal", "other",
+] as const;
+export type ReportReason = (typeof reportReasons)[number];
+export type ReportTarget =
+  | { type: "post"; id: string }
+  | { type: "user"; id: string }
+  | { type: "message"; conversationId: string; messageId: string; messages: { id: string; text: string }[] };
+export type ReportInput = { reason: ReportReason; details: string; target: ReportTarget };
 const notificationsSchema = z.object({
   notifications: z.array(notificationSchema),
   hideContent: z.boolean().optional(),
   unreadCount: z.number(),
   nextCursor: z.string().nullable(),
 });
+
+export type MuteDuration = "1h" | "8h" | "24h" | "1w" | "forever" | "off";
 
 const traceCodes: Record<string, number> = {
   // auth
@@ -345,6 +388,14 @@ const traceCodes: Record<string, number> = {
   voice_processing_unavailable: 5016,
   voice_processing_busy: 5017,
   voice_not_configured: 5018,
+  invalid_post_image: 5019,
+  post_image_rejected: 5020,
+  post_image_check_unavailable: 5021,
+  post_image_busy: 5022,
+  post_image_draft_limit: 5023,
+  invalid_post_image_selection: 5024,
+  post_image_not_found: 5025,
+  post_image_upload_forbidden: 5026,
   // gif
   invalid_gif_selection: 6001,
   invalid_search: 6002,
@@ -354,6 +405,23 @@ const traceCodes: Record<string, number> = {
   // api
   route_not_found: 7001,
   unexpected_response: 7002,
+  invalid_report: 8001,
+  own_content: 8002,
+  report_rate_limited: 8003,
+  blocked: 8004,
+  invalid_pin: 2013,
+  invalid_connection: 9101,
+  invalid_profile_link: 9102,
+  connection_already_connected: 9103,
+  invalid_domain: 9104,
+  domain_taken: 9105,
+  domain_exists: 9106,
+  domain_limit: 9107,
+  domain_record_missing: 9108,
+  domain_not_found: 9109,
+  domain_connect_unsupported: 9110,
+  domain_connect_unavailable: 9111,
+  domain_already_verified: 9112,
 };
 
 export class ApiError extends Error {
@@ -468,6 +536,18 @@ function friendlyMessage(error: unknown) {
     if (error.message === "account_banned")
       return "Your account is banned.";
     if (error.message === "voice_too_short") return "Record at least 2 seconds.";
+    if (error.message === "invalid_post_image")
+      return "Choose a static JPEG, PNG, or WebP image.";
+    if (error.message === "post_image_rejected")
+      return "This image was flagged as NSFW and could not be attached.";
+    if (error.message === "post_image_check_unavailable" || error.message === "post_image_busy")
+      return "Image screening is temporarily unavailable. Try choosing the image again.";
+    if (error.message === "post_image_draft_limit")
+      return "You have too many unsent images. Remove some or publish your draft.";
+    if (error.message === "invalid_post_image_selection")
+      return "An image attachment expired or was removed. Choose the images again.";
+    if (error.status === 413 && error.endpoint?.includes("/api/post-images"))
+      return "Images can be up to 8 MB each.";
     if (error.message === "voice_too_long") return "Voice messages can be at most 2 minutes long.";
     if (error.message === "invalid_voice" || error.message === "voice_audio_required")
       return "This recording could not be read. Please record it again.";
@@ -507,13 +587,44 @@ function friendlyMessage(error: unknown) {
       return "This picture is too large. Choose a smaller image.";
     if (error.message === "post_not_found")
       return "This post no longer exists.";
+    if (error.message === "invalid_pin")
+      return "Only your own top-level posts can be pinned. Replies can't.";
+    if (error.message === "invalid_profile_link")
+      return "That isn't a profile link we recognise. Paste the link to your profile page.";
+    if (error.message === "connection_already_connected")
+      return "This account is already connected. Disconnect it first to change it.";
+    if (error.message === "invalid_domain")
+      return "Enter a domain you own, such as example.com.";
+    if (error.message === "domain_taken")
+      return "Another account has already verified this domain.";
+    if (error.message === "domain_exists") return "You already added this domain.";
+    if (error.message === "domain_limit") return "You can connect up to 10 domains.";
+    if (error.message === "domain_not_found") return "This domain is no longer in your list.";
+    if (error.message === "domain_record_missing")
+      return "We couldn't find the TXT record yet. DNS changes can take a few minutes to appear.";
+    if (error.message === "domain_connect_unsupported")
+      return "Your DNS provider doesn't offer one-click setup for ysocial. Add the TXT record by hand instead.";
+    if (error.message === "domain_connect_unavailable")
+      return "Your DNS provider didn't answer. Try again, or add the TXT record by hand.";
     if (error.message === "invalid_poll_option")
       return "Choose an option from this poll.";
     if (error.message === "invalid_topic") return "This isn't a valid topic.";
     if (error.message === "invalid_search")
       return "This search isn't valid. Try something shorter.";
+    if (error.message === "invalid_confirmation")
+      return "That doesn't match your handle.";
+    if (error.message === "protected_account")
+      return "This account can't be deleted here. Ask another admin to remove it.";
     if (error.message === "retry_account_changed")
       return "Sign in to the original account before retrying this action.";
+    if (error.message === "blocked")
+      return "You can't interact with this account because one of you blocked the other.";
+    if (error.message === "own_content")
+      return "You can't report your own content.";
+    if (error.message === "report_rate_limited")
+      return "You've sent a lot of reports recently. Try again in a few minutes.";
+    if (error.message === "dm_message_not_found")
+      return "This message is no longer available.";
     if (error.message === "post_id_conflict")
       return "This post was already sent with different content. Reload to view it.";
     if (error.status === 409)
@@ -624,7 +735,15 @@ function attemptSignal(ms: number, signal?: AbortSignal) {
   return signal ? AbortSignal.any([signal, timeout]) : timeout;
 }
 const postPath = (id: string) => `/api/posts/${encodeURIComponent(id)}`;
+export const postImageUrl = (id: string) => `/api/post-images/${encodeURIComponent(id)}`;
 export const api = {
+  uploadPostImage: (file: File, signal: AbortSignal) =>
+    sendRequest("/api/post-images", z.object({ id: z.uuid() }), "POST",
+      file.slice(0, file.size, "application/octet-stream"), attemptSignal(45_000, signal), {
+        "X-Post-Image-Name": encodeURIComponent(Array.from(file.name).slice(0, 255).join("")),
+      }),
+  discardPostImage: (id: string) =>
+    sendRequest(postImageUrl(id), z.undefined(), "DELETE", undefined, AbortSignal.timeout(10_000)),
   githubSettings: (signal: AbortSignal) =>
     request("/api/github", githubSettingsSchema, "GET", undefined, signal),
   connectGithub: (returnTo?: "profile") => request("/api/github/connect", z.object({
@@ -633,6 +752,50 @@ export const api = {
       return url.origin === "https://github.com" && url.pathname === "/login/oauth/authorize";
     }),
   }), "POST", returnTo ? { returnTo } : undefined),
+  twitchLive: (handles: string[], signal?: AbortSignal) =>
+    request(
+      `/api/connections/twitch/live?handles=${encodeURIComponent(handles.join(","))}`,
+      z.object({ live: z.record(z.string(), z.object({ login: z.string() })) }),
+      "GET",
+      undefined,
+      signal,
+    ),
+  linkedAccounts: (signal?: AbortSignal) =>
+    request("/api/connections", z.object({
+      providers: z.array(z.object({
+        provider: connectionProviderSchema,
+        configured: z.boolean(),
+        connection: z.object({
+          provider: z.string(),
+          username: z.string(),
+          displayName: z.string(),
+          profileUrl: z.url(),
+        }).nullable(),
+      })),
+    }), "GET", undefined, signal),
+  connectProvider: (provider: string, returnTo: "profile" | "settings") =>
+    request(`/api/connections/${provider}/connect`, z.object({
+      url: z.url().refine((value) => new URL(value).protocol === "https:"),
+    }), "POST", { returnTo }),
+  disconnectProvider: (provider: string) =>
+    request(`/api/connections/${provider}`, z.undefined(), "DELETE"),
+  linkProvider: (provider: string, url: string) =>
+    request(`/api/connections/${provider}/link`, z.object({
+      connection: z.object({ provider: z.string(), username: z.string(), displayName: z.string(), profileUrl: z.url() }),
+    }), "POST", { url }),
+  domains: (signal?: AbortSignal) =>
+    request("/api/domains", z.object({ domains: z.array(domainSchema), max: z.number() }), "GET", undefined, signal),
+  addDomain: (domain: string) =>
+    request("/api/domains", z.object({ domain: domainSchema }), "POST", { domain }),
+  verifyDomain: (id: string) =>
+    request(`/api/domains/${encodeURIComponent(id)}/verify`, z.object({ domain: domainSchema }), "POST"),
+  removeDomain: (id: string) =>
+    request(`/api/domains/${encodeURIComponent(id)}`, z.undefined(), "DELETE"),
+  domainConnect: (id: string) =>
+    request(`/api/domains/${encodeURIComponent(id)}/domain-connect`, z.object({
+      url: z.url().refine((value) => new URL(value).protocol === "https:"),
+      provider: z.string().nullable(),
+    }), "POST"),
   disconnectGithub: () => request("/api/github", z.undefined(), "DELETE"),
   pronounRecommendations: (signal: AbortSignal) =>
     request(
@@ -683,7 +846,7 @@ export const api = {
     request("/api/notifications/push/prompt-dismissal", z.undefined(), "PUT"),
   setNotificationContentHidden: (hideContent: boolean) =>
     request("/api/notifications/previews", z.undefined(), "PATCH", { hideContent }),
-  mutePush: (endpoint: string, duration: "1h" | "8h" | "forever" | "off") =>
+  mutePush: (endpoint: string, duration: MuteDuration) =>
     request(
       "/api/notifications/push/mute",
       z.object({
@@ -721,6 +884,8 @@ export const api = {
       profile,
       signal,
     ),
+  deleteAccount: (handle: string) =>
+    request("/api/profiles/me", z.undefined(), "DELETE", { handle }),
   sessionOnce: (signal?: AbortSignal) =>
     sendRequest("/auth/me", sessionSchema, "GET", undefined,
       attemptSignal(5000, signal)),
@@ -979,12 +1144,14 @@ export const api = {
     poll?: PollDraft,
     quotedPostId?: string,
     voiceToken?: string,
+    attachmentIds?: string[],
   ) =>
     request("/api/posts", postResponseSchema, "POST", {
       content,
       clientId,
       gifToken,
       voiceToken,
+      attachmentIds,
       poll,
       quotedPostId,
     }, voiceToken ? AbortSignal.timeout(15_000) : undefined),
@@ -1003,12 +1170,14 @@ export const api = {
     gifToken?: string,
     poll?: PollDraft,
     voiceToken?: string,
+    attachmentIds?: string[],
   ) =>
     request(`${postPath(id)}/replies`, postResponseSchema, "POST", {
       content,
       clientId,
       gifToken,
       voiceToken,
+      attachmentIds,
       poll,
     }, voiceToken ? AbortSignal.timeout(15_000) : undefined),
   vote: (id: string, optionIndex: number) =>
@@ -1062,6 +1231,22 @@ export const api = {
       reposted ? "PUT" : "DELETE",
       reposted ? { audience } : undefined,
     ),
+  save: (id: string, saved: boolean) =>
+    request(`${postPath(id)}/save`, z.object({ saved: z.boolean() }), saved ? "PUT" : "DELETE"),
+  pin: (id: string, pinned: boolean) =>
+    request(
+      `${postPath(id)}/pin`,
+      z.object({ pinned: z.boolean(), previousPinnedId: z.string().nullable() }),
+      pinned ? "PUT" : "DELETE",
+    ),
+  savedPosts: (cursor?: string, signal?: AbortSignal) =>
+    request(
+      `/api/posts/saved${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`,
+      pageSchema,
+      "GET",
+      undefined,
+      signal,
+    ),
   edit: (id: string, content: string) =>
     request(postPath(id), postResponseSchema, "PATCH", { content }),
   delete: (id: string) => request(postPath(id), z.undefined(), "DELETE"),
@@ -1074,6 +1259,39 @@ export const api = {
         followerCount: z.number().int().nonnegative(),
       }),
       following ? "PUT" : "DELETE",
+    ),
+  connections: (
+    handle: string,
+    list: "followers" | "following",
+    { cursor, signal }: { cursor?: string; signal?: AbortSignal },
+  ) =>
+    request(
+      `/api/profiles/${encodeURIComponent(handle)}/${list}${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`,
+      z.object({ users: z.array(connectionUserSchema), nextCursor: z.string().nullable() }),
+      "GET",
+      undefined,
+      signal,
+    ),
+  blocks: (signal?: AbortSignal) =>
+    request(
+      "/api/blocks",
+      z.object({ users: z.array(userSchema.extend({ blockedAt: z.string() })) }),
+      "GET",
+      undefined,
+      signal,
+    ),
+  block: (handle: string, blocked: boolean) =>
+    request(
+      `/api/blocks/${encodeURIComponent(handle)}`,
+      z.object({ blocking: z.boolean() }),
+      blocked ? "PUT" : "DELETE",
+    ),
+  report: (input: ReportInput) =>
+    request(
+      "/api/reports",
+      z.object({ status: z.enum(["reported", "already_reported"]) }),
+      "POST",
+      input,
     ),
   profileCard: (handle: string, signal?: AbortSignal) =>
     request(

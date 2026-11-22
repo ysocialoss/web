@@ -64,12 +64,23 @@ export function ShareButton({
   target,
   viewerId,
   disabled = false,
+  open: controlledOpen,
+  onOpenChange,
+  hiddenTrigger = false,
 }: {
   target: ShareTarget;
   viewerId: string | null;
   disabled?: boolean;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  hiddenTrigger?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  const [innerOpen, setInnerOpen] = useState(false);
+  const open = controlledOpen ?? innerOpen;
+  const setOpen = (next: boolean) => {
+    setInnerOpen(next);
+    onOpenChange?.(next);
+  };
   const [copied, setCopied] = useState(false);
   const [recent, setRecent] = useState<Recent>();
   const [extra, setExtra] = useState<DmUser[]>([]);
@@ -108,7 +119,7 @@ export function ShareButton({
         type: "error",
         title: "Couldn't copy link",
         description: errorMessage(error),
-        timeout: 0,
+        timeout: 8000,
         actionProps: {
           children: "Retry",
           onClick: () => {
@@ -177,6 +188,12 @@ export function ShareButton({
           setError("");
         }
       }}>
+        {hiddenTrigger ? (
+          <PopoverTrigger
+            nativeButton={false}
+            render={<span aria-hidden="true" tabIndex={-1} className="pointer-events-none absolute right-0 bottom-0 size-px" />}
+          />
+        ) : (
         <PopoverTrigger
           render={
             <IconButton
@@ -206,6 +223,7 @@ export function ShareButton({
             <Check className={cn(icon, copied ? "scale-100 rotate-0 opacity-100" : "scale-50 rotate-45 opacity-0")} />
           </span>
         </PopoverTrigger>
+        )}
         <PopoverContent align="end" className="w-[26rem] max-w-[calc(100vw-1.5rem)] gap-3 p-4">
           <PopoverTitle className="text-sm font-semibold">Share {target.kind}</PopoverTitle>
           <ul className="-mx-1 flex flex-nowrap gap-x-2 overflow-x-auto overscroll-x-contain px-1 pb-1 [scrollbar-width:thin]">

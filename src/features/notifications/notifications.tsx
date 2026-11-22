@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type MouseEvent } from "react";
+import { IconButton } from "@/components/ui/icon-button";
 import {
   Bell,
   CheckCheck,
@@ -9,7 +10,7 @@ import {
   UserPlus,
   X,
 } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
+import { timeAgo } from "@/lib/time-ago";
 import { Link } from "react-router";
 import { ProfileHoverLink } from "@/features/profile/profile-hover-link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -26,8 +27,9 @@ import { useNotifications } from "./notifications-context";
 import { PushSettings } from "./push-settings";
 import { cn } from "@/lib/utils";
 import { PostCard } from "@/features/dms/embeds";
-import type { SocialNotification } from "@/lib/api";
+import { postImageUrl, type SocialNotification } from "@/lib/api";
 import { usePageTitle } from "@/hooks/use-page-title";
+import { useLoadMore } from "@/hooks/use-load-more";
 
 const kinds = {
   like: {
@@ -65,7 +67,7 @@ const kinds = {
   },
 };
 
-function groupNotifications(items: SocialNotification[]) {
+function groupNotifications(items: SocialNotification[], priority: ReadonlySet<string>) {
   const startOfToday = new Date();
   startOfToday.setHours(0, 0, 0, 0);
   const groups: { title: string; items: SocialNotification[] }[] = [
@@ -74,7 +76,7 @@ function groupNotifications(items: SocialNotification[]) {
     { title: "Older", items: [] },
   ];
   for (const item of items) {
-    if (!item.readAt && item.kind !== "like") groups[0].items.push(item);
+    if (priority.has(item.id)) groups[0].items.push(item);
     else if (new Date(item.createdAt) >= startOfToday)
       groups[1].items.push(item);
     else groups[2].items.push(item);
@@ -101,8 +103,27 @@ function NotificationsContent({
     signedIn,
     canWrite,
     hideContent,
+    isStale,
   } = useNotifications();
   const list = useRef<HTMLDivElement>(null);
+  const [priority, setPriority] = useState<ReadonlySet<string>>(() => new Set());
+  if (grouped) {
+    const arrived = items.filter(
+      (item) => !item.readAt && item.kind !== "like" && !priority.has(item.id),
+    );
+    if (arrived.length)
+      setPriority(new Set([...priority, ...arrived.map((item) => item.id)]));
+  }
+  useEffect(() => {
+    if (grouped && signedIn && isStale()) void refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [grouped, signedIn]);
+  const loadMoreRef = useLoadMore(
+    () => {
+      if (nextCursor) void refresh(nextCursor);
+    },
+    signedIn && Boolean(nextCursor) && !loading && !error,
+  );
   useEffect(() => {
     if (!markVisibleAsRead || !canWrite || !list.current) return;
     const rows = list.current.querySelectorAll<HTMLElement>("[data-unread-id]");
@@ -142,7 +163,9 @@ function NotificationsContent({
   return (
     <>
       <div
-        className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
+        className={cn(
+          !grouped && "min-h-0 flex-1 overflow-y-auto overscroll-contain",
+        )}
         aria-busy={loading}
       >
         {loading && items.length === 0 && (
@@ -164,7 +187,7 @@ function NotificationsContent({
         )}
         <div ref={list}>
           {(grouped
-            ? groupNotifications(visible)
+            ? groupNotifications(visible, priority)
             : [{ title: "", items: visible }]
           ).map((group) => (
             <section key={group.title} aria-label={group.title || undefined}>
@@ -261,13 +284,25 @@ function NotificationsContent({
                       {item.preview}
                     </p>
                   )}
+                  {!grouped && !hideContent && item.imageIds.length > 0 && (
+                    <span className="mt-2 flex gap-1.5" aria-label={`${item.imageIds.length} attached ${item.imageIds.length === 1 ? "image" : "images"}`}>
+                      {item.imageIds.slice(0, 4).map((id) => (
+                        <img
+                          key={id}
+                          src={postImageUrl(id)}
+                          alt=""
+                          loading="lazy"
+                          decoding="async"
+                          className="size-14 rounded-lg border bg-muted object-cover"
+                        />
+                      ))}
+                    </span>
+                  )}
                   <time
                     dateTime={item.createdAt}
                     className="mt-1.5 block text-xs text-muted-foreground"
                   >
-                    {formatDistanceToNow(new Date(item.createdAt), {
-                      addSuffix: true,
-                    })}
+                    {timeAgo(item.createdAt)}
                   </time>
                 </div>
               </li>
@@ -318,15 +353,7 @@ function NotificationsContent({
             ))}
           </div>
         )}
-        {nextCursor && !error && !loading && (
-          <Button
-            variant="ghost"
-            className="my-2 w-full"
-            onClick={() => void refresh(nextCursor)}
-          >
-            Load more
-          </Button>
-        )}
+        <div ref={loadMoreRef} aria-hidden="true" className="h-px" />
       </div>
       {canWrite && !grouped && <div className="shrink-0 border-t p-3">
         <PushSettings />
@@ -352,10 +379,27 @@ function MarkAllRead() {
   );
 }
 
-export function NotificationsBell({ className }: { className?: string }) {
+export function NotificationsBell({
+  className,
+  reserveSpace = false,
+}: {
+  className?: string;
+  reserveSpace?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const { unreadCount, refresh, signedIn } = useNotifications();
-  if (!signedIn) return null;
+  if (!signedIn)
+    return reserveSpace ? (
+      <IconButton
+        variant="ghost"
+        size="icon"
+        className={className}
+        label="Notifications"
+        disabled
+      >
+        <Bell aria-hidden="true" />
+      </IconButton>
+    ) : null;
   return (
     <Popover
       open={open}
@@ -366,11 +410,11 @@ export function NotificationsBell({ className }: { className?: string }) {
     >
       <PopoverTrigger
         render={
-          <Button
+          <IconButton
             variant="ghost"
             size="icon"
             className={cn("relative", className)}
-            aria-label={`Notifications${unreadCount ? `, ${unreadCount} unread` : ""}`}
+            label={`Notifications${unreadCount ? `, ${unreadCount} unread` : ""}`}
           />
         }
       >
@@ -400,14 +444,14 @@ export function NotificationsBell({ className }: { className?: string }) {
           </div>
           <div className="flex items-center gap-1">
             <MarkAllRead />
-            <Button
+            <IconButton
               size="icon"
               variant="ghost"
-              aria-label="Close notifications"
+              label="Close notifications"
               onClick={() => setOpen(false)}
             >
               <X />
-            </Button>
+            </IconButton>
           </div>
         </div>
         {open && (
@@ -439,7 +483,7 @@ export function ActivityPage() {
   return (
     <div className="mx-auto max-w-xl pb-24">
       <h1 className="px-4 pt-4 text-xl font-semibold">Activity</h1>
-      <NotificationsContent grouped />
+      <NotificationsContent grouped markVisibleAsRead />
     </div>
   );
 }

@@ -6,6 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { api, errorMessage, type ProfileCard } from "@/lib/api";
 import { countFormat } from "@/lib/count-format";
+import { TwitchLive } from "./twitch-live";
 import { BannerImage } from "./banner-image";
 import { patchProfileCard, useProfileCard } from "./profile-card-cache";
 
@@ -106,7 +107,7 @@ function UserCardBody({ card }: { card: ProfileCard }) {
             aria-label={`${name}'s profile`}
             className="-mt-8 rounded-[30%] outline-none [corner-shape:squircle] focus-visible:ring-2 focus-visible:ring-ring"
           >
-            <Avatar className="size-16 ring-4 ring-popover">
+            <Avatar hat className="size-16 ring-4 ring-popover">
               {profile.avatarUrl && (
                 <AvatarImage
                   src={profile.avatarUrl}
@@ -141,12 +142,15 @@ function UserCardBody({ card }: { card: ProfileCard }) {
           )}
         </div>
         <div className="mt-2 min-w-0">
-          <Link
-            to={`/@${profile.handle}`}
-            className="block truncate text-base leading-tight font-semibold outline-none hover:underline focus-visible:underline"
-          >
-            {name}
-          </Link>
+          <div className="flex min-w-0 items-center gap-1.5">
+            <Link
+              to={`/@${profile.handle}`}
+              className="block truncate text-base leading-tight font-semibold outline-none hover:underline focus-visible:underline"
+            >
+              {name}
+            </Link>
+            <TwitchLive handle={profile.handle} />
+          </div>
           <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
             <span className="truncate text-sm text-muted-foreground">
               @{profile.handle}

@@ -1,13 +1,17 @@
 import * as React from "react";
 import { Avatar as AvatarPrimitive } from "@base-ui/react/avatar";
 import { cn } from "cn";
+import { SantaHat } from "./santa-hat";
 
 function Avatar({
   className,
   size = "default",
+  children,
+  hat = false,
   ...props
 }: AvatarPrimitive.Root.Props & {
   size?: "default" | "sm" | "lg";
+  hat?: boolean | string;
 }) {
   return (
     <AvatarPrimitive.Root
@@ -18,7 +22,10 @@ function Avatar({
         className,
       )}
       {...props}
-    />
+    >
+      {hat && <SantaHat className={typeof hat === "string" ? hat : undefined} />}
+      {children}
+    </AvatarPrimitive.Root>
   );
 }
 

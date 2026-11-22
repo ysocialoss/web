@@ -1,6 +1,6 @@
 import { useEffect, useState, type MouseEventHandler } from "react";
-import { House, Mail, MessageCircle, Plus, Search, UserRound } from "lucide-react";
-import { Link, useLocation } from "react-router";
+import { Heart, House, Mail, MessageCircle, Plus, Search, UserRound } from "lucide-react";
+import { useLocation } from "react-router";
 import { LegalMenu } from "./legal-menu";
 import { ProgressiveBlur } from "@/components/ui/progressive-blur";
 import { AccountMenu } from "@/features/auth/account-menu";
@@ -10,8 +10,11 @@ import { FloatingNavigation } from "@/components/ui/floating-navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useNewPostTarget } from "@/features/feed/new-post-target";
 import { useDmUnread } from "@/features/dms/dm-unread";
+import { useNotifications } from "@/features/notifications/notifications-context";
 import { cn } from "@/lib/utils";
-import { SiteWordmark } from "./site-wordmark";
+import { SiteLogoLink, SiteWordmark } from "./site-wordmark";
+import { useSessionHint } from "@/features/auth/session-hint";
+import { preloadRoute } from "@/routes";
 
 const COMPACT_AFTER = 64;
 const DIRECTION_STEP = 10;
@@ -62,7 +65,9 @@ export function MobileHeader({
   auth: AuthState;
   onLogoClick: MouseEventHandler<HTMLAnchorElement>;
 }) {
-  const signedIn = auth.session?.authenticated && !auth.session.needsOnboarding;
+  const hint = useSessionHint(auth.session);
+  const signedIn =
+    (auth.session?.authenticated && !auth.session.needsOnboarding) || !!hint;
 
   // Exactly the header's height: the blur must not reach below it.
   const headerHeight = "calc(env(safe-area-inset-top) + 4rem)";
@@ -76,17 +81,16 @@ export function MobileHeader({
       />
       <header className="pointer-events-none absolute inset-x-0 top-0 z-30 pt-[env(safe-area-inset-top)] md:hidden">
         <div className="pointer-events-auto relative flex min-h-16 items-center justify-between gap-3 pr-[max(1rem,env(safe-area-inset-right))] pl-[max(1rem,env(safe-area-inset-left))]">
-          <Link
-            to="/"
-            aria-label="ysocial home"
-            onClick={onLogoClick}
-            className="flex min-h-11 items-center rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          <SiteLogoLink
+            onHomeClick={onLogoClick}
+            tooltipSide="bottom"
+            className="flex min-h-11 cursor-pointer items-center rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            <SiteWordmark className="block w-28" />
-          </Link>
+            {(variation) => <SiteWordmark rem={7} variation={variation} />}
+          </SiteLogoLink>
           <div className="flex items-center gap-1">
             <LegalMenu className="size-11" />
-            {signedIn && <NotificationsBell className="size-11" />}
+            {signedIn && <NotificationsBell className="size-11" reserveSpace />}
             <AccountMenu auth={auth} />
           </div>
         </div>
@@ -99,18 +103,22 @@ export function MobileNavigation({ auth }: { auth: AuthState }) {
   const { pathname } = useLocation();
   const newPost = useNewPostTarget();
   const { unread } = useDmUnread();
+  const { unreadCount } = useNotifications();
   const session = auth.session;
+  const hint = useSessionHint(session);
   const user =
-    session?.authenticated && !session.needsOnboarding ? session.user : null;
+    session?.authenticated && !session.needsOnboarding
+      ? session.user
+      : hint;
+  const avatarUrl =
+    session?.authenticated && !session.needsOnboarding
+      ? session.avatarUrl
+      : (hint?.avatarUrl ?? null);
   const profilePath = user ? `/@${user.handle}` : "/profile";
   const profileIcon = user ? (
     <Avatar className="size-7">
-      {session?.authenticated && session.avatarUrl && (
-        <AvatarImage
-          src={session.avatarUrl}
-          alt=""
-          referrerPolicy="no-referrer"
-        />
+      {avatarUrl && (
+        <AvatarImage src={avatarUrl} alt="" referrerPolicy="no-referrer" />
       )}
       <AvatarFallback className="bg-white/15 text-xs text-white">
         {(user.displayName.trim() || user.handle).slice(0, 2)}
@@ -126,6 +134,9 @@ export function MobileNavigation({ auth }: { auth: AuthState }) {
       icon: <House aria-hidden="true" />,
     },
     { to: "/search", label: "Search", icon: <Search aria-hidden="true" /> },
+    ...(user
+      ? [{ to: "/activity", label: "Activity", icon: <Heart aria-hidden="true" />, badge: unreadCount }]
+      : []),
     { to: "/messages", label: "Messages", icon: <Mail aria-hidden="true" />, badge: unread },
     { to: profilePath, label: "Profile", icon: profileIcon },
   ];
@@ -152,8 +163,9 @@ export function MobileNavigation({ auth }: { auth: AuthState }) {
         <FloatingNavigation
           items={items}
           activeTo={activeTo}
+          onPreload={preloadRoute}
           label="Mobile navigation"
-          className="pointer-events-auto w-full max-w-64"
+          className={cn("pointer-events-auto w-full", user ? "max-w-80" : "max-w-64")}
         />
         <div
           inert={!newPost}

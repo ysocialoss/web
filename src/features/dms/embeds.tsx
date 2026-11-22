@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { formatDistanceToNow } from "date-fns";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { timeAgo } from "@/lib/time-ago";
 import { ArrowUpRight, Globe, Heart, ListChecks, MessageCircle, Mic, Repeat2 } from "lucide-react";
 import { Link } from "react-router";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -9,6 +9,7 @@ import { countFormat } from "@/lib/count-format";
 import { cn } from "@/lib/utils";
 import { ExternalLink } from "@/components/ui/external-link";
 import { PostText } from "@/features/feed/post-text";
+import { PostImages } from "@/features/feed/post-images";
 import { useProfileCard } from "@/features/profile/profile-card-cache";
 import { dmApi, type LinkPreview } from "./dm-api";
 
@@ -32,26 +33,83 @@ function useVisible<T extends Element>() {
   return [ref, visible] as const;
 }
 
-function Count({ icon: Icon, value, label }: { icon: typeof Heart; value: number; label: string }) {
+function Count({ icon: Icon, value, label, active, activeLabel, className, fill }: {
+  icon: typeof Heart;
+  value: number;
+  label: string;
+  active?: boolean;
+  activeLabel?: string;
+  className?: string;
+  fill?: boolean;
+}) {
   return (
-    <span className="inline-flex items-center gap-1 tabular-nums" title={`${value} ${label}`}>
-      <Icon aria-hidden="true" className="size-3.5" />
+    <span className={cn("inline-flex items-center gap-1 tabular-nums", active && className)} title={`${value} ${label}`}>
+      <Icon aria-hidden="true" className="size-3.5" fill={active && fill ? "currentColor" : "none"} />
       <span aria-hidden="true">{compact.format(value)}</span>
-      <span className="sr-only">{value} {label}</span>
+      <span className="sr-only">{value} {label}{active && activeLabel ? `, ${activeLabel}` : ""}</span>
     </span>
   );
 }
 
+function PreviewText({ post }: { post: Post }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [clipped, setClipped] = useState(false);
+  useLayoutEffect(() => {
+    const caption = ref.current?.firstElementChild;
+    if (!(caption instanceof HTMLElement)) return;
+    const measure = () => setClipped(caption.scrollHeight > caption.clientHeight + 1);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(caption);
+    if (caption.firstElementChild) observer.observe(caption.firstElementChild);
+    return () => observer.disconnect();
+  }, [post.content]);
+  return (
+    <div ref={ref} dir="auto" className="relative [&_a]:pointer-events-auto [&_button]:pointer-events-auto [&_[role=button]]:pointer-events-auto">
+      <PostText post={post} previewExternalLinks collapsible={false}
+        className={cn(
+          "max-h-40 overflow-hidden leading-relaxed wrap-anywhere whitespace-pre-wrap",
+          clipped && "[mask-image:linear-gradient(black_calc(100%-1.5rem),transparent)]",
+        )} />
+    </div>
+  );
+}
+
+const PREVIEW_TTL_MS = 60_000;
+const previews = new Map<string, { at: number; promise: Promise<Post>; post?: Post }>();
+
+function loadPreview(postId: string) {
+  const hit = previews.get(postId);
+  if (hit && Date.now() - hit.at < PREVIEW_TTL_MS) return hit;
+  const entry: { at: number; promise: Promise<Post>; post?: Post } = {
+    at: Date.now(),
+    promise: api.postPreview(postId, AbortSignal.timeout(10_000)).then(({ post }) => {
+      entry.post = post;
+      return post;
+    }),
+  };
+  entry.promise.catch(() => {
+    if (previews.get(postId) === entry) previews.delete(postId);
+  });
+  previews.set(postId, entry);
+  if (previews.size > 200) previews.delete(previews.keys().next().value!);
+  return entry;
+}
+
 export function PostCard({ postId, href }: { postId: string; href: string }) {
   const [ref, visible] = useVisible<HTMLDivElement>();
-  const [state, setState] = useState<{ post?: Post; failed?: boolean }>({});
+  const [state, setState] = useState<{ post?: Post; failed?: boolean }>(() => {
+    const post = previews.get(postId)?.post;
+    return post ? { post } : {};
+  });
   useEffect(() => {
     if (!visible) return;
-    const controller = new AbortController();
-    api.postPreview(postId, AbortSignal.any([controller.signal, AbortSignal.timeout(10_000)]))
-      .then(({ post }) => { if (!controller.signal.aborted) setState({ post }); })
-      .catch(() => { if (!controller.signal.aborted) setState({ failed: true }); });
-    return () => controller.abort();
+    let live = true;
+    loadPreview(postId).promise.then(
+      (post) => { if (live) setState({ post }); },
+      () => { if (live) setState((current) => (current.post ? current : { failed: true })); },
+    );
+    return () => { live = false; };
   }, [visible, postId]);
   const { post, failed } = state;
   const target = new URL(href);
@@ -67,17 +125,12 @@ export function PostCard({ postId, href }: { postId: string; href: string }) {
         <span className="min-w-0 flex-1 leading-tight">
           <span className="block truncate font-semibold">{post.author.displayName || post.author.handle}</span>
           <span className="block truncate text-xs text-muted-foreground">
-            @{post.author.handle} · <time dateTime={post.createdAt}>{formatDistanceToNow(new Date(post.createdAt), { addSuffix: true })}</time>
+            @{post.author.handle} · <time dateTime={post.createdAt}>{timeAgo(post.createdAt)}</time>
           </span>
         </span>
         <ArrowUpRight aria-hidden="true" className="size-4 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover/post:opacity-100" />
       </span>
-      {post.content && (
-        <div dir="auto" className="relative [&_a]:pointer-events-auto [&_button]:pointer-events-auto [&_[role=button]]:pointer-events-auto">
-          <PostText post={post} previewExternalLinks={false} collapsible={false}
-            className="leading-relaxed wrap-anywhere whitespace-pre-wrap max-h-40 overflow-hidden [mask-image:linear-gradient(black_calc(100%-1.5rem),transparent)]" />
-        </div>
-      )}
+      {post.content && <PreviewText post={post} />}
       {post.poll && (
         <span className="flex items-start gap-1.5 text-muted-foreground">
           <ListChecks aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
@@ -90,10 +143,11 @@ export function PostCard({ postId, href }: { postId: string; href: string }) {
         </span>
       )}
       {post.gif && <img src={post.gif.url} alt={post.gif.title || "GIF"} loading="lazy" decoding="async" referrerPolicy="no-referrer" className="max-h-52 max-w-full rounded-lg object-contain" />}
+      <PostImages ids={post.imageIds} compact />
       <span className="flex items-center gap-4 pt-0.5 text-xs text-muted-foreground">
-        <Count icon={Heart} value={post.likes} label="likes" />
+        <Count icon={Heart} value={post.likes} label="likes" active={post.liked} activeLabel="you liked this" className="text-red-500" fill />
         <Count icon={MessageCircle} value={post.replies} label="replies" />
-        <Count icon={Repeat2} value={post.reposts} label="reposts" />
+        <Count icon={Repeat2} value={post.reposts} label="reposts" active={post.reposted} activeLabel="you reposted this" className="text-green-500" />
       </span>
     </span>
   ) : failed ? (

@@ -264,6 +264,7 @@ export function useFeed(
     gif: GifSearchItem | null = null,
     poll?: PollDraft,
     voice?: VoiceDraft,
+    imageIds: string[] = [],
   ) {
     const content = text.trim();
     if (
@@ -271,7 +272,7 @@ export function useFeed(
       session.needsOnboarding ||
       session.pendingApproval ||
       session.ban ||
-      (!content && !gif && !poll && !voice) ||
+      (!content && !gif && !poll && !voice && !imageIds.length) ||
       Array.from(content).length > 2000 ||
       hasTooManyBlankLines(content)
     )
@@ -281,6 +282,7 @@ export function useFeed(
       gif,
       poll,
       voice,
+      imageIds,
       author: session.user,
       parentId: parentId ?? null,
       onConfirmed: onPublished,
@@ -296,6 +298,7 @@ export function useFeed(
     poll?: PollDraft,
     onConfirmed?: (post: Post) => void,
     voice?: VoiceDraft,
+    imageIds: string[] = [],
   ) {
     const content = text.trim();
     if (
@@ -303,7 +306,7 @@ export function useFeed(
       session.needsOnboarding ||
       session.pendingApproval ||
       session.ban ||
-      (!content && !gif && !poll && !voice) ||
+      (!content && !gif && !poll && !voice && !imageIds.length) ||
       Array.from(content).length > 2000 ||
       hasTooManyBlankLines(content)
     )
@@ -313,6 +316,7 @@ export function useFeed(
       gif,
       poll,
       voice,
+      imageIds,
       author: session.user,
       parentId: null,
       quoting: quoted,
@@ -381,6 +385,14 @@ export function useFeed(
       canPost && viewerId
         ? mutatePost(post, viewerId, { kind: "like", value: !post.liked })
         : false,
+    toggleSave: (post: Post) =>
+      canPost && viewerId
+        ? mutatePost(post, viewerId, { kind: "save", value: !post.saved })
+        : false,
+    togglePin: (post: Post) =>
+      canPost && viewerId && post.author.id === viewerId && !post.parentId
+        ? mutatePost(post, viewerId, { kind: "pin", value: !post.pinned })
+        : false,
     /** Repost with an audience, or undo the repost with `null`. */
     setRepost: (post: Post, audience: RepostAudience | null) =>
       canPost && viewerId
@@ -398,7 +410,7 @@ export function useFeed(
     editPost: (post: Post, content: string) => {
       const trimmed = content.trim();
       return canPost && viewerId &&
-        (trimmed || post.gif || post.poll || post.voice) &&
+        (trimmed || post.gif || post.poll || post.voice || post.imageIds.length) &&
         Array.from(trimmed).length <= 2000 &&
         !hasTooManyBlankLines(trimmed)
         ? mutatePost(post, viewerId, {

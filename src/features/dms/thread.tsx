@@ -22,8 +22,9 @@ import { AttachMenu, VoiceRecorderBar, type Recorded } from "./composer-extras";
 import { TypingBubble } from "./typing-bubble";
 import { Collapse } from "@/components/ui/collapse";
 import { ThreadSearch } from "./thread-search";
-import { MessageRow, nameOf, PersonAvatar, type RowActions, type OutgoingMessage } from "./message-row";
+import { MessageRow, nameOf, PersonAvatar, reportText, type RowActions, type OutgoingMessage } from "./message-row";
 import { EarlierMessagesSkeleton, ThreadSkeleton } from "./messages-loading";
+import { maxReportContext } from "@/features/reports/report-dialog";
 import { useMessageWindow } from "./message-window";
 
 const dateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: "medium" });
@@ -876,6 +877,10 @@ const MessageRows = memo(function MessageRows({
               dismiss={pending ? dismiss : undefined}
               sending={pending && retryDisabled}
               onInteraction={onInteraction}
+              reportContext={!pending && sender.id === peer.id
+                ? () => messages.slice(0, position).filter(({ text }) => text !== null).slice(-maxReportContext)
+                  .map((earlier) => ({ id: earlier.id, text: reportText(earlier) }))
+                : undefined}
             />
           </MessageListItem>
         );

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { formatDistance } from "date-fns";
+import { timeAgo } from "@/lib/time-ago";
 import { History } from "lucide-react";
 import { api, errorMessage } from "@/lib/api";
 import {
@@ -59,7 +59,7 @@ export function EditHistory({
         </TooltipTrigger>
         <TooltipContent>
           Edited{" "}
-          {formatDistance(new Date(editedAt), new Date(), { addSuffix: true })}
+          {timeAgo(editedAt)}
           {" · "}View history
         </TooltipContent>
       </Tooltip>
@@ -95,9 +95,7 @@ export function EditHistory({
                     dateTime={version.at}
                     title={new Date(version.at).toLocaleString()}
                   >
-                    {formatDistance(new Date(version.at), new Date(), {
-                      addSuffix: true,
-                    })}
+                    {timeAgo(version.at)}
                   </time>
                   {index === 0 && (
                     <span className="rounded-full bg-primary/15 px-2 py-0.5 font-medium text-foreground">

@@ -1,11 +1,14 @@
 import { PublishedVoicePlayer } from "./voice-player";
+import { PostImages } from "./post-images";
 import { useEffect, useId, useRef, useState, type MouseEvent } from "react";
 import { Link, useNavigate } from "react-router";
-import { formatDistance } from "date-fns";
-import { Check, LoaderCircle, Pencil, Trash2, X } from "lucide-react";
+import { timeAgo } from "@/lib/time-ago";
+import { Bookmark, BookmarkOff, Check, Ellipsis, LoaderCircle, Pencil, Pin, PinOff, Trash2, X } from "lucide-react";
+import { ActionMenu } from "@/components/ui/action-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { IconButton } from "@/components/ui/icon-button";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
+import { TwitchLive } from "@/features/profile/twitch-live";
 import { ProfileHoverLink } from "@/features/profile/profile-hover-link";
 import { MentionLink } from "./mention-text";
 import { MentionTextarea } from "./mention-textarea";
@@ -30,6 +33,9 @@ import {
 import { useEmojiIndex } from "@/lib/use-emoji-index";
 import type { FeedState } from "./use-feed";
 import { watchPost } from "./live-states";
+import { ReportMenu, copyLinkAction } from "@/features/reports/report-menu";
+import { useNow } from "@/hooks/use-now";
+import { useBlockedUser } from "@/features/reports/blocked-users";
 
 export function PostCard({
   post,
@@ -41,6 +47,8 @@ export function PostCard({
   focused = false,
   repost = null,
   replyContext = false,
+  pinnedLabel = false,
+  pinnable = false,
 }: {
   post: Post;
   feed: FeedState;
@@ -57,6 +65,8 @@ export function PostCard({
   repost?: RepostContext | null;
   /** Say who a reply answers, for replies shown outside their thread. */
   replyContext?: boolean;
+  pinnedLabel?: boolean;
+  pinnable?: boolean;
 }) {
   const navigate = useNavigate();
   const editorId = useId();
@@ -64,16 +74,13 @@ export function PostCard({
   const [editing, setEditing] = useState(false);
   const [content, setContent] = useState(post.content);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 30_000);
-    return () => clearInterval(timer);
-  }, []);
+  const now = useNow();
   const articleRef = useRef<HTMLElement>(null);
   useEffect(() => {
     const element = articleRef.current;
     return element ? watchPost(element, post.id, feed.viewerId) : undefined;
   }, [post.id, feed.viewerId]);
+  const authorBlocked = useBlockedUser(post.author.id);
   const optimistic = feed.optimisticPostIds.includes(post.id);
   const mine = feed.canPost && post.author.id === feed.viewerId;
   const busy = feed.pending.includes(post.id);
@@ -82,10 +89,10 @@ export function PostCard({
     ? renderShortcodes(content, emojiIndex)
     : content;
   const length = Array.from(finalContent.trim()).length;
-  const hasAttachment = Boolean(post.gif || post.poll || post.voice);
+  const hasAttachment = Boolean(post.gif || post.poll || post.voice || post.imageIds.length);
   const validCaption = (length > 0 || hasAttachment) && length <= 2000;
   const changed = finalContent.trim() !== post.content.trim();
-  const jumbo = post.gif || post.voice ? 0 : emojiOnlyCount(post.content);
+  const jumbo = post.gif || post.voice || post.imageIds.length ? 0 : emojiOnlyCount(post.content);
   const openable = !focused && !optimistic && !editing;
   const openTimer = useRef<number | undefined>(undefined);
   useEffect(() => () => window.clearTimeout(openTimer.current), []);
@@ -135,6 +142,7 @@ export function PostCard({
       .catch(() => setContent(editableContent))
       .finally(() => setEditing(true));
   }
+  if (authorBlocked && !mine) return null;
   return (
     <article
       ref={articleRef}
@@ -170,6 +178,12 @@ export function PostCard({
         />
       )}
       {repost && <RepostHeader repost={repost} viewerId={feed.viewerId} />}
+      {!repost && pinnedLabel && post.pinned && (
+        <p className="mb-1.5 ml-12 flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+          <Pin className="size-3.5 shrink-0" aria-hidden="true" />
+          Pinned
+        </p>
+      )}
       <div className="flex items-start gap-3">
         <div className="relative size-9 shrink-0">
           <div
@@ -213,6 +227,7 @@ export function PostCard({
               >
                 {post.author.displayName}
               </ProfileHoverLink>
+              <TwitchLive handle={post.author.handle} />
               <ProfileHoverLink
                 handle={post.author.handle}
                 className="text-xs text-muted-foreground hover:text-foreground"
@@ -233,9 +248,7 @@ export function PostCard({
                   dateTime={post.createdAt}
                   title={new Date(post.createdAt).toLocaleString()}
                 >
-                  {formatDistance(new Date(post.createdAt), now, {
-                    addSuffix: true,
-                  })}
+                  {timeAgo(post.createdAt, now)}
                 </time>
               </Link>
               {post.editedAt && (
@@ -264,29 +277,67 @@ export function PostCard({
                     </IconButton>
                   </>
                 ) : (
-                  <>
-                    {now < Date.parse(post.editExpiresAt) && (
-                      <IconButton
-                        label="Edit post"
-                        size="icon-sm"
-                        disabled={busy}
-                        onClick={startEditing}
-                      >
-                        <Pencil />
+                  <ActionMenu
+                    title="Post options"
+                    hideTitle
+                    trigger={
+                      <IconButton label="Post options" size="icon-sm" aria-haspopup="menu" disabled={busy || optimistic}>
+                        <Ellipsis />
                       </IconButton>
-                    )}
-                    <IconButton
-                      label="Delete post"
-                      size="icon-sm"
-                      disabled={busy}
-                      className="text-muted-foreground hover:text-destructive"
-                      onClick={() => setConfirmDelete(true)}
-                    >
-                      <Trash2 />
-                    </IconButton>
-                  </>
+                    }
+                    items={[
+                      ...(now < Date.parse(post.editExpiresAt)
+                        ? [{ kind: "action" as const, icon: Pencil, label: "Edit post", onClick: startEditing }]
+                        : []),
+                      ...(pinnable && !post.parentId
+                        ? [
+                            {
+                              kind: "action" as const,
+                              icon: post.pinned ? PinOff : Pin,
+                              label: post.pinned ? "Unpin from profile" : "Pin to profile",
+                              onClick: () => feed.togglePin(post),
+                            },
+                          ]
+                        : []),
+                      {
+                        kind: "action" as const,
+                        icon: post.saved ? BookmarkOff : Bookmark,
+                        label: post.saved ? "Unsave post" : "Save post",
+                        onClick: () => feed.toggleSave(post),
+                      },
+                      {
+                        kind: "action" as const,
+                        icon: Trash2,
+                        label: "Delete post",
+                        destructive: true,
+                        onClick: () => setConfirmDelete(true),
+                      },
+                    ]}
+                  />
                 )}
               </div>
+            )}
+            {feed.canPost && !mine && !optimistic && (
+              <ReportMenu
+                className="-my-1.5 shrink-0"
+                label="Post options"
+                actions={[
+                  {
+                    label: post.saved ? "Unsave post" : "Save post",
+                    icon: post.saved ? BookmarkOff : Bookmark,
+                    immediate: true,
+                    onSelect: () => void feed.toggleSave(post),
+                  },
+                  copyLinkAction(`/posts/${post.id}`),
+                ]}
+                follow={{ handle: post.author.handle }}
+                block={{ id: post.author.id, handle: post.author.handle }}
+                subject={{
+                  type: "post",
+                  id: post.id,
+                  kind: post.parentId ? "reply" : post.quote ? "quote" : "post",
+                }}
+              />
             )}
           </div>
           {replyContext && post.replyTo && (
@@ -383,6 +434,7 @@ export function PostCard({
               className="mt-2 max-h-96 w-auto max-w-full rounded-xl object-contain"
             />
           )}
+          <PostImages ids={post.imageIds} />
           {post.quote && <QuotedPostCard quote={post.quote} />}
           {post.poll && (
             <PostPoll

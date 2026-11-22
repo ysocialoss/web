@@ -10,7 +10,7 @@ export function showRetryToast(
     type: "error",
     title,
     description: errorMessage(error),
-    timeout: 0,
+    timeout: 8000,
     priority: "high",
     actionProps: {
       children: "Retry",

@@ -205,9 +205,9 @@ export function VoiceRecorderBar({ onCancel, onSend }: { onCancel: () => void; o
           </span>
         </>
       )}
-      <Button type="button" size="icon" className="shrink-0 rounded-lg" aria-label="Send voice message" disabled={!!error || seconds < 1} onClick={() => stop("send")}>
+      <IconButton type="button" size="icon" className="shrink-0 rounded-lg" label="Send voice message" disabled={!!error || seconds < 1} onClick={() => stop("send")}>
         <SendHorizontal aria-hidden="true" />
-      </Button>
+      </IconButton>
     </div>
   );
 }

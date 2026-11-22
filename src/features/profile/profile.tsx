@@ -1,9 +1,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import {
   api,
-  ApiError,
   errorMessage,
-  retryRequest,
   type Post,
   type Profile,
   type Session,
@@ -11,7 +9,11 @@ import {
 } from "@/lib/api";
 import {
   ArrowLeft,
+  Ban,
   CalendarDays,
+  Mail,
+  SendHorizontal,
+  ShieldCheck,
   Camera,
   Gem,
   GitPullRequest,
@@ -29,30 +31,29 @@ import {
 } from "@/components/ui/tooltip";
 import { IconButton, IconLink } from "@/components/ui/icon-button";
 import { GithubMark } from "@/components/ui/github-mark";
+import { providerById } from "@/features/settings/connection-providers";
 import { ExternalLink } from "@/components/ui/external-link";
+import { DomainIcon } from "./domain-icon";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/lib/utils";
 import { useGoBack } from "@/hooks/use-go-back";
 import { Button } from "@/components/ui/button";
-import { Link, useNavigate, useSearchParams } from "react-router";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { TwitchLive } from "./twitch-live";
 import { BannerImage } from "./banner-image";
 import { BannerEditor } from "./banner-editor";
-import { AvatarCropper } from "./avatar-cropper";
-import { RecentAvatars } from "./recent-avatars";
-import { ProfileForm } from "./profile-form";
-import { ProfileEditDialogContent, type ProfileEditTab } from "./profile-edit-dialog";
+import { EditProfileDialog, type ProfileEditTab } from "./profile-edit-dialog";
+import { ProfilePictureDialog, verifyAccount } from "./profile-picture-dialog";
+import { peekProfile, profileCacheKey, storeProfile } from "./profile-cache";
+import { useSessionHint } from "@/features/auth/session-hint";
 import { PostCard } from "@/features/feed/post-card";
 import { useFeed } from "@/features/feed/use-feed";
 import { ShareButton } from "@/features/sharing/share-button";
+import { ReportMenu, copyLinkAction, type MenuAction } from "@/features/reports/report-menu";
+import { setBlocked } from "@/features/reports/blocked-users";
+import { toast } from "@/components/ui/toast-manager";
+import { ConnectionsDialog, type ConnectionList } from "./connections-dialog";
 import { ProfileSkeleton } from "@/components/loading-skeletons";
 import { usePageTitle } from "@/hooks/use-page-title";
 import {
@@ -60,7 +61,6 @@ import {
   mutateFollow,
   projectRelationship,
   rememberProfile,
-  updateAuthor,
 } from "@/features/feed/optimistic-actions";
 
 function ProfileBadge({ label, tooltip, children }: {
@@ -86,6 +86,15 @@ function ProfileBadge({ label, tooltip, children }: {
   );
 }
 
+function orderPinned(posts: Post[]) {
+  return [
+    ...posts.filter((post) => post.pinned),
+    ...posts
+      .filter((post) => !post.pinned)
+      .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)),
+  ];
+}
+
 export function ProfilePage({
   handle,
   session,
@@ -106,19 +115,26 @@ export function ProfilePage({
     bannerCrop: BannerCrop | null,
   ) => void;
 }) {
-  const [loadedProfile, setProfile] = useState<Profile | null>(null);
+  const hint = useSessionHint(session);
+  const [loadedProfile, setProfile] = useState<Profile | null>(() => {
+    const known =
+      session?.authenticated && !session.needsOnboarding
+        ? session.user.id
+        : (hint?.id ?? null);
+    return peekProfile(profileCacheKey(handle, known));
+  });
   const [pictureDialogOpen, setPictureDialogOpen] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
-  const hasGithubResult = searchParams.has("github");
+  const hasGithubResult = searchParams.has("github") || searchParams.has("connection");
   const [editDialogOpen, setEditDialogOpen] = useState(hasGithubResult);
   const [editTab, setEditTab] = useState<ProfileEditTab>(hasGithubResult ? "connections" : "profile");
-  const [savingProfile, setSavingProfile] = useState(false);
   const navigate = useNavigate();
   const [error, setError] = useState("");
   const [tab, setTab] = useState<"posts" | "replies" | "reposts">("posts");
   const viewer =
     session?.authenticated && !session.needsOnboarding ? session.user : null;
   const viewerId = viewer?.id ?? null;
+  const ownHandle = (viewer?.handle ?? hint?.handle)?.toLowerCase() === handle.toLowerCase();
   const feed = useFeed(session, undefined, false);
   const relationship = loadedProfile
     ? projectRelationship(loadedProfile, viewerId)
@@ -126,6 +142,12 @@ export function ProfilePage({
   const ownProfile = loadedProfile?.profile.id === viewerId;
   const canEditProfile = ownProfile && feed.canPost;
   const rawRepostIds = new Set(loadedProfile?.reposts.map((post) => post.id));
+  const loadedPosts = loadedProfile
+    ? [
+        ...(loadedProfile.pinnedPost ? [loadedProfile.pinnedPost] : []),
+        ...loadedProfile.posts.filter((post) => post.id !== loadedProfile.pinnedPost?.id),
+      ]
+    : [];
   const profile =
     loadedProfile && relationship
       ? {
@@ -137,9 +159,9 @@ export function ProfilePage({
             followerCount: relationship.followerCount,
             followingCount: relationship.followingCount,
           },
-          posts: loadedProfile.posts
-            .map(feed.resolvePost)
-            .filter((post) => post !== null),
+          posts: orderPinned(
+            loadedPosts.map(feed.resolvePost).filter((post) => post !== null),
+          ),
           reposts: [
             ...(ownProfile
               ? feed.viewerReposts.filter((post) => !rawRepostIds.has(post.id))
@@ -175,6 +197,14 @@ export function ProfilePage({
   const github = profile?.profile.github;
   const contributionCount = github?.contributionCount ?? 0;
   const formattedContributionCount = contributionCount.toLocaleString();
+  const postCount =
+    loadedProfile?.profile.postCount === undefined || !profile
+      ? null
+      : Math.max(
+          0,
+          loadedProfile.profile.postCount -
+            Math.max(0, loadedPosts.length - profile.posts.length),
+        );
   /** "X reposted" for a post on the Reposts tab; the person's own quotes have none. */
   function repostContextFor(post: Post) {
     if (!profile) return null;
@@ -196,22 +226,38 @@ export function ProfilePage({
     if (hasGithubResult) {
       const next = new URLSearchParams(searchParams);
       next.delete("github");
+      next.delete("connection");
+      next.delete("result");
       setSearchParams(next, { replace: true });
     }
   }
 
+  const blockedEitherWay = Boolean(profile?.blocking || profile?.blockedBy);
+  const [sharing, setSharing] = useState(false);
+  const profileActions: MenuAction[] = profile
+    ? [
+        ...(viewer && !feed.readOnly && profile.profile.id !== viewer.id && !profile.profile.bannedAt && !blockedEitherWay
+          ? [{ label: "Message", icon: Mail, onSelect: () => void navigate(`/messages?to=${encodeURIComponent(profile.profile.handle)}`) }]
+          : []),
+        { label: "Share profile", icon: SendHorizontal, onSelect: () => setSharing(true) },
+        copyLinkAction(`/@${profile.profile.handle}`, "Copy profile link"),
+      ]
+    : [];
+  function applyBlock() {
+    void load();
+  }
+  async function unblock() {
+    if (!profile) return;
+    try {
+      await setBlocked(profile.profile, false);
+      applyBlock();
+    } catch (reason) {
+      toast.add({ title: errorMessage(reason) });
+    }
+  }
   function toggleFollow() {
     if (profile && viewer && feed.canPost)
       mutateFollow(profile, viewer.id, !profile.isFollowing);
-  }
-  async function verifyAccount(signal?: AbortSignal) {
-    const current = await api.session(signal);
-    if (
-      !current.authenticated ||
-      current.needsOnboarding ||
-      current.user.id !== viewerId
-    )
-      throw new ApiError(403, "retry_account_changed");
   }
   const load = useCallback(
     async (signal?: AbortSignal) => {
@@ -232,11 +278,16 @@ export function ProfilePage({
   useEffect(() => {
     const controller = new AbortController();
     // HTTP completes asynchronously; cleanup cancels stale responses.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     void load(controller.signal);
     return () => controller.abort();
   }, [load, session]);
+  useEffect(() => {
+    if (loadedProfile)
+      storeProfile(profileCacheKey(handle, viewerId), loadedProfile);
+  }, [loadedProfile, handle, viewerId]);
   const goBack = useGoBack();
+  const [connections, setConnections] = useState<ConnectionList | null>(null);
+  const fromNavigationTab = (useLocation().state as { navigationTab?: boolean } | null)?.navigationTab === true;
   usePageTitle(
     loadedProfile
       ? `${loadedProfile.profile.displayName} (@${loadedProfile.profile.handle})`
@@ -244,11 +295,150 @@ export function ProfilePage({
   );
   return (
     <div className="mx-auto min-w-0 max-w-xl">
-      <header className="mb-4 flex items-center gap-3">
-        <IconLink to="/" label="Back" onClick={goBack}>
+      <header className="mb-4 flex min-h-10 items-center gap-3">
+        <IconLink to="/" label="Back" onClick={goBack} className={cn(ownHandle && fromNavigationTab && "max-md:hidden")}>
           <ArrowLeft />
         </IconLink>
         <span className="text-lg font-semibold">Profile</span>
+        {profile && !profile.profile.banReason && !error && (
+          <div className="relative ml-auto flex items-center gap-1.5">
+            {canEditProfile && (
+              <>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  aria-haspopup="dialog"
+                  onClick={() => {
+                    setEditTab("profile");
+                    setEditDialogOpen(true);
+                  }}
+                >
+                  <Pencil aria-hidden="true" />
+                  Edit
+                </Button>
+                <EditProfileDialog
+                  open={editDialogOpen}
+                  onOpenChange={(open) => {
+                    if (open) setEditDialogOpen(true);
+                    else closeEditDialog();
+                  }}
+                  tab={editTab}
+                  onTabChange={setEditTab}
+                  userId={profile.profile.id}
+                  profile={profile.profile}
+                  onGithubChange={(github) => {
+                    setProfile((current) =>
+                      current?.profile.id === profile.profile.id
+                        ? { ...current, profile: { ...current.profile, github } }
+                        : current,
+                    );
+                  }}
+                  onSaved={(updated) => {
+                    setProfile((current) =>
+                      current
+                        ? {
+                            ...current,
+                            profile: { ...current.profile, ...updated },
+                          }
+                        : current,
+                    );
+                    onProfileSaved(profile.profile.id, updated);
+                    if (updated.handle !== handle)
+                      navigate(`/@${updated.handle}`, { replace: true });
+                  }}
+                />
+              </>
+            )}
+            {profile.blocking && (
+              <Button size="sm" variant="outline" onClick={() => void unblock()}>
+                <ShieldCheck aria-hidden="true" />
+                Unblock
+              </Button>
+            )}
+            {session && !feed.readOnly && !blockedEitherWay &&
+              profile.profile.id !== viewer?.id &&
+              (viewer ? (
+                <IconButton
+                  label={
+                    friends
+                      ? `Friends · Unfollow @${profile.profile.handle}`
+                      : profile.isFollowing
+                        ? `Unfollow @${profile.profile.handle}`
+                        : `Follow @${profile.profile.handle}`
+                  }
+                  aria-pressed={profile.isFollowing}
+                  size="sm"
+                  variant={profile.isFollowing ? "secondary" : "default"}
+                  onClick={() => void toggleFollow()}
+                >
+                  {friends ? (
+                    <span
+                      key="friends"
+                      className="inline-flex animate-in items-center gap-1.5 duration-200 fade-in-0 zoom-in-90"
+                    >
+                      <UsersRound />
+                      <span>Friends</span>
+                    </span>
+                  ) : profile.isFollowing ? (
+                    <span
+                      key="following"
+                      className="inline-flex animate-in items-center gap-1.5 duration-200 fade-in-0 zoom-in-90"
+                    >
+                      <UserCheck />
+                      <span>Unfollow</span>
+                    </span>
+                  ) : (
+                    <span
+                      key="follow"
+                      className="inline-flex animate-in items-center gap-1.5 duration-200 fade-in-0 zoom-in-90"
+                    >
+                      <UserPlus />
+                      <span>Follow</span>
+                    </span>
+                  )}
+                </IconButton>
+              ) : session.authenticated ? (
+                <Button
+                  render={<Link to="/onboarding" />}
+                  nativeButton={false}
+                  size="sm"
+                  aria-label="Choose a handle to follow"
+                >
+                  <UserPlus />
+                  Follow
+                </Button>
+              ) : (
+                <Button
+                  render={<a href="/auth/login" />}
+                  nativeButton={false}
+                  size="sm"
+                  aria-label="Sign in to follow"
+                >
+                  <UserPlus />
+                  Follow
+                </Button>
+              ))}
+            <ShareButton
+              hiddenTrigger
+              open={sharing}
+              onOpenChange={setSharing}
+              target={{ kind: "profile", handle: profile.profile.handle }}
+              viewerId={viewerId}
+            />
+            <ReportMenu
+              className="size-9"
+              label="Profile options"
+              actions={profileActions}
+              {...(viewer && !feed.readOnly && profile.profile.id !== viewer.id
+                ? {
+                    block: { id: profile.profile.id, handle: profile.profile.handle, blocking: profile.blocking },
+                    onBlockChange: applyBlock,
+                    subject: { type: "user" as const, id: profile.profile.id, handle: profile.profile.handle },
+                  }
+                : {})}
+            />
+          </div>
+        )}
       </header>
       {profile?.profile.banReason ? (
         <section aria-labelledby="banned-profile-title" className="py-4">
@@ -320,7 +510,7 @@ export function ProfilePage({
             {canEditProfile && (
               <BannerEditor
                 bannerUrl={profile.profile.bannerUrl}
-                verifyAccount={verifyAccount}
+                verifyAccount={(signal) => verifyAccount(profile.profile.id, signal)}
                 onSaved={(bannerUrl, bannerCrop) => {
                   onBannerSaved(profile.profile.id, bannerUrl, bannerCrop);
                   setProfile((current) =>
@@ -339,15 +529,15 @@ export function ProfilePage({
               />
             )}
             {canEditProfile ? (
-              <Dialog
-                open={pictureDialogOpen}
-                onOpenChange={setPictureDialogOpen}
-              >
-                <DialogTrigger
+              <>
+                <button
+                  type="button"
                   aria-label="Change profile picture"
+                  aria-haspopup="dialog"
+                  onClick={() => setPictureDialogOpen(true)}
                   className="group absolute -bottom-8 left-4 z-10 size-16 cursor-pointer rounded-[30%] ring-4 ring-background outline-none [corner-shape:squircle] focus-visible:ring-ring"
                 >
-                  <Avatar className="size-full">
+                  <Avatar hat className="size-full">
                     {avatarUrl && (
                       <AvatarImage
                         src={avatarUrl}
@@ -362,73 +552,23 @@ export function ProfilePage({
                       <Camera className="size-6" aria-hidden="true" />
                     </span>
                   </Avatar>
-                </DialogTrigger>
-                <DialogContent className="max-h-[90dvh] overflow-y-auto">
-                  <DialogHeader>
-                    <DialogTitle>Change profile picture</DialogTitle>
-                    <DialogDescription className="sr-only">
-                      Choose a picture, then drag and zoom to adjust the crop.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <AvatarCropper
-                    emptyFooter={
-                      <RecentAvatars
-                        onSelect={async (id, signal) => {
-                          await verifyAccount(signal);
-                          const result = await api.selectRecentAvatar(
-                            id,
-                            signal,
-                          );
-                          setProfile((current) =>
-                            current
-                              ? {
-                                  ...current,
-                                  profile: {
-                                    ...current.profile,
-                                    avatarUrl: result.avatarUrl,
-                                  },
-                                }
-                              : current,
-                          );
-                          updateAuthor(profile.profile.id, {
-                            avatarUrl: result.avatarUrl,
-                          });
-                          onAvatarSaved(profile.profile.id, result.avatarUrl);
-                          setPictureDialogOpen(false);
-                        }}
-                      />
-                    }
-                    onSave={async (picture, signal) => {
-                      const result = await retryRequest(
-                        () => api.uploadAvatar(picture, signal),
-                        {
-                          context: "upload avatar",
-                          signal,
-                          beforeRetry: () => verifyAccount(signal),
-                        },
-                      );
-                      setProfile((current) =>
-                        current
-                          ? {
-                              ...current,
-                              profile: {
-                                ...current.profile,
-                                avatarUrl: result.avatarUrl,
-                              },
-                            }
-                          : current,
-                      );
-                      updateAuthor(profile.profile.id, {
-                        avatarUrl: result.avatarUrl,
-                      });
-                      onAvatarSaved(profile.profile.id, result.avatarUrl);
-                      setPictureDialogOpen(false);
-                    }}
-                  />
-                </DialogContent>
-              </Dialog>
+                </button>
+                <ProfilePictureDialog
+                  open={pictureDialogOpen}
+                  onOpenChange={setPictureDialogOpen}
+                  userId={profile.profile.id}
+                  onChanged={(avatarUrl) => {
+                    setProfile((current) =>
+                      current
+                        ? { ...current, profile: { ...current.profile, avatarUrl } }
+                        : current,
+                    );
+                    onAvatarSaved(profile.profile.id, avatarUrl);
+                  }}
+                />
+              </>
             ) : (
-              <Avatar className="absolute -bottom-8 left-4 size-16 ring-4 ring-background">
+              <Avatar hat className="absolute -bottom-8 left-4 size-16 ring-4 ring-background">
                 {profile.profile.avatarUrl && (
                   <AvatarImage
                     src={profile.profile.avatarUrl}
@@ -442,12 +582,13 @@ export function ProfilePage({
               </Avatar>
             )}
           </div>
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0 flex-1">
+          <div className="min-w-0">
+            <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-x-1.5">
                 <h1 className="min-w-0 wrap-anywhere text-xl font-semibold">
                   {profile.profile.displayName}
                 </h1>
+                <TwitchLive handle={profile.profile.handle} />
                 {profile.profile.isOg && (
                   <ProfileBadge label="OG member" tooltip="Joined before the big migration">
                     <Gem className="size-4 text-amber-600 dark:text-amber-400" aria-hidden="true" />
@@ -483,163 +624,98 @@ export function ProfilePage({
                 </p>
               )}
             </div>
-            <ShareButton
-              target={{ kind: "profile", handle: profile.profile.handle }}
-              viewerId={viewerId}
-            />
-            {canEditProfile && (
-              <Dialog
-                open={editDialogOpen}
-                onOpenChange={(open) => {
-                  if (savingProfile) return;
-                  if (open) {
-                    setEditTab("profile");
-                    setEditDialogOpen(true);
-                  } else closeEditDialog();
-                }}
-              >
-                <DialogTrigger render={<Button variant="outline" />}>
-                  <Pencil aria-hidden="true" />
-                  Edit
-                </DialogTrigger>
-                <ProfileEditDialogContent
-                  saving={savingProfile}
-                  tab={editTab}
-                  onTabChange={setEditTab}
-                  onGithubChange={(github) => {
-                    setProfile((current) =>
-                      current?.profile.id === profile.profile.id
-                        ? { ...current, profile: { ...current.profile, github } }
-                        : current,
-                    );
-                  }}
-                >
-                  {editDialogOpen && (
-                    <ProfileForm
-                      appearance="dialog"
-                      userId={profile.profile.id}
-                      profile={profile.profile}
-                      onSavingChange={setSavingProfile}
-                      onCancel={closeEditDialog}
-                      onSaved={(updated) => {
-                        setProfile((current) =>
-                          current
-                            ? {
-                                ...current,
-                                profile: { ...current.profile, ...updated },
-                              }
-                            : current,
-                        );
-                        onProfileSaved(profile.profile.id, updated);
-                        closeEditDialog();
-                        if (updated.handle !== handle)
-                          navigate(`/@${updated.handle}`, { replace: true });
-                      }}
-                    />
-                  )}
-                </ProfileEditDialogContent>
-              </Dialog>
-            )}
-            {viewer && !feed.readOnly && profile.profile.id !== viewer.id && !profile.profile.bannedAt && (
-              <Link
-                to={`/messages?to=${encodeURIComponent(profile.profile.handle)}`}
-                className="inline-flex min-h-9 items-center rounded-lg px-3 text-sm font-medium hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring"
-              >
-                Message
-              </Link>
-            )}
-            {session && !feed.readOnly &&
-              profile.profile.id !== viewer?.id &&
-              (viewer ? (
-                <IconButton
-                  label={
-                    friends
-                      ? `Friends · Unfollow @${profile.profile.handle}`
-                      : profile.isFollowing
-                        ? `Unfollow @${profile.profile.handle}`
-                        : `Follow @${profile.profile.handle}`
-                  }
-                  aria-pressed={profile.isFollowing}
-                  size="default"
-                  variant={profile.isFollowing ? "secondary" : "default"}
-                  onClick={() => void toggleFollow()}
-                >
-                  {friends ? (
-                    <span
-                      key="friends"
-                      className="inline-flex animate-in items-center gap-1.5 duration-200 fade-in-0 zoom-in-90"
-                    >
-                      <UsersRound />
-                      <span>Friends</span>
-                    </span>
-                  ) : profile.isFollowing ? (
-                    <span
-                      key="following"
-                      className="inline-flex animate-in items-center gap-1.5 duration-200 fade-in-0 zoom-in-90"
-                    >
-                      <UserCheck />
-                      <span>Unfollow</span>
-                    </span>
-                  ) : (
-                    <span
-                      key="follow"
-                      className="inline-flex animate-in items-center gap-1.5 duration-200 fade-in-0 zoom-in-90"
-                    >
-                      <UserPlus />
-                      <span>Follow</span>
-                    </span>
-                  )}
-                </IconButton>
-              ) : session.authenticated ? (
-                <Button
-                  render={<Link to="/onboarding" />}
-                  nativeButton={false}
-                  variant="outline"
-                >
-                  <UserPlus />
-                  Choose a handle to follow
-                </Button>
-              ) : (
-                <Button
-                  render={<a href="/auth/login" />}
-                  nativeButton={false}
-                  variant="outline"
-                >
-                  <UserPlus />
-                  Sign in to follow
-                </Button>
-              ))}
           </div>
-          <div className="mt-3 flex gap-4 text-sm text-muted-foreground">
-            <span>
-              <strong className="font-semibold text-foreground">
-                {profile.profile.followerCount.toLocaleString()}
-              </strong>{" "}
-              followers
-            </span>
-            <span>
-              <strong className="font-semibold text-foreground">
-                {profile.profile.followingCount.toLocaleString()}
-              </strong>{" "}
-              following
-            </span>
+          {blockedEitherWay && (
+            <p role="status" className="mt-3 flex items-start gap-2 rounded-lg border bg-muted/40 p-3 text-sm text-muted-foreground">
+              <Ban aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+              {profile.blocking
+                ? `You blocked @${profile.profile.handle}. You won't see their posts and they can't interact with you.`
+                : `@${profile.profile.handle} blocked you. You can't follow or message them.`}
+            </p>
+          )}
+          <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+            {(["followers", "following"] as const).map((list) => (
+              <button
+                key={list}
+                type="button"
+                aria-haspopup="dialog"
+                onClick={() => setConnections(list)}
+                className="-mx-1 cursor-pointer rounded-md px-1 outline-none hover:text-foreground hover:underline underline-offset-4 focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <strong className="font-semibold text-foreground">
+                  {(list === "followers" ? profile.profile.followerCount : profile.profile.followingCount).toLocaleString()}
+                </strong>{" "}
+                {list}
+              </button>
+            ))}
+            {postCount !== null && (
+              <span>
+                <strong className="font-semibold text-foreground tabular-nums">
+                  {postCount.toLocaleString()}
+                </strong>{" "}
+                {postCount === 1 ? "post" : "posts"}
+              </span>
+            )}
           </div>
+          <ConnectionsDialog
+            key={profile.profile.handle}
+            handle={profile.profile.handle}
+            displayName={profile.profile.displayName}
+            list={connections}
+            onListChange={setConnections}
+            onClose={() => setConnections(null)}
+            canFollow={Boolean(viewer && !feed.readOnly)}
+          />
           {profile.profile.bio && (
             <p className="mt-3 whitespace-pre-wrap wrap-anywhere text-sm">
               {profile.profile.bio}
             </p>
           )}
-          {github && (
-            <ExternalLink
-              className={cn(
-                buttonVariants({ variant: "ghost", size: "icon" }),
-                "mt-2 -ml-1 size-7",
+          {(github || profile.profile.connections.length > 0 || profile.profile.domains.length > 0) && (
+            <div className="mt-2 -ml-1 flex flex-wrap items-center gap-0.5">
+              {github && (
+                <ExternalLink
+                  className={cn(
+                    buttonVariants({ variant: "ghost", size: "icon" }),
+                    "size-7",
+                  )}
+                  label={`@${github.login} on GitHub`}
+                  href={`https://github.com/${github.login}`}
+                >
+                  <GithubMark />
+                </ExternalLink>
               )}
-              label={`@${github.login} on GitHub`}
-              href={`https://github.com/${github.login}`}
-            >
-              <GithubMark />
-            </ExternalLink>
+              {profile.profile.connections.map((connection) => {
+                const provider = providerById(connection.provider);
+                if (!provider) return null;
+                return (
+                  <ExternalLink
+                    key={connection.provider}
+                    className={cn(
+                      buttonVariants({ variant: "ghost", size: "icon" }),
+                      "size-7",
+                    )}
+                    label={`${connection.username} on ${provider.name}`}
+                    href={connection.profileUrl}
+                  >
+                    <provider.Mark className={`size-4 ${provider.color}`} />
+                  </ExternalLink>
+                );
+              })}
+              {profile.profile.domains.map((domain) => (
+                <ExternalLink
+                  key={domain}
+                  className={cn(
+                    buttonVariants({ variant: "ghost", size: "icon" }),
+                    "size-7",
+                  )}
+                  label={domain}
+                  href={`https://${domain}`}
+                >
+                  <DomainIcon domain={domain} className="size-4" />
+                </ExternalLink>
+              ))}
+            </div>
           )}
           <p className="my-4 flex items-center gap-2 text-xs text-muted-foreground">
             <CalendarDays className="size-3.5" aria-hidden="true" />
@@ -705,6 +781,8 @@ export function ProfilePage({
                   feed={feed}
                   repost={tab === "reposts" ? repostContextFor(post) : null}
                   replyContext={tab === "reposts"}
+                  pinnedLabel={tab === "posts"}
+                  pinnable={tab === "posts" && ownProfile}
                 />
               ))}
           {profile[tab].length === 0 && <p className="mt-4">No {tab} yet.</p>}
