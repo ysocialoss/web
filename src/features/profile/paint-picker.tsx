@@ -5,6 +5,7 @@ import { DisplayName } from "@/components/display-name";
 import { api, ApiError, errorMessage, type CatalogPaint, type Paint } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { updateAuthor } from "@/features/feed/optimistic-actions";
+import { invalidateProfileCard } from "./profile-card-cache";
 
 type PaintUser = {
   id: string;
@@ -13,7 +14,13 @@ type PaintUser = {
   paint: Paint | null;
 };
 
-export function PaintPicker({ user }: { user: PaintUser }) {
+export function PaintPicker({
+  user,
+  onSaved,
+}: {
+  user: PaintUser;
+  onSaved?: (paint: Paint | null) => void;
+}) {
   const [paints, setPaints] = useState<CatalogPaint[] | null>(null);
   const [loadError, setLoadError] = useState("");
   const [loadAttempt, setLoadAttempt] = useState(0);
@@ -50,6 +57,8 @@ export function PaintPicker({ user }: { user: PaintUser }) {
       const equipped = paint ? { id: paint.id, name: paint.name, definition: paint.definition } : null;
       updateAuthor(user.id, { paint: equipped });
       setSelectedId(paintId);
+      invalidateProfileCard(user.handle);
+      onSaved?.(equipped);
     } catch (reason) {
       setError(errorMessage(reason));
       // Ownership may have changed (for example a revoked paint), so refresh the catalog.
@@ -65,7 +74,7 @@ export function PaintPicker({ user }: { user: PaintUser }) {
   ];
 
   return (
-    <section className="space-y-3 border-t pt-3" aria-labelledby="paint-picker-heading gay">
+    <section className="space-y-3 text-sm" aria-labelledby="paint-picker-heading gay">
       <div>
         <h2 id="paint-picker-heading" className="font-semibold">
           Name paint

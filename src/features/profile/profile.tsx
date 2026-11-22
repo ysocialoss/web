@@ -46,6 +46,7 @@ import { AvatarCropper } from "./avatar-cropper";
 import { RecentAvatars } from "./recent-avatars";
 import { ProfileForm } from "./profile-form";
 import { ProfileEditDialogContent } from "./profile-edit-dialog";
+import { PaintPicker } from "./paint-picker";
 import { PostCard } from "@/features/feed/post-card";
 import { useFeed } from "@/features/feed/use-feed";
 import { ProfileSkeleton } from "@/components/loading-skeletons";
@@ -463,7 +464,21 @@ export function ProfilePage({
                   <Pencil aria-hidden="true" />
                   Edit
                 </DialogTrigger>
-                <ProfileEditDialogContent saving={savingProfile}>
+                <ProfileEditDialogContent
+                  saving={savingProfile}
+                  paint={
+                    <PaintPicker
+                      user={profile.profile}
+                      onSaved={(paint) =>
+                        setProfile((current) =>
+                          current
+                            ? { ...current, profile: { ...current.profile, paint } }
+                            : current,
+                        )
+                      }
+                    />
+                  }
+                >
                   {editDialogOpen && (
                     <ProfileForm
                       appearance="dialog"

@@ -25,6 +25,7 @@ import { AvatarCropper } from "@/features/profile/avatar-cropper";
 import { RecentAvatars } from "@/features/profile/recent-avatars";
 import { ProfileForm } from "@/features/profile/profile-form";
 import { ProfileEditDialogContent } from "@/features/profile/profile-edit-dialog";
+import { PaintPicker } from "@/features/profile/paint-picker";
 import { updateAuthor } from "@/features/feed/optimistic-actions";
 import type { AuthState } from "@/features/auth/use-auth";
 
@@ -193,7 +194,10 @@ export function ProfileCard({
                   @{user.handle}
                 </span>
               </DialogTrigger>
-              <ProfileEditDialogContent saving={saving}>
+              <ProfileEditDialogContent
+                saving={saving}
+                paint={<PaintPicker user={user} />}
+              >
                 {loadError ? (
                   <p role="alert" className="text-sm text-destructive">
                     {loadError}

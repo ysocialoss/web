@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Link2, UserRound } from "lucide-react";
+import { Link2, Paintbrush, UserRound } from "lucide-react";
 import { ComingSoonContent } from "@/components/coming-soon-content";
 import {
   DialogContent,
@@ -10,9 +10,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export function ProfileEditDialogContent({
   children,
+  paint,
   saving,
 }: {
   children: ReactNode;
+  paint?: ReactNode;
   saving: boolean;
 }) {
   return (
@@ -31,6 +33,12 @@ export function ProfileEditDialogContent({
             <UserRound aria-hidden="true" />
             Profile
           </TabsTrigger>
+          {paint && (
+            <TabsTrigger value="paint" disabled={saving}>
+              <Paintbrush aria-hidden="true" />
+              Paint
+            </TabsTrigger>
+          )}
           <TabsTrigger value="connections" disabled={saving}>
             <Link2 aria-hidden="true" />
             Connections
@@ -39,6 +47,11 @@ export function ProfileEditDialogContent({
         <TabsContent value="profile" keepMounted className="inert:hidden">
           {children}
         </TabsContent>
+        {paint && (
+          <TabsContent value="paint" className="inert:hidden">
+            {paint}
+          </TabsContent>
+        )}
         <TabsContent value="connections" className="inert:hidden">
           <ComingSoonContent title="Connections" />
         </TabsContent>
