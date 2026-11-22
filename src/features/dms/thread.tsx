@@ -667,9 +667,9 @@ export function Thread({ id, device, onChange, onClose, renderCloseConfirmation 
                       }
                     }}
                   />
-                  <Button type="submit" size="icon" className="shrink-0 rounded-lg" aria-label="Send message" disabled={!canSend || sending || tooLong || !draft.trim()}>
+                  <IconButton type="submit" size="icon" className="shrink-0 rounded-lg" label="Send message" disabled={!canSend || sending || tooLong || !draft.trim()}>
                     <SendHorizontal aria-hidden="true" />
-                  </Button>
+                  </IconButton>
                 </>
               )}
             </div>
