@@ -18,6 +18,10 @@ export const SearchPage = lazyRoute<
   ComponentProps<typeof import("@/features/search/search-page").SearchPage>
 >(() => import("@/features/search/search-page").then((m) => ({ default: m.SearchPage })));
 
+export const SavedPage = lazyRoute<
+  ComponentProps<typeof import("@/features/feed/saved-page").SavedPage>
+>(() => import("@/features/feed/saved-page").then((m) => ({ default: m.SavedPage })));
+
 export const SettingsPage = lazyRoute<
   ComponentProps<typeof import("@/features/settings/settings").SettingsPage>
 >(() => import("@/features/settings/settings").then((m) => ({ default: m.SettingsPage })));
@@ -37,6 +41,7 @@ export const MessagesPage = lazyRoute<
 const pages: { pattern: string; page: { preload: () => Promise<unknown> } }[] = [
   { pattern: "/messages/*", page: MessagesPage },
   { pattern: "/search", page: SearchPage },
+  { pattern: "/saved", page: SavedPage },
   { pattern: "/posts/:id", page: Thread },
   { pattern: "/topics/:topic", page: TopicPage },
   { pattern: "/settings/account", page: AccountSettingsPage },

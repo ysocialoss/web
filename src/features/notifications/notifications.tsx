@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type MouseEvent } from "react";
+import { IconButton } from "@/components/ui/icon-button";
 import {
   Bell,
   CheckCheck,
@@ -389,15 +390,15 @@ export function NotificationsBell({
   const { unreadCount, refresh, signedIn } = useNotifications();
   if (!signedIn)
     return reserveSpace ? (
-      <Button
+      <IconButton
         variant="ghost"
         size="icon"
         className={className}
-        aria-label="Notifications"
+        label="Notifications"
         disabled
       >
         <Bell aria-hidden="true" />
-      </Button>
+      </IconButton>
     ) : null;
   return (
     <Popover
@@ -409,11 +410,11 @@ export function NotificationsBell({
     >
       <PopoverTrigger
         render={
-          <Button
+          <IconButton
             variant="ghost"
             size="icon"
             className={cn("relative", className)}
-            aria-label={`Notifications${unreadCount ? `, ${unreadCount} unread` : ""}`}
+            label={`Notifications${unreadCount ? `, ${unreadCount} unread` : ""}`}
           />
         }
       >
@@ -443,14 +444,14 @@ export function NotificationsBell({
           </div>
           <div className="flex items-center gap-1">
             <MarkAllRead />
-            <Button
+            <IconButton
               size="icon"
               variant="ghost"
-              aria-label="Close notifications"
+              label="Close notifications"
               onClick={() => setOpen(false)}
             >
               <X />
-            </Button>
+            </IconButton>
           </div>
         </div>
         {open && (

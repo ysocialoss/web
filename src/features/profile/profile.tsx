@@ -33,6 +33,7 @@ import { IconButton, IconLink } from "@/components/ui/icon-button";
 import { GithubMark } from "@/components/ui/github-mark";
 import { providerById } from "@/features/settings/connection-providers";
 import { ExternalLink } from "@/components/ui/external-link";
+import { DomainIcon } from "./domain-icon";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/lib/utils";
 import { useGoBack } from "@/hooks/use-go-back";
@@ -85,6 +86,15 @@ function ProfileBadge({ label, tooltip, children }: {
   );
 }
 
+function orderPinned(posts: Post[]) {
+  return [
+    ...posts.filter((post) => post.pinned),
+    ...posts
+      .filter((post) => !post.pinned)
+      .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)),
+  ];
+}
+
 export function ProfilePage({
   handle,
   session,
@@ -132,6 +142,12 @@ export function ProfilePage({
   const ownProfile = loadedProfile?.profile.id === viewerId;
   const canEditProfile = ownProfile && feed.canPost;
   const rawRepostIds = new Set(loadedProfile?.reposts.map((post) => post.id));
+  const loadedPosts = loadedProfile
+    ? [
+        ...(loadedProfile.pinnedPost ? [loadedProfile.pinnedPost] : []),
+        ...loadedProfile.posts.filter((post) => post.id !== loadedProfile.pinnedPost?.id),
+      ]
+    : [];
   const profile =
     loadedProfile && relationship
       ? {
@@ -143,9 +159,9 @@ export function ProfilePage({
             followerCount: relationship.followerCount,
             followingCount: relationship.followingCount,
           },
-          posts: loadedProfile.posts
-            .map(feed.resolvePost)
-            .filter((post) => post !== null),
+          posts: orderPinned(
+            loadedPosts.map(feed.resolvePost).filter((post) => post !== null),
+          ),
           reposts: [
             ...(ownProfile
               ? feed.viewerReposts.filter((post) => !rawRepostIds.has(post.id))
@@ -187,7 +203,7 @@ export function ProfilePage({
       : Math.max(
           0,
           loadedProfile.profile.postCount -
-            Math.max(0, loadedProfile.posts.length - profile.posts.length),
+            Math.max(0, loadedPosts.length - profile.posts.length),
         );
   /** "X reposted" for a post on the Reposts tab; the person's own quotes have none. */
   function repostContextFor(post: Post) {
@@ -655,7 +671,7 @@ export function ProfilePage({
               {profile.profile.bio}
             </p>
           )}
-          {(github || profile.profile.connections.length > 0) && (
+          {(github || profile.profile.connections.length > 0 || profile.profile.domains.length > 0) && (
             <div className="mt-2 -ml-1 flex flex-wrap items-center gap-0.5">
               {github && (
                 <ExternalLink
@@ -686,6 +702,19 @@ export function ProfilePage({
                   </ExternalLink>
                 );
               })}
+              {profile.profile.domains.map((domain) => (
+                <ExternalLink
+                  key={domain}
+                  className={cn(
+                    buttonVariants({ variant: "ghost", size: "icon" }),
+                    "size-7",
+                  )}
+                  label={domain}
+                  href={`https://${domain}`}
+                >
+                  <DomainIcon domain={domain} className="size-4" />
+                </ExternalLink>
+              ))}
             </div>
           )}
           <p className="my-4 flex items-center gap-2 text-xs text-muted-foreground">
@@ -752,6 +781,8 @@ export function ProfilePage({
                   feed={feed}
                   repost={tab === "reposts" ? repostContextFor(post) : null}
                   replyContext={tab === "reposts"}
+                  pinnedLabel={tab === "posts"}
+                  pinnable={tab === "posts" && ownProfile}
                 />
               ))}
           {profile[tab].length === 0 && <p className="mt-4">No {tab} yet.</p>}

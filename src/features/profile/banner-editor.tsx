@@ -1,4 +1,5 @@
 import { LiveCropperImage } from "./live-cropper-image";
+import { IconButton } from "@/components/ui/icon-button";
 import { GifGrid } from "@/features/gifs/gif-grid";
 import * as Cropper from "@zriz/react/cropper";
 import { useZoom, type Cropper as CropperApi } from "@zriz/react";
@@ -489,14 +490,14 @@ function BannerPicker({
         ) : (
           <span />
         )}
-        <Button
+        <IconButton
           size="icon"
-          aria-label={busy ? "Saving banner" : "Save banner"}
+          label={busy ? "Saving banner" : "Save banner"}
           disabled={!ready || (!file && !selectedGif) || busy || loading}
           onClick={() => void save()}
         >
           <Check />
-        </Button>
+        </IconButton>
       </div>
     </div>
   );

@@ -1,6 +1,6 @@
 import { Bug, CodeXml, Equal, FileText, Flag, Shield } from "lucide-react";
+import { IconButton } from "@/components/ui/icon-button";
 import { ActionMenu } from "@/components/ui/action-menu";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 /** The two-bar button that holds the legal and project links. */
@@ -27,14 +27,14 @@ export function LegalMenu({ className }: { className?: string }) {
         },
       ]}
       trigger={
-        <Button
+        <IconButton
           variant="ghost"
           size="icon"
           className={cn("size-9", className)}
-          aria-label="More"
-            >
+          label="More"
+        >
           <Equal aria-hidden="true" />
-        </Button>
+        </IconButton>
       }
     />
   );

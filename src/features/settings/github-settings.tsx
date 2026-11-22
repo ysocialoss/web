@@ -2,12 +2,12 @@ import { useEffect, useEffectEvent, useId, useState } from "react";
 import { useSearchParams } from "react-router";
 import {
   ArrowUpRight,
-  CircleAlert,
   GitPullRequest,
   LoaderCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
+import { ErrorDialog } from "@/components/ui/error-dialog";
 import { GithubMark } from "@/components/ui/github-mark";
 import { ExternalLink } from "@/components/ui/external-link";
 import { api, ApiError, errorMessage } from "@/lib/api";
@@ -49,6 +49,8 @@ export function GithubSettings({
   const [params, setParams] = useSearchParams();
   const [settings, setSettings] = useState<GithubSettings | null>(null);
   const [error, setError] = useState("");
+  const [acknowledged, setAcknowledged] = useState("");
+  const [callbackDismissed, setCallbackDismissed] = useState(false);
   const [action, setAction] = useState<GithubAction | null>(null);
   const [confirmDisconnect, setConfirmDisconnect] = useState(false);
   const [loadAttempt, setLoadAttempt] = useState(0);
@@ -222,29 +224,20 @@ export function GithubSettings({
           </p>
         )}
       </div>
-      {callback && (
-        <p
-          role={callback.error ? "alert" : "status"}
-          className={`mt-3 flex items-start gap-2 text-sm ${callback.error ? "text-destructive" : "text-muted-foreground"}`}
-        >
-          {callback.error && (
-            <CircleAlert
-              className="mt-0.5 size-4 shrink-0"
-              aria-hidden="true"
-            />
-          )}
-          {callback.text}
-        </p>
-      )}
-      {error && !confirmDisconnect && (
-        <p
-          role="alert"
-          className="mt-3 flex items-start gap-2 text-sm text-destructive"
-        >
-          <CircleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-          {error}
-        </p>
-      )}
+      <ErrorDialog
+        title="GitHub"
+        message={
+          error && error !== acknowledged && !confirmDisconnect
+            ? error
+            : callback?.error && !callbackDismissed
+              ? callback.text
+              : ""
+        }
+        onClose={() => {
+          setAcknowledged(error);
+          setCallbackDismissed(true);
+        }}
+      />
       <ConfirmationDialog
         open={confirmDisconnect}
         onOpenChange={setConfirmDisconnect}

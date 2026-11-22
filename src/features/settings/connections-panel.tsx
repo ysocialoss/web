@@ -1,20 +1,22 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router";
-import { ArrowUpRight, CircleAlert, LoaderCircle } from "lucide-react";
+import { ArrowUpRight, LoaderCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
+import { ErrorDialog } from "@/components/ui/error-dialog";
 import { ExternalLink } from "@/components/ui/external-link";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { api, errorMessage } from "@/lib/api";
 import { GithubSettings } from "./github-settings";
+import { DomainsPanel } from "./domains-panel";
 import { connectionProviders, type ConnectionProviderId } from "./connection-providers";
 import type { ComponentProps } from "react";
 
 type Listing = Awaited<ReturnType<typeof api.linkedAccounts>>["providers"];
 
 const resultText: Record<string, { text: string; error: boolean }> = {
-  connected: { text: "Account connected.", error: false },
   cancelled: { text: "Connection cancelled.", error: false },
   account_taken: { text: "That account is already linked to another ysocial account.", error: true },
   invalid_state: { text: "The connection request expired. Try connecting again.", error: true },
@@ -39,8 +41,11 @@ export function ConnectionsPanel({
   const [busy, setBusy] = useState<ConnectionProviderId | null>(null);
   const [confirm, setConfirm] = useState<ConnectionProviderId | null>(null);
   const [attempt, setAttempt] = useState(0);
+  const [acknowledged, setAcknowledged] = useState("");
+  const [callbackDismissed, setCallbackDismissed] = useState(false);
+  const [links, setLinks] = useState<Partial<Record<ConnectionProviderId, string>>>({});
   const callbackProvider = params.get("connection");
-  const callback = callbackProvider ? (resultText[params.get("result") ?? ""] ?? { text: "Could not connect. Try again.", error: true }) : null;
+  const callback = callbackProvider && params.get("result") !== "connected" ? (resultText[params.get("result") ?? ""] ?? { text: "Could not connect. Try again.", error: true }) : null;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -56,6 +61,11 @@ export function ConnectionsPanel({
     );
     return () => controller.abort();
   }, [attempt]);
+
+  function fail(reason: unknown) {
+    setAcknowledged("");
+    setError(errorMessage(reason));
+  }
 
   function clearCallback() {
     if (!params.has("connection")) return;
@@ -73,7 +83,25 @@ export function ConnectionsPanel({
       const { url } = await api.connectProvider(provider, returnTo);
       window.location.assign(url);
     } catch (reason) {
-      setError(errorMessage(reason));
+      fail(reason);
+      setBusy(null);
+    }
+  }
+
+  async function link(provider: ConnectionProviderId) {
+    clearCallback();
+    setError("");
+    setBusy(provider);
+    try {
+      const { connection } = await api.linkProvider(provider, links[provider] ?? "");
+      setListing((current) =>
+        current?.map((entry) => (entry.provider === provider ? { ...entry, connection } : entry)) ?? current,
+      );
+      setLinks((current) => ({ ...current, [provider]: "" }));
+      onChange?.();
+    } catch (reason) {
+      fail(reason);
+    } finally {
       setBusy(null);
     }
   }
@@ -88,7 +116,7 @@ export function ConnectionsPanel({
       onChange?.();
       return true;
     } catch (reason) {
-      setError(errorMessage(reason));
+      fail(reason);
       return false;
     }
   }
@@ -98,11 +126,13 @@ export function ConnectionsPanel({
   return (
     <div className="space-y-2">
       <GithubSettings returnTo="profile" onGithubChange={onGithubChange} />
-      {connectionProviders.map(({ id, name, description, Mark, color }) => {
+      {connectionProviders.map(({ id, name, description, Mark, color, kind, placeholder }) => {
         const entry = listing?.find((item) => item.provider === id);
         const connection = entry?.connection ?? null;
         const unavailable = !!entry && !entry.configured && !connection;
-        const button = connection ? (
+        const button = !entry ? (
+          <Skeleton className="col-span-2 h-9 w-full @sm:col-span-1 @sm:col-start-2 @sm:w-32" />
+        ) : connection ? (
           <Button
             variant="ghost"
             size="sm"
@@ -112,6 +142,31 @@ export function ConnectionsPanel({
           >
             Disconnect
           </Button>
+        ) : kind === "link" ? (
+          <form
+            className="col-span-2 flex gap-2 @sm:col-start-2 @sm:col-span-1"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if ((links[id] ?? "").trim()) void link(id);
+            }}
+          >
+            <Input
+              type="url"
+              inputMode="url"
+              autoComplete="off"
+              spellCheck={false}
+              aria-label={`${name} profile link`}
+              placeholder={placeholder}
+              maxLength={300}
+              value={links[id] ?? ""}
+              disabled={!entry || busy !== null}
+              onChange={(event) => setLinks((current) => ({ ...current, [id]: event.target.value }))}
+            />
+            <Button type="submit" disabled={!entry || busy !== null || !(links[id] ?? "").trim()}>
+              {busy === id ? <LoaderCircle className="animate-spin" aria-hidden="true" /> : null}
+              Add
+            </Button>
+          </form>
         ) : (
           <Button
             className="col-span-2 w-full @sm:col-span-1 @sm:col-start-2 @sm:w-fit"
@@ -171,26 +226,27 @@ export function ConnectionsPanel({
           </section>
         );
       })}
-      {callback && (
-        <p
-          role={callback.error ? "alert" : "status"}
-          className={`flex items-start gap-2 text-sm ${callback.error ? "text-destructive" : "text-muted-foreground"}`}
-        >
-          {callback.error && <CircleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />}
-          {callback.text}
-        </p>
-      )}
-      {error && (
-        <div role="alert" className="flex items-center gap-2 text-sm text-destructive">
-          <CircleAlert className="size-4 shrink-0" aria-hidden="true" />
-          <span className="min-w-0 flex-1">{error}</span>
-          {!listing && (
-            <Button size="sm" variant="ghost" onClick={() => setAttempt((current) => current + 1)}>
-              Try again
-            </Button>
-          )}
+      <DomainsPanel returnTo={returnTo} onChange={onChange} />
+      {error && !listing && (
+        <div className="flex justify-end">
+          <Button size="sm" variant="ghost" onClick={() => setAttempt((current) => current + 1)}>
+            Try again
+          </Button>
         </div>
       )}
+      <ErrorDialog
+        message={
+          error && error !== acknowledged
+            ? error
+            : callback?.error && !callbackDismissed
+              ? callback.text
+              : ""
+        }
+        onClose={() => {
+          setAcknowledged(error);
+          setCallbackDismissed(true);
+        }}
+      />
       <ConfirmationDialog
         open={confirming !== undefined}
         onOpenChange={(open) => {

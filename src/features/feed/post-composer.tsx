@@ -75,7 +75,7 @@ export function PostComposer({
             />
           }
         >
-          {quote ? <QuoteText quote={quote} /> : placeholder}
+          {quote ? <QuoteText quote={quote} marquee /> : placeholder}
         </DialogTrigger>
         <LoginDialogContent
           title="Log in to post"
@@ -438,7 +438,7 @@ function AuthenticatedPostComposer({
                 aria-hidden="true"
                 className={`pointer-events-none absolute inset-x-0 top-0 break-words ${textClass}`}
               >
-                <QuoteText quote={inspiration} />
+                <QuoteText quote={inspiration} marquee />
               </p>
             )}
           </div>

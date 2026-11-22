@@ -53,6 +53,7 @@ import {
   MessagesPage,
   ProfilePage,
   SearchPage,
+  SavedPage,
   SettingsPage,
   Thread,
   TopicPage,
@@ -294,6 +295,10 @@ function AppShell() {
               <Route
                 path="/search"
                 element={<SearchPage session={auth.session} />}
+              />
+              <Route
+                path="/saved"
+                element={<SavedPage session={auth.session} />}
               />
               <Route path="/report" element={<ComingSoon title="Report" />} />
               <Route
