@@ -48,6 +48,7 @@ export function FloatingNavigation({
             <Link
               key={to}
               to={to}
+              state={{ navigationTab: true }}
               aria-label={badge ? `${itemLabel}, ${badge} unread` : itemLabel}
               aria-current={active ? "page" : undefined}
               data-active={active}

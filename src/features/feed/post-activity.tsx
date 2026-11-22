@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api, errorMessage, type Poll } from "@/lib/api";
+import { useLoadMore } from "@/hooks/use-load-more";
 
 type ActivityPage = Awaited<ReturnType<typeof api.postActivity>>;
 type ActivityType = Parameters<typeof api.postActivity>[1];
@@ -45,6 +46,11 @@ function ActivityList({
   const [error, setError] = useState("");
   const [cursor, setCursor] = useState<string>();
   const [attempt, setAttempt] = useState(0);
+  const loadMoreRef = useLoadMore(() => {
+    if (!page.nextCursor) return;
+    setLoading(true);
+    setCursor(page.nextCursor);
+  }, Boolean(page.nextCursor) && !loading && !error);
   useEffect(() => {
     const controller = new AbortController();
     void api.postActivity(postId, type, { cursor, options, signal: controller.signal }).then(
@@ -163,20 +169,20 @@ function ActivityList({
           </Button>
         </div>
       )}
-      {!error && page.nextCursor && (
-        <Button
-          variant="ghost"
-          className="mt-2 w-full transition-opacity duration-300 ease-in-out starting:opacity-0 motion-reduce:transition-none"
-          disabled={loading}
-          aria-label={loading ? `Loading more ${type}` : undefined}
-          onClick={() => {
-            setLoading(true);
-            setCursor(page.nextCursor ?? undefined);
-          }}
-        >
-          Load more
-        </Button>
+      {loading && page.users.length > 0 && (
+        <div role="status" aria-label={`Loading more ${type}`} className="divide-y">
+          {[0, 1].map((row) => (
+            <div key={row} className="flex items-center gap-3 px-2 py-3">
+              <Skeleton className="size-9 shrink-0 rounded-[30%] [corner-shape:squircle]" />
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-28" />
+                <Skeleton className="h-3 w-20" />
+              </div>
+            </div>
+          ))}
+        </div>
       )}
+      <div ref={loadMoreRef} aria-hidden="true" className="h-px" />
     </div>
   );
 }

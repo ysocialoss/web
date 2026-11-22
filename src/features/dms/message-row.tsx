@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
-import { CornerUpLeft, Pencil, SmilePlus, Trash2 } from "lucide-react";
+import { CornerUpLeft, Flag, Pencil, SmilePlus, Trash2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import type { DmUser } from "./dm-api";
 import { messageByteLimit } from "./dm-crypto";
 import type { DisplayMessage } from "./dm-context";
+import { ReportDialog, type MessageContext } from "@/features/reports/report-dialog";
 import { MessageBody } from "./message-body";
 import { MessageReactions, type MessageReactionsHandle } from "./message-reactions";
 import { PollMessage } from "./poll-message";
@@ -50,7 +51,7 @@ export type RowActions = {
 };
 
 export function MessageRow({
-  message, sender, peer, selfId, conversationId, withHeader, replied, editing, onEditing, flash, selected, onSelect, actions, canWrite,
+  message, sender, peer, selfId, conversationId, withHeader, replied, editing, onEditing, flash, selected, onSelect, actions, canWrite, reportContext,
 }: {
   conversationId: string;
   message: DisplayMessage;
@@ -66,8 +67,10 @@ export function MessageRow({
   onSelect: (selected: boolean) => void;
   actions: RowActions;
   canWrite: boolean;
+  reportContext?: () => MessageContext[];
 }) {
   const mine = sender.id === selfId;
+  const [reporting, setReporting] = useState<MessageContext[] | null>(null);
   const readable = message.text !== null;
   const time = timeFormat.format(new Date(message.createdAt));
   const reactionsRef = useRef<MessageReactionsHandle>(null);
@@ -218,7 +221,26 @@ export function MessageRow({
               <Trash2 aria-hidden="true" />
             </IconButton>
           )}
+          {!mine && reportContext && (
+            <IconButton label="Report message" size="icon-sm" className="hover:bg-destructive/10 hover:text-destructive" onClick={() => setReporting(reportContext())}>
+              <Flag aria-hidden="true" />
+            </IconButton>
+          )}
         </div>
+      )}
+      {reporting && (
+        <ReportDialog
+          open
+          onOpenChange={(open) => !open && setReporting(null)}
+          subject={{
+            type: "message",
+            conversationId,
+            messageId: message.id,
+            peerHandle: peer.handle,
+            message: { id: message.id, text: reportText(message) },
+            earlier: reporting,
+          }}
+        />
       )}
     </div>
   );
@@ -287,4 +309,13 @@ function EditBox({ initial, onSave, onCancel }: { initial: string; onSave: (text
       </div>
     </div>
   );
+}
+
+export function reportText(message: DisplayMessage) {
+  return [
+    message.text,
+    message.gif && "[GIF]",
+    message.poll && `[Poll: ${message.poll.title}]`,
+    message.voice && "[Voice message]",
+  ].filter(Boolean).join("\n");
 }

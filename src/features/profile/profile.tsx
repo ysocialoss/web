@@ -11,7 +11,12 @@ import {
 } from "@/lib/api";
 import {
   ArrowLeft,
+  Ban,
   CalendarDays,
+  Link2,
+  Mail,
+  SendHorizontal,
+  ShieldCheck,
   Camera,
   Gem,
   GitPullRequest,
@@ -34,7 +39,7 @@ import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/lib/utils";
 import { useGoBack } from "@/hooks/use-go-back";
 import { Button } from "@/components/ui/button";
-import { Link, useNavigate, useSearchParams } from "react-router";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Dialog,
@@ -53,6 +58,11 @@ import { ProfileEditDialogContent, type ProfileEditTab } from "./profile-edit-di
 import { PostCard } from "@/features/feed/post-card";
 import { useFeed } from "@/features/feed/use-feed";
 import { ShareButton } from "@/features/sharing/share-button";
+import { ReportMenu, type MenuAction } from "@/features/reports/report-menu";
+import { writeClipboard } from "@/lib/clipboard";
+import { setBlocked } from "@/features/reports/blocked-users";
+import { toast } from "@/components/ui/toast-manager";
+import { ConnectionsDialog, type ConnectionList } from "./connections-dialog";
 import { ProfileSkeleton } from "@/components/loading-skeletons";
 import { usePageTitle } from "@/hooks/use-page-title";
 import {
@@ -200,6 +210,38 @@ export function ProfilePage({
     }
   }
 
+  const blockedEitherWay = Boolean(profile?.blocking || profile?.blockedBy);
+  const [sharing, setSharing] = useState(false);
+  const profileActions: MenuAction[] = profile
+    ? [
+        ...(viewer && !feed.readOnly && profile.profile.id !== viewer.id && !profile.profile.bannedAt && !blockedEitherWay
+          ? [{ label: "Message", icon: Mail, onSelect: () => void navigate(`/messages?to=${encodeURIComponent(profile.profile.handle)}`) }]
+          : []),
+        { label: "Share profile", icon: SendHorizontal, onSelect: () => setSharing(true) },
+        {
+          label: "Copy profile link",
+          icon: Link2,
+          onSelect: () => {
+            void writeClipboard(new URL(`/@${profile.profile.handle}`, window.location.origin).href).then(
+              () => toast.add({ title: "Link copied" }),
+              (reason: unknown) => toast.add({ type: "error", title: errorMessage(reason) }),
+            );
+          },
+        },
+      ]
+    : [];
+  function applyBlock() {
+    void load();
+  }
+  async function unblock() {
+    if (!profile) return;
+    try {
+      await setBlocked(profile.profile, false);
+      applyBlock();
+    } catch (reason) {
+      toast.add({ title: errorMessage(reason) });
+    }
+  }
   function toggleFollow() {
     if (profile && viewer && feed.canPost)
       mutateFollow(profile, viewer.id, !profile.isFollowing);
@@ -232,11 +274,12 @@ export function ProfilePage({
   useEffect(() => {
     const controller = new AbortController();
     // HTTP completes asynchronously; cleanup cancels stale responses.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     void load(controller.signal);
     return () => controller.abort();
   }, [load, session]);
   const goBack = useGoBack();
+  const [connections, setConnections] = useState<ConnectionList | null>(null);
+  const fromNavigationTab = (useLocation().state as { navigationTab?: boolean } | null)?.navigationTab === true;
   usePageTitle(
     loadedProfile
       ? `${loadedProfile.profile.displayName} (@${loadedProfile.profile.handle})`
@@ -244,11 +287,156 @@ export function ProfilePage({
   );
   return (
     <div className="mx-auto min-w-0 max-w-xl">
-      <header className="mb-4 flex items-center gap-3">
-        <IconLink to="/" label="Back" onClick={goBack}>
+      <header className="mb-4 flex min-h-10 items-center gap-3">
+        <IconLink to="/" label="Back" onClick={goBack} className={cn(ownProfile && fromNavigationTab && "max-md:hidden")}>
           <ArrowLeft />
         </IconLink>
         <span className="text-lg font-semibold">Profile</span>
+        {profile && !profile.profile.banReason && !error && (
+          <div className="relative ml-auto flex items-center gap-1.5">
+            {canEditProfile && (
+              <Dialog
+                open={editDialogOpen}
+                onOpenChange={(open) => {
+                  if (savingProfile) return;
+                  if (open) {
+                    setEditTab("profile");
+                    setEditDialogOpen(true);
+                  } else closeEditDialog();
+                }}
+              >
+                <DialogTrigger render={<Button size="sm" variant="outline" />}>
+                  <Pencil aria-hidden="true" />
+                  Edit
+                </DialogTrigger>
+                <ProfileEditDialogContent
+                  saving={savingProfile}
+                  tab={editTab}
+                  onTabChange={setEditTab}
+                  onGithubChange={(github) => {
+                    setProfile((current) =>
+                      current?.profile.id === profile.profile.id
+                        ? { ...current, profile: { ...current.profile, github } }
+                        : current,
+                    );
+                  }}
+                >
+                  {editDialogOpen && (
+                    <ProfileForm
+                      appearance="dialog"
+                      userId={profile.profile.id}
+                      profile={profile.profile}
+                      onSavingChange={setSavingProfile}
+                      onCancel={closeEditDialog}
+                      onSaved={(updated) => {
+                        setProfile((current) =>
+                          current
+                            ? {
+                                ...current,
+                                profile: { ...current.profile, ...updated },
+                              }
+                            : current,
+                        );
+                        onProfileSaved(profile.profile.id, updated);
+                        closeEditDialog();
+                        if (updated.handle !== handle)
+                          navigate(`/@${updated.handle}`, { replace: true });
+                      }}
+                    />
+                  )}
+                </ProfileEditDialogContent>
+              </Dialog>
+            )}
+            {profile.blocking && (
+              <Button size="sm" variant="outline" onClick={() => void unblock()}>
+                <ShieldCheck aria-hidden="true" />
+                Unblock
+              </Button>
+            )}
+            {session && !feed.readOnly && !blockedEitherWay &&
+              profile.profile.id !== viewer?.id &&
+              (viewer ? (
+                <IconButton
+                  label={
+                    friends
+                      ? `Friends · Unfollow @${profile.profile.handle}`
+                      : profile.isFollowing
+                        ? `Unfollow @${profile.profile.handle}`
+                        : `Follow @${profile.profile.handle}`
+                  }
+                  aria-pressed={profile.isFollowing}
+                  size="sm"
+                  variant={profile.isFollowing ? "secondary" : "default"}
+                  onClick={() => void toggleFollow()}
+                >
+                  {friends ? (
+                    <span
+                      key="friends"
+                      className="inline-flex animate-in items-center gap-1.5 duration-200 fade-in-0 zoom-in-90"
+                    >
+                      <UsersRound />
+                      <span>Friends</span>
+                    </span>
+                  ) : profile.isFollowing ? (
+                    <span
+                      key="following"
+                      className="inline-flex animate-in items-center gap-1.5 duration-200 fade-in-0 zoom-in-90"
+                    >
+                      <UserCheck />
+                      <span>Unfollow</span>
+                    </span>
+                  ) : (
+                    <span
+                      key="follow"
+                      className="inline-flex animate-in items-center gap-1.5 duration-200 fade-in-0 zoom-in-90"
+                    >
+                      <UserPlus />
+                      <span>Follow</span>
+                    </span>
+                  )}
+                </IconButton>
+              ) : session.authenticated ? (
+                <Button
+                  render={<Link to="/onboarding" />}
+                  nativeButton={false}
+                  size="sm"
+                  aria-label="Choose a handle to follow"
+                >
+                  <UserPlus />
+                  Follow
+                </Button>
+              ) : (
+                <Button
+                  render={<a href="/auth/login" />}
+                  nativeButton={false}
+                  size="sm"
+                  aria-label="Sign in to follow"
+                >
+                  <UserPlus />
+                  Follow
+                </Button>
+              ))}
+            <ShareButton
+              hiddenTrigger
+              open={sharing}
+              onOpenChange={setSharing}
+              target={{ kind: "profile", handle: profile.profile.handle }}
+              viewerId={viewerId}
+            />
+            <ReportMenu
+              className="size-9"
+              label="Profile options"
+              actions={profileActions}
+              {...(viewer && !feed.readOnly && profile.profile.id !== viewer.id
+                ? {
+                    block: { id: profile.profile.id, handle: profile.profile.handle, blocking: profile.blocking },
+                    onBlockChange: applyBlock,
+                    subject: { type: "user" as const, id: profile.profile.id, handle: profile.profile.handle },
+                  }
+                : {})}
+            />
+          </div>
+        )}
       </header>
       {profile?.profile.banReason ? (
         <section aria-labelledby="banned-profile-title" className="py-4">
@@ -442,8 +630,8 @@ export function ProfilePage({
               </Avatar>
             )}
           </div>
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0 flex-1">
+          <div className="min-w-0">
+            <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-x-1.5">
                 <h1 className="min-w-0 wrap-anywhere text-xl font-semibold">
                   {profile.profile.displayName}
@@ -483,147 +671,40 @@ export function ProfilePage({
                 </p>
               )}
             </div>
-            <ShareButton
-              target={{ kind: "profile", handle: profile.profile.handle }}
-              viewerId={viewerId}
-            />
-            {canEditProfile && (
-              <Dialog
-                open={editDialogOpen}
-                onOpenChange={(open) => {
-                  if (savingProfile) return;
-                  if (open) {
-                    setEditTab("profile");
-                    setEditDialogOpen(true);
-                  } else closeEditDialog();
-                }}
-              >
-                <DialogTrigger render={<Button variant="outline" />}>
-                  <Pencil aria-hidden="true" />
-                  Edit
-                </DialogTrigger>
-                <ProfileEditDialogContent
-                  saving={savingProfile}
-                  tab={editTab}
-                  onTabChange={setEditTab}
-                  onGithubChange={(github) => {
-                    setProfile((current) =>
-                      current?.profile.id === profile.profile.id
-                        ? { ...current, profile: { ...current.profile, github } }
-                        : current,
-                    );
-                  }}
-                >
-                  {editDialogOpen && (
-                    <ProfileForm
-                      appearance="dialog"
-                      userId={profile.profile.id}
-                      profile={profile.profile}
-                      onSavingChange={setSavingProfile}
-                      onCancel={closeEditDialog}
-                      onSaved={(updated) => {
-                        setProfile((current) =>
-                          current
-                            ? {
-                                ...current,
-                                profile: { ...current.profile, ...updated },
-                              }
-                            : current,
-                        );
-                        onProfileSaved(profile.profile.id, updated);
-                        closeEditDialog();
-                        if (updated.handle !== handle)
-                          navigate(`/@${updated.handle}`, { replace: true });
-                      }}
-                    />
-                  )}
-                </ProfileEditDialogContent>
-              </Dialog>
-            )}
-            {viewer && !feed.readOnly && profile.profile.id !== viewer.id && !profile.profile.bannedAt && (
-              <Link
-                to={`/messages?to=${encodeURIComponent(profile.profile.handle)}`}
-                className="inline-flex min-h-9 items-center rounded-lg px-3 text-sm font-medium hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring"
-              >
-                Message
-              </Link>
-            )}
-            {session && !feed.readOnly &&
-              profile.profile.id !== viewer?.id &&
-              (viewer ? (
-                <IconButton
-                  label={
-                    friends
-                      ? `Friends · Unfollow @${profile.profile.handle}`
-                      : profile.isFollowing
-                        ? `Unfollow @${profile.profile.handle}`
-                        : `Follow @${profile.profile.handle}`
-                  }
-                  aria-pressed={profile.isFollowing}
-                  size="default"
-                  variant={profile.isFollowing ? "secondary" : "default"}
-                  onClick={() => void toggleFollow()}
-                >
-                  {friends ? (
-                    <span
-                      key="friends"
-                      className="inline-flex animate-in items-center gap-1.5 duration-200 fade-in-0 zoom-in-90"
-                    >
-                      <UsersRound />
-                      <span>Friends</span>
-                    </span>
-                  ) : profile.isFollowing ? (
-                    <span
-                      key="following"
-                      className="inline-flex animate-in items-center gap-1.5 duration-200 fade-in-0 zoom-in-90"
-                    >
-                      <UserCheck />
-                      <span>Unfollow</span>
-                    </span>
-                  ) : (
-                    <span
-                      key="follow"
-                      className="inline-flex animate-in items-center gap-1.5 duration-200 fade-in-0 zoom-in-90"
-                    >
-                      <UserPlus />
-                      <span>Follow</span>
-                    </span>
-                  )}
-                </IconButton>
-              ) : session.authenticated ? (
-                <Button
-                  render={<Link to="/onboarding" />}
-                  nativeButton={false}
-                  variant="outline"
-                >
-                  <UserPlus />
-                  Choose a handle to follow
-                </Button>
-              ) : (
-                <Button
-                  render={<a href="/auth/login" />}
-                  nativeButton={false}
-                  variant="outline"
-                >
-                  <UserPlus />
-                  Sign in to follow
-                </Button>
-              ))}
           </div>
+          {blockedEitherWay && (
+            <p role="status" className="mt-3 flex items-start gap-2 rounded-lg border bg-muted/40 p-3 text-sm text-muted-foreground">
+              <Ban aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+              {profile.blocking
+                ? `You blocked @${profile.profile.handle}. You won't see their posts and they can't interact with you.`
+                : `@${profile.profile.handle} blocked you. You can't follow or message them.`}
+            </p>
+          )}
           <div className="mt-3 flex gap-4 text-sm text-muted-foreground">
-            <span>
-              <strong className="font-semibold text-foreground">
-                {profile.profile.followerCount.toLocaleString()}
-              </strong>{" "}
-              followers
-            </span>
-            <span>
-              <strong className="font-semibold text-foreground">
-                {profile.profile.followingCount.toLocaleString()}
-              </strong>{" "}
-              following
-            </span>
+            {(["followers", "following"] as const).map((list) => (
+              <button
+                key={list}
+                type="button"
+                aria-haspopup="dialog"
+                onClick={() => setConnections(list)}
+                className="-mx-1 rounded-md px-1 outline-none hover:text-foreground hover:underline underline-offset-4 focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <strong className="font-semibold text-foreground">
+                  {(list === "followers" ? profile.profile.followerCount : profile.profile.followingCount).toLocaleString()}
+                </strong>{" "}
+                {list}
+              </button>
+            ))}
           </div>
+          <ConnectionsDialog
+            key={profile.profile.handle}
+            handle={profile.profile.handle}
+            displayName={profile.profile.displayName}
+            list={connections}
+            onListChange={setConnections}
+            onClose={() => setConnections(null)}
+            canFollow={Boolean(viewer && !feed.readOnly)}
+          />
           {profile.profile.bio && (
             <p className="mt-3 whitespace-pre-wrap wrap-anywhere text-sm">
               {profile.profile.bio}

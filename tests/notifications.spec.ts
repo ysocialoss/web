@@ -184,7 +184,7 @@ test("the bell panel marks notifications read as they come into view", async ({
     .scrollIntoViewIfNeeded();
   await expect.poll(() => readIds).toContain("like-19");
   expect(readIds).not.toContain("like-10");
-  await panel.getByRole("button", { name: "Load more" }).click();
+  await expect(panel.getByRole("button", { name: "Load more" })).toHaveCount(0);
   await panel
     .getByText("Activity 30", { exact: true })
     .scrollIntoViewIfNeeded();

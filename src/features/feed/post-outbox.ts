@@ -152,7 +152,7 @@ export function publishOptimistically({
         type: "error",
         title: parentId ? "Reply wasn't sent" : "Post wasn't sent",
         description: errorMessage(error),
-        timeout: 0,
+        timeout: 8000,
         priority: "high",
         actionProps: {
           children: "Retry",

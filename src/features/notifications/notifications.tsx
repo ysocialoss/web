@@ -9,7 +9,7 @@ import {
   UserPlus,
   X,
 } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
+import { timeAgo } from "@/lib/time-ago";
 import { Link } from "react-router";
 import { ProfileHoverLink } from "@/features/profile/profile-hover-link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -26,8 +26,9 @@ import { useNotifications } from "./notifications-context";
 import { PushSettings } from "./push-settings";
 import { cn } from "@/lib/utils";
 import { PostCard } from "@/features/dms/embeds";
-import type { SocialNotification } from "@/lib/api";
+import { postImageUrl, type SocialNotification } from "@/lib/api";
 import { usePageTitle } from "@/hooks/use-page-title";
+import { useLoadMore } from "@/hooks/use-load-more";
 
 const kinds = {
   like: {
@@ -103,6 +104,12 @@ function NotificationsContent({
     hideContent,
   } = useNotifications();
   const list = useRef<HTMLDivElement>(null);
+  const loadMoreRef = useLoadMore(
+    () => {
+      if (nextCursor) void refresh(nextCursor);
+    },
+    signedIn && Boolean(nextCursor) && !loading && !error,
+  );
   useEffect(() => {
     if (!markVisibleAsRead || !canWrite || !list.current) return;
     const rows = list.current.querySelectorAll<HTMLElement>("[data-unread-id]");
@@ -261,13 +268,25 @@ function NotificationsContent({
                       {item.preview}
                     </p>
                   )}
+                  {!grouped && !hideContent && item.imageIds.length > 0 && (
+                    <span className="mt-2 flex gap-1.5" aria-label={`${item.imageIds.length} attached ${item.imageIds.length === 1 ? "image" : "images"}`}>
+                      {item.imageIds.slice(0, 4).map((id) => (
+                        <img
+                          key={id}
+                          src={postImageUrl(id)}
+                          alt=""
+                          loading="lazy"
+                          decoding="async"
+                          className="size-14 rounded-lg border bg-muted object-cover"
+                        />
+                      ))}
+                    </span>
+                  )}
                   <time
                     dateTime={item.createdAt}
                     className="mt-1.5 block text-xs text-muted-foreground"
                   >
-                    {formatDistanceToNow(new Date(item.createdAt), {
-                      addSuffix: true,
-                    })}
+                    {timeAgo(item.createdAt)}
                   </time>
                 </div>
               </li>
@@ -318,15 +337,7 @@ function NotificationsContent({
             ))}
           </div>
         )}
-        {nextCursor && !error && !loading && (
-          <Button
-            variant="ghost"
-            className="my-2 w-full"
-            onClick={() => void refresh(nextCursor)}
-          >
-            Load more
-          </Button>
-        )}
+        <div ref={loadMoreRef} aria-hidden="true" className="h-px" />
       </div>
       {canWrite && !grouped && <div className="shrink-0 border-t p-3">
         <PushSettings />

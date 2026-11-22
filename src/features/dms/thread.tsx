@@ -22,7 +22,8 @@ import { AttachMenu, VoiceRecorderBar, type Recorded } from "./composer-extras";
 import { TypingBubble } from "./typing-bubble";
 import { Collapse } from "@/components/ui/collapse";
 import { ThreadSearch } from "./thread-search";
-import { MessageRow, nameOf, PersonAvatar, type RowActions } from "./message-row";
+import { MessageRow, nameOf, PersonAvatar, reportText, type RowActions } from "./message-row";
+import { maxReportContext } from "@/features/reports/report-dialog";
 import { ThreadSkeleton } from "./messages-loading";
 
 const dateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: "medium" });
@@ -735,6 +736,10 @@ const MessageRows = memo(function MessageRows({
               onSelect={(selected) => setSelectedId(selected ? message.id : null)}
               actions={actions}
               canWrite={canWrite}
+              reportContext={sender.id === context.peer.id
+                ? () => messages.slice(0, index).filter(({ text }) => text !== null).slice(-maxReportContext)
+                  .map((earlier) => ({ id: earlier.id, text: reportText(earlier) }))
+                : undefined}
             />
           </li>
         );

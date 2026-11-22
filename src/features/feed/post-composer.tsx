@@ -280,6 +280,13 @@ function AuthenticatedPostComposer({
           aria-label="Post composer"
           onKeyDown={feed.canPost ? easterEgg.onKeyDown : undefined}
           onKeyUp={easterEgg.onKeyUp}
+          onPaste={(event) => {
+            if (!feed.canPost) return;
+            const files = Array.from(event.clipboardData.files).filter((file) => file.type.startsWith("image/"));
+            if (!files.length) return;
+            if (!event.clipboardData.getData("text/plain")) event.preventDefault();
+            void images.add(files);
+          }}
           onSubmit={(event) => {
             event.preventDefault();
             publish();

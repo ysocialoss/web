@@ -2,7 +2,7 @@ import { PublishedVoicePlayer } from "./voice-player";
 import { PostImages } from "./post-images";
 import { useEffect, useId, useRef, useState, type MouseEvent } from "react";
 import { Link, useNavigate } from "react-router";
-import { formatDistance } from "date-fns";
+import { timeAgo } from "@/lib/time-ago";
 import { Check, LoaderCircle, Pencil, Trash2, X } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { IconButton } from "@/components/ui/icon-button";
@@ -31,6 +31,8 @@ import {
 import { useEmojiIndex } from "@/lib/use-emoji-index";
 import type { FeedState } from "./use-feed";
 import { watchPost } from "./live-states";
+import { ReportMenu } from "@/features/reports/report-menu";
+import { useBlockedUser } from "@/features/reports/blocked-users";
 
 export function PostCard({
   post,
@@ -75,6 +77,7 @@ export function PostCard({
     const element = articleRef.current;
     return element ? watchPost(element, post.id, feed.viewerId) : undefined;
   }, [post.id, feed.viewerId]);
+  const authorBlocked = useBlockedUser(post.author.id);
   const optimistic = feed.optimisticPostIds.includes(post.id);
   const mine = feed.canPost && post.author.id === feed.viewerId;
   const busy = feed.pending.includes(post.id);
@@ -136,6 +139,7 @@ export function PostCard({
       .catch(() => setContent(editableContent))
       .finally(() => setEditing(true));
   }
+  if (authorBlocked && !mine) return null;
   return (
     <article
       ref={articleRef}
@@ -234,9 +238,7 @@ export function PostCard({
                   dateTime={post.createdAt}
                   title={new Date(post.createdAt).toLocaleString()}
                 >
-                  {formatDistance(new Date(post.createdAt), now, {
-                    addSuffix: true,
-                  })}
+                  {timeAgo(post.createdAt, now)}
                 </time>
               </Link>
               {post.editedAt && (
@@ -288,6 +290,19 @@ export function PostCard({
                   </>
                 )}
               </div>
+            )}
+            {feed.canPost && !mine && !optimistic && (
+              <ReportMenu
+                className="-my-1.5 shrink-0"
+                label="Post options"
+                follow={{ handle: post.author.handle }}
+                block={{ id: post.author.id, handle: post.author.handle }}
+                subject={{
+                  type: "post",
+                  id: post.id,
+                  kind: post.parentId ? "reply" : post.quote ? "quote" : "post",
+                }}
+              />
             )}
           </div>
           {replyContext && post.replyTo && (
