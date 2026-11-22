@@ -1,5 +1,5 @@
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent, type ReactElement } from "react";
-import { ArrowLeft, Ban, Search, CornerUpLeft, EyeOff, LockKeyhole, LoaderCircle, Mail, SendHorizontal, ShieldCheck, ShieldQuestion, X } from "lucide-react";
+import { memo, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type FormEvent, type ReactElement, type RefObject } from "react";
+import { ArrowDown, ArrowLeft, Ban, Search, CornerUpLeft, EyeOff, LockKeyhole, Mail, SendHorizontal, ShieldCheck, ShieldQuestion, X } from "lucide-react";
 import { Link, useSearchParams } from "react-router";
 import { ActionMenu } from "@/components/ui/action-menu";
 import { Button } from "@/components/ui/button";
@@ -22,19 +22,25 @@ import { AttachMenu, VoiceRecorderBar, type Recorded } from "./composer-extras";
 import { TypingBubble } from "./typing-bubble";
 import { Collapse } from "@/components/ui/collapse";
 import { ThreadSearch } from "./thread-search";
-import { MessageRow, nameOf, PersonAvatar, type RowActions } from "./message-row";
-import { ThreadSkeleton } from "./messages-loading";
+import { MessageRow, nameOf, PersonAvatar, type RowActions, type OutgoingMessage } from "./message-row";
+import { EarlierMessagesSkeleton, ThreadSkeleton } from "./messages-loading";
+import { useMessageWindow } from "./message-window";
 
 const dateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: "medium" });
+const olderFadeMs = 180;
 const withEmoji = (text: string) => {
   const index = peekEmojiIndex();
   return index ? renderShortcodes(text, index) : text;
 };
 const snippet = (text: string | null) => text === null ? null : text.replace(/\s+/g, " ").trim().slice(0, 140);
 
-export function Thread({ id, device, onChange, onClose, renderCloseConfirmation }: {
+export function Thread({ id, device, drafts, outbox, updateOutbox, sendingLifetime, onChange, onClose, renderCloseConfirmation }: {
   id: string;
   device: LocalDevice;
+  drafts: RefObject<Map<string, string>>;
+  outbox: OutgoingMessage[];
+  updateOutbox: (id: string, update: (current: OutgoingMessage[]) => OutgoingMessage[]) => void;
+  sendingLifetime: RefObject<AbortController | null>;
   onChange: () => void;
   onClose: () => void;
   renderCloseConfirmation: (trigger: ReactElement) => ReactElement;
@@ -46,11 +52,15 @@ export function Thread({ id, device, onChange, onClose, renderCloseConfirmation 
   const [messages, setMessages] = useState<DisplayMessage[]>();
   const [more, setMore] = useState(false);
   const [loadingOlder, setLoadingOlder] = useState(false);
+  const [olderError, setOlderError] = useState("");
+  const [fadingOlder, setFadingOlder] = useState<ReadonlySet<string>>();
   const [readError, setReadError] = useState("");
   const [actionError, setActionError] = useState("");
   const [locked, setLocked] = useState(false);
-  const [draft, setDraft] = useState("");
-  const [sending, setSending] = useState(false);
+  const [draft, setDraftValue] = useState(() => drafts.current.get(id) ?? "");
+  const [uploading, setUploading] = useState(false);
+  const sending = uploading || outbox.some(({ delivery }) => delivery === "sending");
+  const [newMessages, setNewMessages] = useState(0);
   const [responding, setResponding] = useState(false);
   const [showCode, setShowCode] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -62,15 +72,27 @@ export function Thread({ id, device, onChange, onClose, renderCloseConfirmation 
   const [typing, setTyping] = useState(false);
   const [recording, setRecording] = useState(false);
   const [searching, setSearching] = useState(false);
-  const scroller = useRef<HTMLDivElement>(null);
+  const [scroller, setScroller] = useState<HTMLDivElement | null>(null);
   const composer = useRef<HTMLTextAreaElement>(null);
-  const anchor = useRef<{ height: number; top: number } | undefined>(undefined);
   const stickToBottom = useRef(true);
+  const historyWindow = useRef<{ scrollToMessage: (id: string) => void }>(null);
   const cursor = useRef<string | undefined>(undefined);
+  const messageRequests = useRef(new Map<string, AbortController>());
   const operations = useRef<AbortController | null>(null);
-  const pending = useRef<{ text: string; reply?: string; id: string } | undefined>(undefined);
+  const sendBusy = useRef(false);
+  const paging = useRef(false);
+  const historyVersion = useRef(0);
   const typingTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const typingSent = useRef(0);
+  const setOutbox = useCallback((update: (current: OutgoingMessage[]) => OutgoingMessage[]) => {
+    updateOutbox(id, update);
+  }, [id, updateOutbox]);
+
+  function setDraft(value: string) {
+    setDraftValue(value);
+    if (value) drafts.current.set(id, value);
+    else drafts.current.delete(id);
+  }
 
   useEffect(() => {
     const controller = new AbortController();
@@ -78,67 +100,58 @@ export function Thread({ id, device, onChange, onClose, renderCloseConfirmation 
     return () => controller.abort();
   }, []);
 
-  const content = useRef<HTMLDivElement>(null);
+  const [content, setContent] = useState<HTMLDivElement | null>(null);
   const older = useRef<HTMLDivElement>(null);
   const loadOlderRef = useRef<() => void>(() => {});
   const [params, setParams] = useSearchParams();
   const jumpTo = params.get("m");
   const jumpTries = useRef(0);
 
-  useEffect(() => {
-    const element = scroller.current;
-    const inner = content.current;
-    if (!element || !inner || typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver(() => {
-      if (stickToBottom.current && !anchor.current) element.scrollTop = element.scrollHeight;
-    });
-    observer.observe(inner);
-    return () => observer.disconnect();
-  }, [context]);
-
   const firstId = messages?.[0]?.id;
   useEffect(() => {
     const target = older.current;
-    const root = scroller.current;
-    if (!target || !root || !more || loadingOlder || typeof IntersectionObserver === "undefined") return;
+    const root = scroller;
+    if (!target || !root || !more || loadingOlder || olderError || typeof IntersectionObserver === "undefined") return;
     const observer = new IntersectionObserver((entries) => {
       if (entries.some((entry) => entry.isIntersecting)) loadOlderRef.current();
-    }, { root, rootMargin: "300px 0px 0px 0px" });
+    }, { root });
     observer.observe(target);
     return () => observer.disconnect();
-  }, [more, loadingOlder, firstId]);
+  }, [more, loadingOlder, olderError, firstId, scroller]);
 
-  useLayoutEffect(() => {
-    const element = scroller.current;
-    if (!element) return;
-    if (anchor.current) {
-      element.scrollTop = anchor.current.top + element.scrollHeight - anchor.current.height;
-      anchor.current = undefined;
-    } else if (stickToBottom.current) {
-      element.scrollTop = element.scrollHeight;
-    }
-  }, [messages, typing]);
+  useEffect(() => {
+    if (!fadingOlder) return;
+    const timer = setTimeout(() => setFadingOlder(undefined), olderFadeMs);
+    return () => clearTimeout(timer);
+  }, [fadingOlder]);
 
   const refresh = useCallback(async (signal: AbortSignal, full: boolean) => {
     try {
-      let after = cursor.current;
-      let page = await dmApi.messages(id, device, after ? { after } : undefined, signal);
-      let firstPage = !after;
+      const previousCursor = cursor.current;
+      let after = previousCursor;
+      const cached = contextRef.current;
+      const [initial, freshContext] = await Promise.all([
+        dmApi.messages(id, device, after && !full ? { after } : undefined, signal),
+        full || !cached ? readContext(id, device, signal) : cached,
+      ]);
+      const floor = initial.messages[0]?.sequence;
+      const recent = full && previousCursor !== undefined && (!initial.more || (floor !== undefined && BigInt(floor) <= BigInt(previousCursor)));
+      let page = full && previousCursor && !recent ? await dmApi.messages(id, device, { after: previousCursor }, signal) : initial;
+      let firstPage = !previousCursor;
       let olderAvailable = firstPage && page.more;
       const encrypted: WireMessage[] = [];
       while (true) {
         encrypted.push(...page.messages);
         after = page.messages.at(-1)?.sequence ?? after;
-        if (firstPage || !page.more || !after) break;
+        if (firstPage || recent || !page.more || !after) break;
         page = await dmApi.messages(id, device, { after }, signal);
       }
-      const cached = contextRef.current;
-      const next = full || !cached || (!cached.peerIdentity && encrypted.some((message) => !cached.senderKeys.has(message.senderDeviceId)))
+      const next = freshContext === cached && !cached.peerIdentity && encrypted.some((message) => !cached.senderKeys.has(message.senderDeviceId))
         ? await readContext(id, device, signal)
-        : cached;
+        : freshContext;
       if (signal.aborted) return;
       if (cached?.peerIdentity && !next.peerIdentity && !firstPage) {
-        const latest = await dmApi.messages(id, device, undefined, signal);
+        const latest = full ? initial : await dmApi.messages(id, device, undefined, signal);
         encrypted.splice(0, encrypted.length, ...latest.messages);
         after = latest.messages.at(-1)?.sequence;
         firstPage = true;
@@ -150,15 +163,31 @@ export function Thread({ id, device, onChange, onClose, renderCloseConfirmation 
       setContext(next);
       setReadError("");
       setLocked(false);
-      if (firstPage || incoming.length) {
-        cursor.current = after;
-        if (firstPage) setMore(olderAvailable);
+      if (firstPage || recent || incoming.length) {
+        cursor.current = previousCursor && (!after || BigInt(after) < BigInt(previousCursor)) ? previousCursor : after;
+        if (firstPage || (recent && !initial.more)) {
+          historyVersion.current++;
+          setMore(firstPage && olderAvailable);
+          setOlderError("");
+        }
         setMessages((current) => {
-          if (firstPage) return incoming;
-          const known = new Set((current ?? []).map(({ id }) => id));
-          return [...(current ?? []), ...incoming.filter(({ id }) => !known.has(id))];
+          if (firstPage) return !current?.length && !incoming.length && current ? current : incoming;
+          if (recent) {
+            const earlier = initial.more && floor ? (current ?? []).filter(({ sequence }) => BigInt(sequence) < BigInt(floor)) : [];
+            return [...earlier, ...incoming];
+          }
+          return [...(current ?? []), ...incoming];
         });
-        if (incoming.some(({ senderId }) => senderId === next.peer.id)) setTyping(false);
+        if (incoming.length) {
+          const arrived = new Set(incoming.map(({ id }) => id));
+          setOutbox((current) => current.some(({ id }) => arrived.has(id)) ? current.filter(({ id }) => !arrived.has(id)) : current);
+        }
+        const fromPeer = incoming.filter(({ senderId, sequence }) => senderId === next.peer.id
+          && (!previousCursor || BigInt(sequence) > BigInt(previousCursor))).length;
+        if (fromPeer) {
+          setTyping(false);
+          if (!firstPage && !stickToBottom.current) setNewMessages((count) => count + fromPeer);
+        }
       }
     } catch (error) {
       if (!signal.aborted) {
@@ -166,24 +195,35 @@ export function Thread({ id, device, onChange, onClose, renderCloseConfirmation 
         setReadError(dmError(error));
       }
     }
-  }, [id, device]);
+  }, [id, device, setOutbox]);
   const threadChange = useCallback((event: DmLiveEvent) => {
     if (event.type === "devices") return true;
-    if (event.type === "conversation" && event.id === id) return event.message ? undefined : event.roster;
+    if (event.type === "conversation" && event.id === id && !event.message && !event.read) return event.roster;
   }, [id]);
   const refreshNow = useDmUpdates(device.userId, refresh, threadChange);
+  useEffect(() => {
+    if (outbox.some(({ delivery }) => delivery !== "sending")) refreshNow(false);
+  }, [outbox, refreshNow]);
 
   const refreshOne = useCallback(async (messageId: string) => {
-    const signal = operations.current?.signal;
+    const lifetime = operations.current?.signal;
     const current = contextRef.current;
-    if (!signal || !current) return;
+    if (!lifetime || !current) return;
+    const requests = messageRequests.current;
+    requests.get(messageId)?.abort();
+    const request = new AbortController();
+    requests.set(messageId, request);
+    const signal = AbortSignal.any([lifetime, request.signal]);
     try {
       const { message } = await dmApi.message(id, messageId, device, signal);
-      const [next] = await decryptPage(id, device, current, [message]);
-      if (!signal.aborted) setMessages((list) => list?.map((entry) => entry.id === next.id ? next : entry));
+      const [next] = await decryptPage(id, device, contextRef.current ?? current, [message]);
+      if (!signal.aborted) setMessages((list) => list?.some(({ id }) => id === messageId)
+        ? list.map((entry) => entry.id === next.id ? next : entry) : list);
     } catch (error) {
       if (!signal.aborted && error instanceof ApiError && error.message === "dm_message_not_found")
-        setMessages((list) => list?.filter((entry) => entry.id !== messageId));
+        setMessages((list) => list?.some(({ id }) => id === messageId) ? list.filter((entry) => entry.id !== messageId) : list);
+    } finally {
+      if (requests.get(messageId) === request) requests.delete(messageId);
     }
   }, [id, device]);
 
@@ -271,38 +311,37 @@ export function Thread({ id, device, onChange, onClose, renderCloseConfirmation 
   async function loadOlder() {
     const first = messages?.[0];
     const signal = operations.current?.signal;
-    if (!first || !context || !signal || loadingOlder) return;
+    if (!first || !context || !signal || paging.current) return;
+    paging.current = true;
+    const version = historyVersion.current;
     setLoadingOlder(true);
-    setActionError("");
+    setOlderError("");
     try {
       const result = await dmApi.messages(id, device, { before: first.sequence }, signal);
       const currentContext = contextRef.current ?? context;
       const older = await decryptPage(id, device, currentContext, result.messages);
-      if (signal.aborted) return;
-      const element = scroller.current;
-      if (element) anchor.current = { height: element.scrollHeight, top: element.scrollTop };
+      if (signal.aborted || version !== historyVersion.current) return;
+      if (older.length) setFadingOlder(new Set(older.map(({ id }) => id)));
       setMessages((current) => [...older, ...(current ?? [])]);
       setMore(result.more);
     } catch (error) {
-      if (!signal.aborted) setActionError(dmError(error));
+      if (!signal.aborted && version === historyVersion.current) setOlderError(dmError(error));
     } finally {
+      paging.current = false;
       if (!signal.aborted) setLoadingOlder(false);
     }
   }
 
-  async function transmit(messageId: string, payload: string, send: Parameters<typeof transmitMessage>[0]["send"]) {
-    const signal = operations.current?.signal;
-    if (!signal || !context) throw new Error("This conversation isn’t ready yet.");
+  const transmit = useCallback(async (
+    messageId: string, payload: string, send: Parameters<typeof transmitMessage>[0]["send"], signal = operations.current?.signal,
+  ) => {
+    const current = contextRef.current;
+    if (!signal || !current) throw new Error("This conversation isn’t ready yet.");
     await transmitMessage({
-      id, device, signal, peerId: context.peer.id, messageId, payload, send,
+      id, device, signal, peerId: current.peer.id, messageId, payload, send,
       onStale: () => refreshNow(),
-      onContext: (next) => {
-        if (signal.aborted) return;
-        contextRef.current = next;
-        setContext(next);
-      },
     });
-  }
+  }, [id, device, refreshNow]);
 
   const sentInRequest = useMemo(
     () => (messages ?? []).filter((message) => message.senderId === device.userId).length,
@@ -310,7 +349,8 @@ export function Thread({ id, device, onChange, onClose, renderCloseConfirmation 
   );
   const asked = context?.inviteStatus === "pending" && context.invitedBy === device.userId;
   const accepted = context?.inviteStatus === "accepted";
-  const requestOpen = asked && Math.max(sentInRequest, context.requestSent) < requestLimit;
+  const requestCount = Math.max(context?.requestSent ?? 0, sentInRequest + outbox.filter(({ delivery }) => delivery !== "failed").length);
+  const requestOpen = asked && requestCount < requestLimit;
   const peer = context?.peer;
   const needsDevice = !!context && !context.theirs?.active.length;
   const paused = !!context && (context.peerOptedOut || context.selfOptedOut);
@@ -318,55 +358,72 @@ export function Thread({ id, device, onChange, onClose, renderCloseConfirmation 
   const payload = encodePayload({ text: withEmoji(draft.trim()), reply: replyTo?.id });
   const tooLong = new TextEncoder().encode(payload).length > messageByteLimit;
 
-  async function sendParts(parts: Omit<MessagePayload, "text"> & { text?: string }, attachmentId?: string) {
-    const signal = operations.current?.signal;
-    const text = withEmoji(parts.text ?? "");
-    const reply = replyTo?.id;
-    const body = encodePayload({ ...parts, text, reply });
-    if (sending || !canSend || !signal || (!text && !parts.gif && !parts.poll && !parts.voice) || new TextEncoder().encode(body).length > messageByteLimit) return false;
-    setSending(true);
+  const deliver = useCallback(async (message: OutgoingMessage) => {
+    const signal = sendingLifetime.current?.signal;
+    if (sendBusy.current || sending || !signal || signal.aborted) return;
+    sendBusy.current = true;
     setActionError("");
-    const key = JSON.stringify([text, reply, parts.gif?.url, parts.poll?.title, parts.voice?.id]);
-    if (pending.current?.text !== key) pending.current = { id: crypto.randomUUID(), text: key, reply };
+    setOutbox((current) => current.some(({ id }) => id === message.id)
+      ? current.map((entry) => entry.id === message.id ? { ...message, delivery: "sending" } : entry)
+      : [...current, { ...message, delivery: "sending" }]);
     try {
-      await transmit(pending.current.id, body, (encrypted, signal) => dmApi.send(id, attachmentId ? { ...encrypted, attachmentId } : encrypted, signal));
-      if (signal.aborted) return false;
-      pending.current = undefined;
-      setReplyTo(null);
-      typingSent.current = 0;
-      stickToBottom.current = true;
-      refreshNow(false);
+      await transmit(message.id, encodePayload(message), (encrypted, signal) =>
+        dmApi.send(id, message.voice ? { ...encrypted, attachmentId: message.voice.id } : encrypted, signal), signal);
+      if (signal.aborted) return;
+      setOutbox((current) => current.map((entry) => entry.id === message.id ? { ...entry, delivery: "sent" } : entry));
       onChange();
-      return true;
     } catch (error) {
-      if (!signal.aborted) setActionError(dmError(error));
-      return false;
+      if (!signal.aborted) {
+        setOutbox((current) => current.map((entry) => entry.id === message.id
+          ? { ...entry, delivery: "failed", error: dmError(error) }
+          : entry));
+      }
     } finally {
-      if (!signal.aborted) setSending(false);
+      sendBusy.current = false;
     }
+  }, [id, onChange, sending, sendingLifetime, setOutbox, transmit]);
+
+  function sendParts(parts: Omit<MessagePayload, "text"> & { text?: string }) {
+    const text = withEmoji(parts.text ?? "");
+    const message = {
+      ...parts, text, reply: replyTo?.id, id: crypto.randomUUID(), senderId: device.userId,
+      createdAt: new Date().toISOString(), delivery: "sending",
+    } satisfies OutgoingMessage;
+    if (sendBusy.current || sending || !canSend || (!text && !parts.gif && !parts.poll && !parts.voice)
+      || new TextEncoder().encode(encodePayload(message)).length > messageByteLimit) return false;
+    setReplyTo(null);
+    typingSent.current = 0;
+    stickToBottom.current = true;
+    setNewMessages(0);
+    void deliver(message);
+    return true;
   }
 
-  async function submit(event?: FormEvent) {
+  function submit(event?: FormEvent) {
     event?.preventDefault();
     if (!draft.trim() || tooLong) return;
-    if (await sendParts({ text: draft.trim() })) setDraft("");
+    if (sendParts({ text: draft.trim() })) setDraft("");
   }
 
   async function sendVoice({ blob, seconds, wave, mime }: Recorded) {
     setRecording(false);
     const signal = operations.current?.signal;
-    if (!signal || sending) return;
-    setSending(true);
+    if (!signal || sending || sendBusy.current) return;
+    sendBusy.current = true;
+    setUploading(true);
     setActionError("");
     try {
       const { data, key, iv } = await encryptFile(blob);
       const attachmentId = await dmApi.upload(id, data as Uint8Array<ArrayBuffer>, signal);
-      setSending(false);
-      await sendParts({ voice: { id: attachmentId, key, iv, mime, seconds, wave } }, attachmentId);
+      if (signal.aborted) return;
+      sendBusy.current = false;
+      setUploading(false);
+      sendParts({ voice: { id: attachmentId, key, iv, mime, seconds, wave } });
     } catch (error) {
+      sendBusy.current = false;
       if (!signal.aborted) {
         setActionError(dmError(error));
-        setSending(false);
+        setUploading(false);
       }
     }
   }
@@ -380,6 +437,9 @@ export function Thread({ id, device, onChange, onClose, renderCloseConfirmation 
   }
 
   const byId = useMemo(() => new Map((messages ?? []).map((message) => [message.id, message])), [messages]);
+  const dismissOutgoing = useCallback((id: string) => {
+    setOutbox((current) => current.filter((entry) => entry.id !== id));
+  }, [setOutbox]);
 
   const actions = useMemo<RowActions>(() => ({
     reply(message) {
@@ -416,21 +476,18 @@ export function Thread({ id, device, onChange, onClose, renderCloseConfirmation 
       }
     },
     jump(messageId) {
-      const element = scroller.current?.querySelector(`[data-message-id="${CSS.escape(messageId)}"]`);
-      if (!element) return;
-      element.scrollIntoView({ block: "center", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+      historyWindow.current?.scrollToMessage(messageId);
       setFlashId(messageId);
       setTimeout(() => setFlashId((current) => current === messageId ? null : current), 1400);
     },
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [id, refreshOne, context]);
+  }), [id, refreshOne, transmit]);
 
   useEffect(() => {
     loadOlderRef.current = () => void loadOlder();
   });
 
   useEffect(() => {
-    if (!jumpTo || !messages || loadingOlder) return;
+    if (!jumpTo || !messages || loadingOlder || olderError) return;
     const done = () => {
       jumpTries.current = 0;
       setParams((current) => { const next = new URLSearchParams(current); next.delete("m"); return next; }, { replace: true });
@@ -442,7 +499,7 @@ export function Thread({ id, device, onChange, onClose, renderCloseConfirmation 
     if (more && jumpTries.current++ < 40) loadOlderRef.current();
     else done();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [jumpTo, messages, more, loadingOlder]);
+  }, [jumpTo, messages, more, loadingOlder, olderError]);
 
   async function deleteMessage() {
     const target = deleting;
@@ -553,31 +610,56 @@ export function Thread({ id, device, onChange, onClose, renderCloseConfirmation 
         </div>
       )}
 
-      <div ref={scroller} onScroll={(event) => {
-        const element = event.currentTarget;
-        stickToBottom.current = element.scrollHeight - element.clientHeight - element.scrollTop < 64;
-      }} tabIndex={0} aria-label="Message history" className="min-h-0 flex-1 overflow-y-auto overscroll-contain outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
-        <div ref={content} className="flex min-h-full flex-col justify-end px-2 pt-6 pb-2 sm:px-3">
-          {more && (
-            <div ref={older} className="flex h-8 items-center justify-center gap-2 text-xs text-muted-foreground" aria-live="polite">
-              {loadingOlder && <><LoaderCircle aria-hidden="true" className="size-3.5 animate-spin motion-reduce:animate-none" /> Loading earlier messages…</>}
-            </div>
-          )}
-          {hasHistory && messages?.length === 0 && !readError && (
-            <p className="px-2 text-sm text-muted-foreground">
-              {needsDevice || paused || asked ? "No messages yet." : accepted ? "No messages on this device yet." : null}
-            </p>
-          )}
-          {hasHistory && messages && messages.length > 0 && (
-            <MessageRows
-              messages={messages} context={context} conversationId={id} byId={byId} actions={actions} acknowledge={acknowledge}
-              editingId={editingId} setEditingId={setEditingId} selectedId={selectedId} setSelectedId={setSelectedId}
-              flashId={flashId} canWrite={accepted}
-            />
-          )}
-          {blocked && !locked && <p className="px-2 pt-3 text-sm text-muted-foreground">@{context.peer.handle} isn’t accepting messages from you.</p>}
-          {typing && peer && accepted && <TypingBubble user={peer} />}
+      <div className="relative flex min-h-0 flex-1 flex-col">
+        <div ref={setScroller} onScroll={(event) => {
+          const element = event.currentTarget;
+          stickToBottom.current = element.scrollHeight - element.clientHeight - element.scrollTop < 64;
+          if (stickToBottom.current) setNewMessages(0);
+        }} tabIndex={0} aria-label="Message history" className="min-h-0 flex-1 overflow-y-auto overscroll-contain outline-none [overflow-anchor:none] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
+          <div ref={setContent} className="flex min-h-full flex-col justify-end overflow-x-clip px-2 pt-6 pb-2 sm:px-3">
+            {more && (
+              <div ref={older} className="h-25 shrink-0">
+                {loadingOlder && <span role="status" className="sr-only">Fetching earlier messages</span>}
+                {olderError ? (
+                  <div className="flex h-full items-center justify-center">
+                    <Button type="button" variant="ghost" size="sm" onClick={() => void loadOlder()}>
+                      Retry earlier messages
+                    </Button>
+                  </div>
+                ) : <EarlierMessagesSkeleton />}
+              </div>
+            )}
+            {hasHistory && messages?.length === 0 && !outbox.length && !readError && (
+              <p className="px-2 text-sm text-muted-foreground">
+                {needsDevice || paused || asked ? "No messages yet." : accepted ? "No messages on this device yet." : null}
+              </p>
+            )}
+            {scroller && content && hasHistory && messages && (messages.length > 0 || outbox.length > 0) && (
+              <MessageRows
+                historyWindow={historyWindow} scroller={scroller} content={content} stickToBottom={stickToBottom}
+                messages={messages} outbox={outbox} peer={context.peer} self={context.self} conversationId={id} byId={byId} actions={actions} acknowledge={acknowledge}
+                editingId={editingId} setEditingId={setEditingId} selectedId={selectedId} setSelectedId={setSelectedId}
+                flashId={flashId} fadingOlder={fadingOlder} canWrite={accepted} retry={deliver} dismiss={dismissOutgoing}
+                retryDisabled={sending || paused || needsDevice || !!context.peerIdentity || blocked || blocker}
+              />
+            )}
+            {blocked && !locked && <p className="px-2 pt-3 text-sm text-muted-foreground">@{context.peer.handle} isn’t accepting messages from you.</p>}
+            {typing && peer && accepted && <TypingBubble user={peer} />}
+          </div>
         </div>
+        {newMessages > 0 && (
+          <Button type="button" variant="outline" size="sm" className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-background shadow-sm"
+            onClick={() => {
+              const element = scroller;
+              if (!element) return;
+              stickToBottom.current = true;
+              element.scrollTop = element.scrollHeight;
+              setNewMessages(0);
+              element.focus({ preventScroll: true });
+            }}>
+            <ArrowDown aria-hidden="true" /> {newMessages} new {newMessages === 1 ? "message" : "messages"}
+          </Button>
+        )}
       </div>
 
       {readError && <div className="flex shrink-0 items-center justify-between gap-2 px-4 py-1 text-xs text-destructive">
@@ -607,14 +689,14 @@ export function Thread({ id, device, onChange, onClose, renderCloseConfirmation 
         </div>
       )}
       {(accepted || asked) && (
-        <form onSubmit={(event) => void submit(event)} className="shrink-0 px-3 pt-1 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+        <form onSubmit={submit} className="shrink-0 px-3 pt-1 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
           {needsDevice || paused ? (
             <p role="status" className="mx-auto flex w-fit max-w-full items-center gap-2 rounded-full border border-border bg-muted/50 px-4 py-2 text-center text-sm text-muted-foreground">
               <ShieldQuestion aria-hidden="true" className="size-4 shrink-0" />
               <span>
                 {context.selfOptedOut ? "You turned Messages off. Turn them back on from Chat devices to write here."
                   : context.peerOptedOut ? `@${context.peer.handle} has turned off Messages.`
-                  : `@${context.peer.handle} has turned off Messages.`}
+                  : `@${context.peer.handle} needs a verified device to receive messages.`}
               </span>
             </p>
           ) : null}
@@ -651,7 +733,6 @@ export function Thread({ id, device, onChange, onClose, renderCloseConfirmation 
                     onChange={(event) => onDraft(event.target.value)}
                     placeholder={!canSend && !accepted && !requestOpen ? "Waiting for them to accept" : peer ? `Message @${peer.handle}` : "Message"}
                     disabled={!canSend}
-                    readOnly={sending}
                     rows={1}
                     dropUp
                     wrapperClassName="relative min-w-0 flex-1"
@@ -662,11 +743,12 @@ export function Thread({ id, device, onChange, onClose, renderCloseConfirmation 
                         setReplyTo(null);
                       } else if (event.key === "Enter" && !event.shiftKey && !window.matchMedia("(pointer: coarse)").matches) {
                         event.preventDefault();
-                        void submit();
+                        submit();
                       }
                     }}
                   />
-                  <Button type="submit" size="icon" className="shrink-0 rounded-lg" aria-label="Send message" disabled={!canSend || sending || tooLong || !draft.trim()}>
+                  <Button type="submit" size="icon" className="shrink-0 rounded-lg" aria-label="Send message" disabled={!canSend || sending || tooLong || !draft.trim()}
+                    onMouseDown={(event) => { if (document.activeElement === composer.current) event.preventDefault(); }}>
                     <SendHorizontal aria-hidden="true" />
                   </Button>
                 </>
@@ -689,10 +771,13 @@ export function Thread({ id, device, onChange, onClose, renderCloseConfirmation 
 }
 
 const MessageRows = memo(function MessageRows({
-  messages, context, conversationId, byId, actions, acknowledge, editingId, setEditingId, selectedId, setSelectedId, flashId, canWrite,
+  messages, outbox, peer, self, conversationId, byId, actions, acknowledge, editingId, setEditingId, selectedId, setSelectedId,
+  flashId, fadingOlder, canWrite, retry, dismiss, retryDisabled, historyWindow, scroller, content, stickToBottom,
 }: {
   messages: DisplayMessage[];
-  context: Context;
+  outbox: OutgoingMessage[];
+  peer: Context["peer"];
+  self: Context["self"];
   conversationId: string;
   byId: Map<string, DisplayMessage>;
   actions: RowActions;
@@ -702,45 +787,123 @@ const MessageRows = memo(function MessageRows({
   selectedId: string | null;
   setSelectedId: (id: string | null) => void;
   flashId: string | null;
+  fadingOlder?: ReadonlySet<string>;
   canWrite: boolean;
+  retry: (message: OutgoingMessage) => void;
+  dismiss: (id: string) => void;
+  retryDisabled: boolean;
+  historyWindow: RefObject<{ scrollToMessage: (id: string) => void } | null>;
+  scroller: HTMLDivElement;
+  content: HTMLDivElement;
+  stickToBottom: RefObject<boolean>;
 }) {
   const list = useRef<HTMLOListElement>(null);
-  useVisibleMessageReads(list, messages, acknowledge);
+  const [focusedId, setFocusedId] = useState<string>();
+  const [interacting, setInteracting] = useState(new Set<string>());
+  useVisibleMessageReads(list, acknowledge);
+  const rows = useMemo(() => {
+    const timeline = [...messages, ...outbox];
+    return timeline.map((message, index) => {
+      const previous = timeline[index - 1];
+      const date = new Date(message.createdAt);
+      const day = dateFormat.format(date);
+      const newDay = !previous || dateFormat.format(new Date(previous.createdAt)) !== day;
+      const withHeader = newDay || previous.senderId !== message.senderId
+        || date.getTime() - Date.parse(previous.createdAt) > 5 * 60_000 || !!message.reply;
+      const estimatedHeight = (withHeader ? 55 : 28) + (newDay ? 38 : 0) + (message.reply ? 18 : 0)
+        + (message.text ? Math.floor(message.text.length / 55) * 20 : 0)
+        + (message.gif ? 180 : message.voice ? 66 : message.poll ? 110 : 0);
+      return { id: message.id, estimatedHeight, message, day, newDay, withHeader, sender: message.senderId === self.id ? self : peer };
+    });
+  }, [messages, outbox, self, peer]);
+  const retained = useMemo(() => {
+    const ids = new Set(interacting);
+    if (selectedId) ids.add(selectedId);
+    if (focusedId) ids.add(focusedId);
+    if (editingId) ids.add(editingId);
+    return ids;
+  }, [editingId, focusedId, interacting, selectedId]);
+  const { height, positions, offsets, observeRow, scrollToMessage } = useMessageWindow({
+    items: rows, list, scroller, content, stickToBottom, retained,
+  });
+  useImperativeHandle(historyWindow, () => ({
+    scrollToMessage(id) {
+      stickToBottom.current = false;
+      scrollToMessage(id);
+    },
+  }), [scrollToMessage, stickToBottom]);
+  const onInteraction = useCallback((id: string, active: boolean) => {
+    setInteracting((current) => {
+      if (active === current.has(id)) return current;
+      const next = new Set(current);
+      if (active) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }, []);
+
   return (
-    <ol ref={list} aria-label="Messages" className="space-y-px">
-      {messages.map((message, index) => {
-        const previous = messages[index - 1];
-        const date = new Date(message.createdAt);
-        const day = dateFormat.format(date);
-        const newDay = !previous || dateFormat.format(new Date(previous.createdAt)) !== day;
-        const withHeader = newDay || previous.senderId !== message.senderId
-          || date.getTime() - Date.parse(previous.createdAt) > 5 * 60_000 || !!message.reply;
-        const sender = message.senderId === context.self.id ? context.self : context.peer;
+    <ol ref={list} aria-label="Messages" data-selecting={!!selectedId && byId.has(selectedId) || undefined}
+      className="relative shrink-0 [&[data-selecting]>li:not(:has([data-selected]))]:blur-[1.5px]" style={{ height }}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) setFocusedId(undefined);
+      }}>
+      {positions.map((position) => {
+        const { message, day, newDay, withHeader, sender } = rows[position];
         const original = message.reply ? byId.get(message.reply) : undefined;
+        const pending = "delivery" in message;
         return (
-          <li key={message.id} data-readable-message={message.text !== null && sender.id === context.peer.id ? message.id : undefined}>
+          <MessageListItem key={message.id} id={message.id} top={offsets[position]} position={position}
+            count={rows.length} readable={message.text !== null && sender.id === peer.id} fading={fadingOlder?.has(message.id)}
+            observe={observeRow} onFocus={setFocusedId}>
             {newDay && <div className="my-3 flex items-center gap-3 text-xs text-muted-foreground before:h-px before:flex-1 before:bg-border after:h-px after:flex-1 after:bg-border">{day}</div>}
             <MessageRow
               message={message}
               sender={sender}
-              peer={context.peer}
-              selfId={context.self.id}
+              peer={peer}
+              self={self}
               conversationId={conversationId}
               withHeader={withHeader}
-              replied={original ? { sender: original.senderId === context.self.id ? context.self : context.peer, text: snippet(original.text) } : null}
+              replied={original}
               editing={editingId === message.id}
-              onEditing={(editing) => setEditingId(editing ? message.id : null)}
+              onEditing={setEditingId}
               flash={flashId === message.id}
               selected={selectedId === message.id}
-              onSelect={(selected) => setSelectedId(selected ? message.id : null)}
+              onSelect={setSelectedId}
               actions={actions}
               canWrite={canWrite}
+              retry={pending ? retry : undefined}
+              dismiss={pending ? dismiss : undefined}
+              sending={pending && retryDisabled}
+              onInteraction={onInteraction}
             />
-          </li>
+          </MessageListItem>
         );
       })}
     </ol>
   );
 });
 
-
+function MessageListItem({ id, top, position, count, readable, fading, observe, onFocus, children }: {
+  id: string;
+  top: number;
+  position: number;
+  count: number;
+  readable: boolean;
+  fading?: boolean;
+  observe: (id: string, row: HTMLLIElement) => () => void;
+  onFocus: (id: string) => void;
+  children: React.ReactNode;
+}) {
+  const ref = useCallback((row: HTMLLIElement | null) => {
+    if (row) return observe(id, row);
+  }, [id, observe]);
+  return (
+    <li ref={ref} data-virtual-message={id} data-readable-message={readable ? id : undefined}
+      aria-posinset={position + 1} aria-setsize={count} tabIndex={-1} onFocus={() => onFocus(id)}
+      className={`absolute inset-x-0 pb-px outline-none has-[[data-selected]]:z-20 ${fading ? "animate-in fade-in-0 motion-reduce:animate-none" : ""}`}
+      style={{ top, animationDuration: fading ? olderFadeMs + "ms" : undefined }}>
+      {children}
+    </li>
+  );
+}

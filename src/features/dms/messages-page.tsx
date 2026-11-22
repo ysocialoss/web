@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactElement } from "react";
-import { LoaderCircle, MessageSquarePlus } from "lucide-react";
+import { MessageSquarePlus } from "lucide-react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { Button } from "@/components/ui/button";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
@@ -15,7 +15,8 @@ import { useDmUnread } from "./dm-unread";
 import { openConversation } from "./dm-send";
 import { NewMessageDialog } from "./new-message-dialog";
 import { MessagingOff, useMessagingPreference } from "./messaging-preference";
-import { ChatDevicesSkeleton, MessagesLayout, MessagesSkeleton } from "./messages-loading";
+import { ChatDevicesSkeleton, MessagesLayout, MessagesSkeleton, ThreadSkeleton } from "./messages-loading";
+import type { OutgoingMessage } from "./message-row";
 import { Thread } from "./thread";
 
 export function MessagesPage({ session, sessionError, managingDevices = false }: { session: Session | null; sessionError: string; managingDevices?: boolean }) {
@@ -39,12 +40,13 @@ export function MessagesPage({ session, sessionError, managingDevices = false }:
   }
   return (
     <DmDeviceGate key={session.user.id} userId={session.user.id} managingDevices={managingDevices} loading={loading}>
-      {(device, pending) => <Inbox device={device} conversationId={conversationId} pending={pending} />}
+      {(device, pending) => <Inbox key={device.id} device={device} conversationId={conversationId} pending={pending} />}
     </DmDeviceGate>
   );
 }
 
 const inboxChange = (event: { type: string }) => event.type === "conversation" ? true : undefined;
+const emptyOutbox: OutgoingMessage[] = [];
 
 function Inbox({ device, conversationId, pending }: { device: LocalDevice; conversationId?: string; pending: number }) {
   const [conversations, setConversations] = useState<Conversation[]>();
@@ -52,6 +54,9 @@ function Inbox({ device, conversationId, pending }: { device: LocalDevice; conve
   const [composing, setComposing] = useState(false);
   const [closingId, setClosingId] = useState<string>();
   const [closeError, setCloseError] = useState("");
+  const [outboxes, setOutboxes] = useState(new Map<string, OutgoingMessage[]>());
+  const drafts = useRef(new Map<string, string>());
+  const sendingLifetime = useRef<AbortController | null>(null);
   const mobile = useIsMobile();
   const [typing, setTyping] = useState<ReadonlySet<string>>(new Set());
   const [query] = useSearchParams();
@@ -60,6 +65,24 @@ function Inbox({ device, conversationId, pending }: { device: LocalDevice; conve
   const messaging = useMessagingPreference(device);
   const navigate = useNavigate();
   const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+
+  useEffect(() => {
+    const controller = new AbortController();
+    sendingLifetime.current = controller;
+    return () => controller.abort();
+  }, []);
+
+  const updateOutbox = useCallback((id: string, update: (current: OutgoingMessage[]) => OutgoingMessage[]) => {
+    setOutboxes((current) => {
+      const previous = current.get(id) ?? emptyOutbox;
+      const next = update(previous);
+      if (next === previous) return current;
+      const updated = new Map(current);
+      if (next.length) updated.set(id, next);
+      else updated.delete(id);
+      return updated;
+    });
+  }, []);
 
   const refresh = useCallback(async (signal: AbortSignal) => {
     try {
@@ -72,7 +95,7 @@ function Inbox({ device, conversationId, pending }: { device: LocalDevice; conve
       if (!signal.aborted) setError(dmError(error));
     }
   }, [device]);
-  const refreshNow = useDmUpdates(device.userId, refresh, inboxChange);
+  const refreshNow = useDmUpdates(device.userId, refresh, inboxChange, 80);
   const changed = useCallback(() => {
     refreshNow();
     refreshUnread();
@@ -153,7 +176,11 @@ function Inbox({ device, conversationId, pending }: { device: LocalDevice; conve
       {target && !conversationId ? (
         <OpenTarget key={target} handle={target} device={device} onOpened={changed} />
       ) : conversationId ? (
-        <Thread key={conversationId} id={conversationId} device={device} onChange={changed} onClose={() => requestClose(conversationId)} renderCloseConfirmation={closeConfirmation} />
+        <Thread
+          key={conversationId} id={conversationId} device={device} drafts={drafts} outbox={outboxes.get(conversationId) ?? emptyOutbox}
+          updateOutbox={updateOutbox} sendingLifetime={sendingLifetime} onChange={changed}
+          onClose={() => requestClose(conversationId)} renderCloseConfirmation={closeConfirmation}
+        />
       ) : (
         <div className="hidden flex-1 flex-col items-center justify-center gap-3 p-6 text-center md:flex">
           <MessageSquarePlus aria-hidden="true" className="size-8 text-muted-foreground" />
@@ -191,22 +218,14 @@ function OpenTarget({ handle, device, onOpened }: { handle: string; device: Loca
     });
     return () => { active = false; };
   }, [handle, device, navigate, onOpened, attempt]);
+  if (!error) return <ThreadSkeleton />;
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center text-sm text-muted-foreground">
-      {error ? (
-        <>
-          <p role="alert" className="text-destructive">{error}</p>
-          <div className="flex gap-2">
-            <Button size="sm" variant="outline" onClick={() => { setError(""); setAttempt((n) => n + 1); }}>Try again</Button>
-            <Button size="sm" variant="ghost" render={<Link to="/messages" />} nativeButton={false}>Back to messages</Button>
-          </div>
-        </>
-      ) : (
-        <>
-          <LoaderCircle aria-hidden="true" className="size-5 animate-spin motion-reduce:animate-none" />
-          <p role="status">Opening your conversation with @{handle.replace(/^@/, "")}…</p>
-        </>
-      )}
+      <p role="alert" className="text-destructive">{error}</p>
+      <div className="flex gap-2">
+        <Button size="sm" variant="outline" onClick={() => { setError(""); setAttempt((n) => n + 1); }}>Try again</Button>
+        <Button size="sm" variant="ghost" render={<Link to="/messages" />} nativeButton={false}>Back to messages</Button>
+      </div>
     </div>
   );
 }

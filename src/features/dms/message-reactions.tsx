@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type Ref } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Ellipsis } from "lucide-react";
 import { Reactions, type Reaction, type ReactionChoice, type ReactionsHandle } from "@/components/ui/reactions";
@@ -44,10 +44,8 @@ function single(next: Reaction[], previous: Reaction[]) {
     .filter((reaction) => reaction.count > 0);
 }
 
-export type MessageReactionsHandle = Pick<ReactionsHandle, "open">;
-
 export function MessageReactions({
-  reactions, selfId, peerName, onReact, onFailed, onOpenChange, ref,
+  reactions, selfId, peerName, onReact, onFailed, onOpenChange,
 }: {
   reactions: WireReaction[];
   selfId: string;
@@ -55,7 +53,6 @@ export function MessageReactions({
   onReact: (emoji: string | null) => Promise<unknown>;
   onFailed: () => void;
   onOpenChange?: (open: boolean) => void;
-  ref?: Ref<MessageReactionsHandle>;
 }) {
   const server = useMemo(() => derive(reactions, selfId, peerName), [reactions, selfId, peerName]);
   const [local, setLocal] = useState(server);
@@ -68,7 +65,6 @@ export function MessageReactions({
   const [picking, setPicking] = useState(false);
   const [tray, setTray] = useState(false);
   useEffect(() => onOpenChange?.(tray || picking), [tray, picking, onOpenChange]);
-  useImperativeHandle(ref, () => ({ open: (anchor, keyboard) => handle.current?.open(anchor, keyboard) }), []);
   const [place, setPlace] = useState<{ left: number; width: number; maxHeight: number; top?: number; bottom?: number }>();
   useEffect(() => {
     if (!picking) return;

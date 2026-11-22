@@ -101,8 +101,7 @@ export function EmojiPicker({ onPick }: { onPick: (emoji: string) => void }) {
           </Tooltip>
         ))}
       </div>
-      <div ref={grid} id={listId} role="listbox" aria-label="Emoji" className="relative grid h-56 min-h-0 min-w-0 auto-rows-[minmax(2.25rem,max-content)] grid-cols-8 content-start gap-0.5 overflow-x-hidden overflow-y-auto overscroll-contain [scrollbar-gutter:stable]">
-        {!index && <p role="status" className="col-span-8 py-6 text-center text-sm text-muted-foreground">Loading emoji…</p>}
+      <div ref={grid} id={listId} role="listbox" aria-label="Emoji" aria-busy={!index} className="relative grid h-56 min-h-0 min-w-0 auto-rows-[minmax(2.25rem,max-content)] grid-cols-8 content-start gap-0.5 overflow-x-hidden overflow-y-auto overscroll-contain [scrollbar-gutter:stable]">
         {index && shown.length === 0 && <p className="col-span-8 py-6 text-center text-sm text-muted-foreground">No emoji found.</p>}
         {shown.map(({ emoji, name }, position) => (
           <button

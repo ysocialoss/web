@@ -4,7 +4,7 @@ import { z } from "zod";
 const eventSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("ready") }),
   z.object({ type: z.literal("devices") }),
-  z.object({ type: z.literal("conversation"), id: z.uuid(), roster: z.boolean(), message: z.uuid().optional() }),
+  z.object({ type: z.literal("conversation"), id: z.uuid(), roster: z.boolean(), message: z.uuid().optional(), read: z.literal(true).optional() }),
   z.object({ type: z.literal("typing"), id: z.uuid(), userId: z.uuid() }),
   z.object({ type: z.literal("notifications") }),
   z.object({ type: z.literal("previews"), hidden: z.boolean() }),
@@ -107,13 +107,14 @@ export function subscribeDm(userId: string, listener: Listener) {
 
 type Refresh = (signal: AbortSignal, full: boolean) => Promise<void>;
 
-export function useDmUpdates(userId: string, refresh: Refresh, match: (event: DmLiveEvent) => boolean | undefined) {
+export function useDmUpdates(userId: string, refresh: Refresh, match: (event: DmLiveEvent) => boolean | undefined, batchMs = 0) {
   const request = useRef<((full?: boolean) => void) | null>(null);
   useEffect(() => {
     const controller = new AbortController();
     let busy = false;
     let queued: boolean | undefined;
     let online = false;
+    let batch: ReturnType<typeof setTimeout> | undefined;
 
     async function drain() {
       busy = true;
@@ -128,9 +129,19 @@ export function useDmUpdates(userId: string, refresh: Refresh, match: (event: Dm
       }
     }
 
-    function schedule(full: boolean) {
+    function schedule(full: boolean, deferred = false) {
       queued = !!queued || full;
-      if (!busy && !document.hidden) void drain();
+      if (busy || document.hidden) return;
+      if (deferred && batchMs) {
+        batch ??= setTimeout(() => {
+          batch = undefined;
+          if (!busy) void drain();
+        }, batchMs);
+        return;
+      }
+      clearTimeout(batch);
+      batch = undefined;
+      void drain();
     }
 
     const refreshNow = (full = true) => schedule(full);
@@ -143,20 +154,21 @@ export function useDmUpdates(userId: string, refresh: Refresh, match: (event: Dm
         online = false;
       } else {
         const mode = match(event);
-        if (mode !== undefined) schedule(mode);
+        if (mode !== undefined) schedule(mode, true);
       }
     });
     const fallback = setInterval(() => { if (!online) refreshNow(); }, 25_000);
     const onVisibility = () => { if (!document.hidden) refreshNow(); };
     document.addEventListener("visibilitychange", onVisibility);
-    refreshNow();
+    if (!online) refreshNow();
     return () => {
       controller.abort();
+      clearTimeout(batch);
       clearInterval(fallback);
       unsubscribe();
       request.current = null;
       document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [userId, refresh, match]);
+  }, [userId, refresh, match, batchMs]);
   return useCallback((full = true) => request.current?.(full), []);
 }

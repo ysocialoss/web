@@ -40,7 +40,7 @@ export function AttachMenu({ disabled, onVoice, onGif, onPoll }: {
         ]}
       />
       <Dialog open={gifs} onOpenChange={setGifs}>
-        {gifs && <GifPicker onSelect={(item: GifSearchItem) => {
+        {gifs && <GifPicker infiniteScroll onSelect={(item: GifSearchItem) => {
           setGifs(false);
           onGif({ url: item.url, previewUrl: item.previewUrl, title: item.title.slice(0, 200), width: item.width, height: item.height });
         }} />}
