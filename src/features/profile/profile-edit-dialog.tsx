@@ -1,21 +1,34 @@
-import type { ReactNode } from "react";
+import { useState, type ComponentProps, type ReactNode } from "react";
 import { Link2, Paintbrush, UserRound } from "lucide-react";
-import { ComingSoonContent } from "@/components/coming-soon-content";
+import { GithubSettings } from "@/features/settings/github-settings";
+import { ConnectionsPanel } from "@/features/settings/connections-panel";
 import {
+  Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import type { api, Profile } from "@/lib/api";
+import { ProfileForm } from "./profile-form";
+
+export type ProfileEditTab = "profile" | "paint" | "connections";
 
 export function ProfileEditDialogContent({
   children,
   paint,
   saving,
+  tab,
+  onTabChange,
+  onGithubChange,
 }: {
   children: ReactNode;
+  /** Content of the Paint tab; the tab is shown only when given. */
   paint?: ReactNode;
   saving: boolean;
+  tab?: ProfileEditTab;
+  onTabChange?: (tab: ProfileEditTab) => void;
+  onGithubChange?: ComponentProps<typeof GithubSettings>["onGithubChange"];
 }) {
   return (
     <DialogContent
@@ -27,7 +40,15 @@ export function ProfileEditDialogContent({
           Edit profile
         </DialogTitle>
       </DialogHeader>
-      <Tabs defaultValue="profile" className="min-w-0 gap-5">
+      <Tabs
+        className="min-w-0 gap-5"
+        defaultValue="profile"
+        value={tab}
+        onValueChange={(value) => {
+          if (value === "profile" || value === "paint" || value === "connections")
+            onTabChange?.(value);
+        }}
+      >
         <TabsList aria-label="Edit profile sections" className="w-full">
           <TabsTrigger value="profile" disabled={saving}>
             <UserRound aria-hidden="true" />
@@ -53,9 +74,68 @@ export function ProfileEditDialogContent({
           </TabsContent>
         )}
         <TabsContent value="connections" className="inert:hidden">
-          <ComingSoonContent title="Connections" />
+          <ConnectionsPanel returnTo="profile" onGithubChange={onGithubChange} />
         </TabsContent>
       </Tabs>
     </DialogContent>
+  );
+}
+
+type ProfileFields = Pick<
+  Profile["profile"],
+  "handle" | "displayName" | "bio" | "pronouns"
+>;
+
+export function EditProfileDialog({
+  open,
+  onOpenChange,
+  tab,
+  onTabChange,
+  userId,
+  profile,
+  onSaved,
+  onGithubChange,
+  paint,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  tab: ProfileEditTab;
+  onTabChange: (tab: ProfileEditTab) => void;
+  userId: string;
+  profile: ProfileFields;
+  onSaved: (updated: Awaited<ReturnType<typeof api.updateProfile>>) => void;
+  onGithubChange?: ComponentProps<typeof GithubSettings>["onGithubChange"];
+  paint?: ReactNode;
+}) {
+  const [saving, setSaving] = useState(false);
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!saving) onOpenChange(next);
+      }}
+    >
+      <ProfileEditDialogContent
+        saving={saving}
+        tab={tab}
+        onTabChange={onTabChange}
+        onGithubChange={onGithubChange}
+        paint={paint}
+      >
+        {open && (
+          <ProfileForm
+            appearance="dialog"
+            userId={userId}
+            profile={profile}
+            onSavingChange={setSaving}
+            onCancel={() => onOpenChange(false)}
+            onSaved={(updated) => {
+              onSaved(updated);
+              onOpenChange(false);
+            }}
+          />
+        )}
+      </ProfileEditDialogContent>
+    </Dialog>
   );
 }

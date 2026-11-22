@@ -1,9 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import NumberFlow from "@number-flow/react";
 import {
-  Check,
   Heart,
-  Link2,
   MessageCircle,
   Quote,
   Repeat2,
@@ -15,6 +13,7 @@ import { ActionMenu } from "@/components/ui/action-menu";
 import { IconButton } from "@/components/ui/icon-button";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/lib/utils";
+import { ShareButton } from "@/features/sharing/share-button";
 import { countFormat } from "@/lib/count-format";
 import type { Post } from "@/lib/api";
 import { toast } from "@/components/ui/toast-manager";
@@ -35,7 +34,7 @@ export function PostActions({ post, feed }: { post: Post; feed: FeedState }) {
       title: feed.authenticated
         ? `Choose a handle to ${action} posts`
         : `Log in to ${action} posts`,
-      timeout: 5000,
+      timeout: 4000,
       actionProps: feed.authenticated
         ? {
             children: "Finish profile",
@@ -150,56 +149,14 @@ export function PostActions({ post, feed }: { post: Post; feed: FeedState }) {
           repostButton
         );
       })()}
-      <CopyLinkButton post={post} feed={feed} disabled={optimistic} />
+      <ShareButton
+        target={{ kind: "post", id: post.id }}
+        viewerId={feed.viewerId}
+        disabled={optimistic}
+      />
       {quoting && (
         <QuoteDialog post={post} feed={feed} open={quoting} onOpenChange={setQuoting} />
       )}
     </div>
-  );
-}
-
-function CopyLinkButton({
-  post,
-  feed,
-  disabled,
-}: {
-  post: Post;
-  feed: FeedState;
-  disabled: boolean;
-}) {
-  const [copied, setCopied] = useState(false);
-  const timer = useRef<number | undefined>(undefined);
-  useEffect(() => () => window.clearTimeout(timer.current), []);
-  async function copy() {
-    if (!(await feed.copyPostLink(post))) return;
-    setCopied(true);
-    window.clearTimeout(timer.current);
-    timer.current = window.setTimeout(() => setCopied(false), 1800);
-  }
-  const icon = "col-start-1 row-start-1 transition-all duration-300 ease-out";
-  return (
-    <IconButton
-      variant="ghost"
-      size="sm"
-      label={copied ? "Link copied" : "Copy link"}
-      className={actionClass(copied && "text-primary")}
-      disabled={disabled}
-      onClick={() => void copy()}
-    >
-      <span className="grid place-items-center" aria-live="polite">
-        <Link2
-          className={cn(
-            icon,
-            copied ? "scale-50 -rotate-45 opacity-0" : "scale-100 opacity-100",
-          )}
-        />
-        <Check
-          className={cn(
-            icon,
-            copied ? "scale-100 rotate-0 opacity-100" : "scale-50 rotate-45 opacity-0",
-          )}
-        />
-      </span>
-    </IconButton>
   );
 }

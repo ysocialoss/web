@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { PushSettings } from "@/features/notifications/push-settings";
 import { supportsPush } from "@/features/notifications/enable-push";
 import { useNotifications } from "@/features/notifications/notifications-context";
@@ -17,7 +18,7 @@ export function NotificationSettings({ userId }: { userId: string }) {
   const [status, setStatus] = useState<Status | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const { unreadCount, markRead } = useNotifications();
+  const { unreadCount, markRead, refresh, hideContent } = useNotifications();
   const load = useCallback(async (signal?: AbortSignal) => {
     const supported = supportsPush();
     const registration = supported
@@ -77,6 +78,22 @@ export function NotificationSettings({ userId }: { userId: string }) {
     >
       <h2 className="font-semibold">Notifications</h2>
       <PushSettings />
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <span id="notification-content-label" className="font-medium">Hide message content in notifications</span>
+          <p id="notification-content-description" className="text-muted-foreground">Hide previews in the app and in push alerts on all your devices.</p>
+        </div>
+        <Switch
+          aria-labelledby="notification-content-label"
+          aria-describedby="notification-content-description"
+          checked={hideContent}
+          disabled={busy || !status}
+          onCheckedChange={(checked) => void act(async () => {
+            await api.setNotificationContentHidden(checked);
+            void refresh();
+          })}
+        />
+      </div>
       {status ? (
         <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
           <dt>Browser support</dt>

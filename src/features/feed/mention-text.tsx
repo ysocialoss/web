@@ -1,12 +1,5 @@
 import { Fragment, type ReactNode } from "react";
-import { Link } from "react-router";
-import {
-  HoverCard,
-  HoverCardContent,
-  HoverCardTrigger,
-} from "@/components/ui/hover-card";
-import { loadProfileCard } from "@/features/profile/profile-card-cache";
-import { UserHoverCard } from "@/features/profile/user-hover-card";
+import { ProfileHoverLink } from "@/features/profile/profile-hover-link";
 import type { Post } from "@/lib/api";
 
 export const MENTION_PATTERN =
@@ -29,31 +22,9 @@ export function MentionLink({
   children: ReactNode;
 }) {
   return (
-    <HoverCard>
-      <HoverCardTrigger
-        delay={350}
-        closeDelay={180}
-        render={
-          <Link
-            to={`/@${handle}`}
-            className="mention"
-            onClick={(event) => event.stopPropagation()}
-            onPointerEnter={() => void loadProfileCard(handle).catch(() => {})}
-            onFocus={() => void loadProfileCard(handle).catch(() => {})}
-          />
-        }
-      >
-        {children}
-      </HoverCardTrigger>
-      <HoverCardContent
-        side="bottom"
-        align="start"
-        sideOffset={8}
-        className="w-80 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-2xl bg-popover/95 p-0 shadow-xl ring-1 ring-foreground/10 backdrop-blur-xl"
-      >
-        <UserHoverCard handle={handle} />
-      </HoverCardContent>
-    </HoverCard>
+    <ProfileHoverLink handle={handle} className="mention">
+      {children}
+    </ProfileHoverLink>
   );
 }
 

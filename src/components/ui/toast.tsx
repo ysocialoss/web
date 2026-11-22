@@ -184,7 +184,7 @@ function Toaster({
   ...props
 }: ToastPrimitive.Provider.Props) {
   return (
-    <ToastProvider toastManager={toastManager} {...props}>
+    <ToastProvider toastManager={toastManager} timeout={2500} {...props}>
       {children}
       <ToastPortal>
         <ToastViewport>

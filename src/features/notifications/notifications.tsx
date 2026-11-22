@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState, type MouseEvent } from "react";
 import {
   Bell,
   CheckCheck,
@@ -9,8 +9,9 @@ import {
   UserPlus,
   X,
 } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
-import { useNavigate } from "react-router";
+import { timeAgo } from "@/lib/time-ago";
+import { Link } from "react-router";
+import { ProfileHoverLink } from "@/features/profile/profile-hover-link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,7 +26,10 @@ import { DisplayName } from "@/components/display-name";
 import { useNotifications } from "./notifications-context";
 import { PushSettings } from "./push-settings";
 import { cn } from "@/lib/utils";
+import { PostCard } from "@/features/dms/embeds";
+import { postImageUrl, type SocialNotification } from "@/lib/api";
 import { usePageTitle } from "@/hooks/use-page-title";
+import { useLoadMore } from "@/hooks/use-load-more";
 
 const kinds = {
   like: {
@@ -63,10 +67,92 @@ const kinds = {
   },
 };
 
-function NotificationsContent({ onNavigate }: { onNavigate?: () => void }) {
-  const { items, loading, nextCursor, error, refresh, markRead, signedIn, canWrite } =
-    useNotifications();
-  const navigate = useNavigate();
+function groupNotifications(items: SocialNotification[], priority: ReadonlySet<string>) {
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  const groups: { title: string; items: SocialNotification[] }[] = [
+    { title: "Priority", items: [] },
+    { title: "Today", items: [] },
+    { title: "Older", items: [] },
+  ];
+  for (const item of items) {
+    if (priority.has(item.id)) groups[0].items.push(item);
+    else if (new Date(item.createdAt) >= startOfToday)
+      groups[1].items.push(item);
+    else groups[2].items.push(item);
+  }
+  return groups.filter((group) => group.items.length > 0);
+}
+
+function NotificationsContent({
+  onNavigate,
+  markVisibleAsRead = false,
+  grouped = false,
+}: {
+  onNavigate?: () => void;
+  markVisibleAsRead?: boolean;
+  grouped?: boolean;
+}) {
+  const {
+    items,
+    loading,
+    nextCursor,
+    error,
+    refresh,
+    markSeen,
+    signedIn,
+    canWrite,
+    hideContent,
+    isStale,
+  } = useNotifications();
+  const list = useRef<HTMLDivElement>(null);
+  const [priority, setPriority] = useState<ReadonlySet<string>>(() => new Set());
+  if (grouped) {
+    const arrived = items.filter(
+      (item) => !item.readAt && item.kind !== "like" && !priority.has(item.id),
+    );
+    if (arrived.length)
+      setPriority(new Set([...priority, ...arrived.map((item) => item.id)]));
+  }
+  useEffect(() => {
+    if (grouped && signedIn && isStale()) void refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [grouped, signedIn]);
+  const loadMoreRef = useLoadMore(
+    () => {
+      if (nextCursor) void refresh(nextCursor);
+    },
+    signedIn && Boolean(nextCursor) && !loading && !error,
+  );
+  useEffect(() => {
+    if (!markVisibleAsRead || !canWrite || !list.current) return;
+    const rows = list.current.querySelectorAll<HTMLElement>("[data-unread-id]");
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (document.visibilityState !== "visible") return;
+        const ids: string[] = [];
+        for (const entry of entries) {
+          if (entry.intersectionRatio < 0.5) continue;
+          const id = entry.target.getAttribute("data-unread-id");
+          if (id) ids.push(id);
+        }
+        if (ids.length) void markSeen(ids);
+      },
+      { threshold: 0.5 },
+    );
+    function observeVisibleTab() {
+      observer.disconnect();
+      if (document.visibilityState === "visible") {
+        for (const row of rows) observer.observe(row);
+      }
+    }
+    observeVisibleTab();
+    document.addEventListener("visibilitychange", observeVisibleTab);
+    return () => {
+      document.removeEventListener("visibilitychange", observeVisibleTab);
+      observer.disconnect();
+    };
+  }, [canWrite, items, markSeen, markVisibleAsRead]);
   const visible = items;
   if (!signedIn)
     return (
@@ -77,7 +163,9 @@ function NotificationsContent({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <>
       <div
-        className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
+        className={cn(
+          !grouped && "min-h-0 flex-1 overflow-y-auto overscroll-contain",
+        )}
         aria-busy={loading}
       >
         {loading && items.length === 0 && (
@@ -97,78 +185,133 @@ function NotificationsContent({ onNavigate }: { onNavigate?: () => void }) {
             ))}
           </div>
         )}
-        <ul className="divide-y">
-          {visible.map((item) => {
+        <div ref={list}>
+          {(grouped
+            ? groupNotifications(visible, priority)
+            : [{ title: "", items: visible }]
+          ).map((group) => (
+            <section key={group.title} aria-label={group.title || undefined}>
+              {group.title && (
+                <h2 className="px-4 pt-5 pb-2 text-sm font-semibold text-muted-foreground">
+                  {group.title}
+                </h2>
+              )}
+              <ul className="divide-y">
+          {group.items.map((item) => {
             const kind = kinds[item.kind],
               Icon = kind.icon;
+            const actorName = item.actor.displayName || item.actor.handle;
+            const profilePath = `/@${item.actor.handle}`;
+            const notificationPath = item.postId
+              ? `/posts/${item.postId}`
+              : profilePath;
+            function handleNavigation(event: MouseEvent<HTMLAnchorElement>) {
+              if (
+                event.metaKey ||
+                event.ctrlKey ||
+                event.shiftKey ||
+                event.altKey
+              )
+                return;
+              if (!item.readAt) void markSeen([item.id], true);
+              onNavigate?.();
+            }
             return (
               <li
                 key={item.id}
-                className={cn("relative", !item.readAt && "bg-primary/5")}
+                data-unread-id={item.readAt ? undefined : item.id}
+                className={cn(
+                  "relative flex items-start gap-3 px-4 py-4 transition-colors hover:bg-muted",
+                  !item.readAt && !grouped && "bg-primary/5",
+                )}
               >
-                <button
-                  type="button"
-                  className="flex w-full items-start gap-3 px-4 py-4 text-left outline-none transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
-                  onClick={() => {
-                    if (!item.readAt) void markRead(item.id);
-                    onNavigate?.();
-                    navigate(
-                      item.postId
-                        ? `/posts/${item.postId}`
-                        : `/@${item.actor.handle}`,
-                    );
-                  }}
+                <ProfileHoverLink
+                  handle={item.actor.handle}
+                  onClick={handleNavigation}
+                  aria-label={`View @${item.actor.handle}'s profile`}
+                  className="relative z-10 shrink-0 rounded-md"
                 >
-                  <div className="relative shrink-0">
-                    <Avatar className="size-10">
-                      {item.actor.avatarUrl && (
-                        <AvatarImage src={item.actor.avatarUrl} alt="" />
-                      )}
-                      <AvatarFallback>
-                        {(item.actor.displayName || item.actor.handle).slice(
-                          0,
-                          2,
-                        )}
-                      </AvatarFallback>
-                    </Avatar>
-                    <span
-                      className={cn(
-                        "absolute -right-1 -bottom-1 grid size-5 place-items-center rounded-full ring-2 ring-background",
-                        kind.color,
-                      )}
-                    >
-                      <Icon className="size-3" aria-hidden="true" />
-                    </span>
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm leading-snug">
-                      <DisplayName
-                        user={item.actor}
-                        name={item.actor.displayName || item.actor.handle}
-                        className="font-semibold"
-                      />{" "}
-                      {kind.text}
-                    </p>
-                    {item.preview && (
-                      <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
-                        {item.preview}
-                      </p>
+                  <Avatar className="size-10">
+                    {item.actor.avatarUrl && (
+                      <AvatarImage src={item.actor.avatarUrl} alt="" />
                     )}
-                    <time
-                      dateTime={item.createdAt}
-                      className="mt-1.5 block text-xs text-muted-foreground"
+                    <AvatarFallback>{actorName.slice(0, 2)}</AvatarFallback>
+                  </Avatar>
+                  <span
+                    className={cn(
+                      "absolute -right-1 -bottom-1 grid size-5 place-items-center rounded-full ring-2 ring-background",
+                      kind.color,
+                    )}
+                  >
+                    <Icon className="size-3" aria-hidden="true" />
+                  </span>
+                </ProfileHoverLink>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm leading-snug">
+                    <ProfileHoverLink
+                      handle={item.actor.handle}
+                      onClick={handleNavigation}
+                      className="relative z-10 font-semibold hover:underline"
                     >
-                      {formatDistanceToNow(new Date(item.createdAt), {
-                        addSuffix: true,
-                      })}
-                    </time>
-                  </div>
-                  {!item.readAt && <span className="sr-only">Unread</span>}
-                </button>
+                      <DisplayName user={item.actor} name={actorName} />
+                    </ProfileHoverLink>{" "}
+                    {/* Stretch the action link across the row, below the profile links. */}
+                    <Link
+                      to={notificationPath}
+                      onClick={handleNavigation}
+                      className="outline-none after:absolute after:inset-0 focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-ring"
+                    >
+                      <span className="sr-only">{actorName} </span>
+                      {kind.text}
+                      {!item.readAt && <span className="sr-only"> Unread</span>}
+                    </Link>
+                  </p>
+                  {grouped && !hideContent && item.postId && !item.chatPreview && (
+                    <div
+                      className="relative z-10 mt-2"
+                      onClickCapture={() => {
+                        if (!item.readAt) void markSeen([item.id], true);
+                      }}
+                    >
+                      <PostCard
+                        postId={item.postId}
+                        href={`${window.location.origin}/posts/${item.postId}`}
+                      />
+                    </div>
+                  )}
+                  {!(grouped && item.postId && !item.chatPreview) && !hideContent && item.preview && (
+                    <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+                      {item.preview}
+                    </p>
+                  )}
+                  {!grouped && !hideContent && item.imageIds.length > 0 && (
+                    <span className="mt-2 flex gap-1.5" aria-label={`${item.imageIds.length} attached ${item.imageIds.length === 1 ? "image" : "images"}`}>
+                      {item.imageIds.slice(0, 4).map((id) => (
+                        <img
+                          key={id}
+                          src={postImageUrl(id)}
+                          alt=""
+                          loading="lazy"
+                          decoding="async"
+                          className="size-14 rounded-lg border bg-muted object-cover"
+                        />
+                      ))}
+                    </span>
+                  )}
+                  <time
+                    dateTime={item.createdAt}
+                    className="mt-1.5 block text-xs text-muted-foreground"
+                  >
+                    {timeAgo(item.createdAt)}
+                  </time>
+                </div>
               </li>
             );
           })}
-        </ul>
+              </ul>
+            </section>
+          ))}
+        </div>
         {!loading && !error && visible.length === 0 && (
           <div
             role="status"
@@ -210,17 +353,9 @@ function NotificationsContent({ onNavigate }: { onNavigate?: () => void }) {
             ))}
           </div>
         )}
-        {nextCursor && !error && !loading && (
-          <Button
-            variant="ghost"
-            className="my-2 w-full"
-            onClick={() => void refresh(nextCursor)}
-          >
-            Load more
-          </Button>
-        )}
+        <div ref={loadMoreRef} aria-hidden="true" className="h-px" />
       </div>
-      {canWrite && <div className="shrink-0 border-t p-3">
+      {canWrite && !grouped && <div className="shrink-0 border-t p-3">
         <PushSettings />
       </div>}
     </>
@@ -244,10 +379,27 @@ function MarkAllRead() {
   );
 }
 
-export function NotificationsBell({ className }: { className?: string }) {
+export function NotificationsBell({
+  className,
+  reserveSpace = false,
+}: {
+  className?: string;
+  reserveSpace?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const { unreadCount, refresh, signedIn } = useNotifications();
-  if (!signedIn) return null;
+  if (!signedIn)
+    return reserveSpace ? (
+      <Button
+        variant="ghost"
+        size="icon"
+        className={className}
+        aria-label="Notifications"
+        disabled
+      >
+        <Bell aria-hidden="true" />
+      </Button>
+    ) : null;
   return (
     <Popover
       open={open}
@@ -302,7 +454,12 @@ export function NotificationsBell({ className }: { className?: string }) {
             </Button>
           </div>
         </div>
-        {open && <NotificationsContent onNavigate={() => setOpen(false)} />}
+        {open && (
+          <NotificationsContent
+            markVisibleAsRead
+            onNavigate={() => setOpen(false)}
+          />
+        )}
       </PopoverContent>
     </Popover>
   );
@@ -317,6 +474,16 @@ export function NotificationsPage() {
         <MarkAllRead />
       </div>
       <NotificationsContent />
+    </div>
+  );
+}
+
+export function ActivityPage() {
+  usePageTitle("Activity");
+  return (
+    <div className="mx-auto max-w-xl pb-24">
+      <h1 className="px-4 pt-4 text-xl font-semibold">Activity</h1>
+      <NotificationsContent grouped markVisibleAsRead />
     </div>
   );
 }

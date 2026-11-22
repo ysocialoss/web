@@ -32,7 +32,6 @@ import {
   rememberPosts,
   subscribeToActions,
 } from "./optimistic-actions";
-import { toast } from "@/components/ui/toast-manager";
 import { projectRepostContext } from "./repost-context";
 import { applyLive } from "./live-insert";
 import { useLiveUpdates } from "./use-live-updates";
@@ -47,23 +46,6 @@ const feedCache = new Map<
     nextCursor: string | null;
   }
 >();
-
-async function writeClipboard(text: string) {
-  try {
-    await navigator.clipboard.writeText(text);
-    return;
-  } catch (error) {
-    const field = document.createElement("textarea");
-    field.value = text;
-    field.setAttribute("readonly", "");
-    field.style.cssText = "position:fixed;opacity:0;pointer-events:none";
-    document.body.append(field);
-    field.select();
-    const copied = document.execCommand("copy");
-    field.remove();
-    if (!copied) throw error;
-  }
-}
 
 export function useFeed(
   session: Session | null,
@@ -282,6 +264,7 @@ export function useFeed(
     gif: GifSearchItem | null = null,
     poll?: PollDraft,
     voice?: VoiceDraft,
+    imageIds: string[] = [],
   ) {
     const content = text.trim();
     if (
@@ -289,7 +272,7 @@ export function useFeed(
       session.needsOnboarding ||
       session.pendingApproval ||
       session.ban ||
-      (!content && !gif && !poll && !voice) ||
+      (!content && !gif && !poll && !voice && !imageIds.length) ||
       Array.from(content).length > 2000 ||
       hasTooManyBlankLines(content)
     )
@@ -299,6 +282,7 @@ export function useFeed(
       gif,
       poll,
       voice,
+      imageIds,
       author: session.user,
       parentId: parentId ?? null,
       onConfirmed: onPublished,
@@ -314,6 +298,7 @@ export function useFeed(
     poll?: PollDraft,
     onConfirmed?: (post: Post) => void,
     voice?: VoiceDraft,
+    imageIds: string[] = [],
   ) {
     const content = text.trim();
     if (
@@ -321,7 +306,7 @@ export function useFeed(
       session.needsOnboarding ||
       session.pendingApproval ||
       session.ban ||
-      (!content && !gif && !poll && !voice) ||
+      (!content && !gif && !poll && !voice && !imageIds.length) ||
       Array.from(content).length > 2000 ||
       hasTooManyBlankLines(content)
     )
@@ -331,33 +316,12 @@ export function useFeed(
       gif,
       poll,
       voice,
+      imageIds,
       author: session.user,
       parentId: null,
       quoting: quoted,
       onConfirmed,
     });
-  }
-  async function copyPostLink(post: Post): Promise<boolean> {
-    const url = new URL(`/posts/${post.id}`, window.location.origin).href;
-    try {
-      await writeClipboard(url);
-      return true;
-    } catch (error) {
-      const id = toast.add({
-        type: "error",
-        title: "Couldn't copy link",
-        description: errorMessage(error),
-        timeout: 0,
-        actionProps: {
-          children: "Retry",
-          onClick: () => {
-            toast.close(id);
-            void copyPostLink(post);
-          },
-        },
-      });
-      return false;
-    }
   }
   return {
     feedPosts: [
@@ -400,7 +364,6 @@ export function useFeed(
     canPost,
     readOnly,
     pending: optimisticPostIds,
-    copyPostLink,
     unread,
     revealNew,
     refresh: () => {
@@ -439,7 +402,7 @@ export function useFeed(
     editPost: (post: Post, content: string) => {
       const trimmed = content.trim();
       return canPost && viewerId &&
-        (trimmed || post.gif || post.poll || post.voice) &&
+        (trimmed || post.gif || post.poll || post.voice || post.imageIds.length) &&
         Array.from(trimmed).length <= 2000 &&
         !hasTooManyBlankLines(trimmed)
         ? mutatePost(post, viewerId, {

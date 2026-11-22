@@ -1,12 +1,15 @@
 import { PublishedVoicePlayer } from "./voice-player";
+import { PostImages } from "./post-images";
 import { useEffect, useId, useRef, useState, type MouseEvent } from "react";
 import { Link, useNavigate } from "react-router";
-import { formatDistance } from "date-fns";
+import { timeAgo } from "@/lib/time-ago";
 import { Check, LoaderCircle, Pencil, Trash2, X } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { IconButton } from "@/components/ui/icon-button";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { DisplayName } from "@/components/display-name";
+import { TwitchLive } from "@/features/profile/twitch-live";
+import { ProfileHoverLink } from "@/features/profile/profile-hover-link";
 import { MentionLink } from "./mention-text";
 import { MentionTextarea } from "./mention-textarea";
 import { PostActions } from "./post-actions";
@@ -30,6 +33,9 @@ import {
 import { useEmojiIndex } from "@/lib/use-emoji-index";
 import type { FeedState } from "./use-feed";
 import { watchPost } from "./live-states";
+import { ReportMenu, copyLinkAction } from "@/features/reports/report-menu";
+import { useNow } from "@/hooks/use-now";
+import { useBlockedUser } from "@/features/reports/blocked-users";
 
 export function PostCard({
   post,
@@ -64,16 +70,13 @@ export function PostCard({
   const [editing, setEditing] = useState(false);
   const [content, setContent] = useState(post.content);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 30_000);
-    return () => clearInterval(timer);
-  }, []);
+  const now = useNow();
   const articleRef = useRef<HTMLElement>(null);
   useEffect(() => {
     const element = articleRef.current;
     return element ? watchPost(element, post.id, feed.viewerId) : undefined;
   }, [post.id, feed.viewerId]);
+  const authorBlocked = useBlockedUser(post.author.id);
   const optimistic = feed.optimisticPostIds.includes(post.id);
   const mine = feed.canPost && post.author.id === feed.viewerId;
   const busy = feed.pending.includes(post.id);
@@ -82,11 +85,10 @@ export function PostCard({
     ? renderShortcodes(content, emojiIndex)
     : content;
   const length = Array.from(finalContent.trim()).length;
-  const hasAttachment = Boolean(post.gif || post.poll || post.voice);
+  const hasAttachment = Boolean(post.gif || post.poll || post.voice || post.imageIds.length);
   const validCaption = (length > 0 || hasAttachment) && length <= 2000;
   const changed = finalContent.trim() !== post.content.trim();
-  const jumbo = post.gif || post.voice ? 0 : emojiOnlyCount(post.content);
-  const profilePath = `/@${post.author.handle}`;
+  const jumbo = post.gif || post.voice || post.imageIds.length ? 0 : emojiOnlyCount(post.content);
   const openable = !focused && !optimistic && !editing;
   const openTimer = useRef<number | undefined>(undefined);
   useEffect(() => () => window.clearTimeout(openTimer.current), []);
@@ -136,6 +138,7 @@ export function PostCard({
       .catch(() => setContent(editableContent))
       .finally(() => setEditing(true));
   }
+  if (authorBlocked && !mine) return null;
   return (
     <article
       ref={articleRef}
@@ -184,8 +187,8 @@ export function PostCard({
             />
             <span className="sr-only">{optimistic ? "Sending post…" : ""}</span>
           </div>
-          <Link
-            to={profilePath}
+          <ProfileHoverLink
+            handle={post.author.handle}
             aria-label={`View ${post.author.displayName}'s profile`}
             aria-hidden={optimistic || undefined}
             tabIndex={optimistic ? -1 : undefined}
@@ -203,23 +206,24 @@ export function PostCard({
                 {post.author.displayName.slice(0, 2)}
               </AvatarFallback>
             </Avatar>
-          </Link>
+          </ProfileHoverLink>
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-start gap-2">
             <div className="flex flex-1 flex-wrap items-baseline gap-x-2 text-sm">
-              <Link
-                to={profilePath}
+              <ProfileHoverLink
+                handle={post.author.handle}
                 className="font-semibold hover:underline underline-offset-4"
               >
                 <DisplayName user={post.author} />
-              </Link>
-              <Link
-                to={profilePath}
+              </ProfileHoverLink>
+              <TwitchLive handle={post.author.handle} />
+              <ProfileHoverLink
+                handle={post.author.handle}
                 className="text-xs text-muted-foreground hover:text-foreground"
               >
                 @{post.author.handle}
-              </Link>
+              </ProfileHoverLink>
               <Link
                 to={`/posts/${post.id}`}
                 className="text-xs text-muted-foreground"
@@ -234,9 +238,7 @@ export function PostCard({
                   dateTime={post.createdAt}
                   title={new Date(post.createdAt).toLocaleString()}
                 >
-                  {formatDistance(new Date(post.createdAt), now, {
-                    addSuffix: true,
-                  })}
+                  {timeAgo(post.createdAt, now)}
                 </time>
               </Link>
               {post.editedAt && (
@@ -288,6 +290,20 @@ export function PostCard({
                   </>
                 )}
               </div>
+            )}
+            {feed.canPost && !mine && !optimistic && (
+              <ReportMenu
+                className="-my-1.5 shrink-0"
+                label="Post options"
+                actions={[copyLinkAction(`/posts/${post.id}`)]}
+                follow={{ handle: post.author.handle }}
+                block={{ id: post.author.id, handle: post.author.handle }}
+                subject={{
+                  type: "post",
+                  id: post.id,
+                  kind: post.parentId ? "reply" : post.quote ? "quote" : "post",
+                }}
+              />
             )}
           </div>
           {replyContext && post.replyTo && (
@@ -384,6 +400,7 @@ export function PostCard({
               className="mt-2 max-h-96 w-auto max-w-full rounded-xl object-contain"
             />
           )}
+          <PostImages ids={post.imageIds} />
           {post.quote && <QuotedPostCard quote={post.quote} />}
           {post.poll && (
             <PostPoll

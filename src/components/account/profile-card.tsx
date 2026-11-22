@@ -81,7 +81,12 @@ export function ProfileCard({
     ? (user.displayName.trim() || user.handle).slice(0, 2)
     : null;
   const editable =
-    !!user && !!auth && session?.authenticated && !session.needsOnboarding && !session.pendingApproval && !session.ban;
+    !!user &&
+    !!auth &&
+    session?.authenticated &&
+    !session.needsOnboarding &&
+    !session.pendingApproval &&
+    !session.ban;
   return (
     <section aria-labelledby="profile-heading">
       <div className="relative aspect-[3/1] rounded-xl bg-linear-to-br from-muted to-muted/40">
@@ -107,7 +112,7 @@ export function ProfileCard({
               aria-label="Change profile picture"
               className="group absolute -bottom-5 right-2 z-10 size-14 cursor-pointer rounded-[30%] ring-4 ring-background outline-none [corner-shape:squircle] focus-visible:ring-ring"
             >
-              <Avatar className="size-full">
+              <Avatar hat className="size-full">
                 {avatarUrl && (
                   <AvatarImage
                     src={avatarUrl}
@@ -157,7 +162,7 @@ export function ProfileCard({
             </DialogContent>
           </Dialog>
         ) : (
-          <Avatar className="absolute -bottom-5 right-2 size-14 ring-4 ring-background">
+          <Avatar hat className="absolute -bottom-5 right-2 size-14 ring-4 ring-background">
             {avatarUrl && (
               <AvatarImage
                 src={avatarUrl}
@@ -193,6 +198,11 @@ export function ProfileCard({
                 <span className="block truncate text-xs text-muted-foreground hover:underline">
                   @{user.handle}
                 </span>
+                {user.pronouns && (
+                  <bdi className="block truncate text-xs text-muted-foreground hover:underline">
+                    {user.pronouns}
+                  </bdi>
+                )}
               </DialogTrigger>
               <ProfileEditDialogContent
                 saving={saving}
@@ -233,6 +243,11 @@ export function ProfileCard({
               >
                 @{user.handle}
               </Link>
+              {user.pronouns && (
+                <p className="truncate text-xs text-muted-foreground">
+                  <bdi>{user.pronouns}</bdi>
+                </p>
+              )}
             </>
           )
         ) : (

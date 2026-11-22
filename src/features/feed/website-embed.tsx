@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { api, type WebsitePreview } from "@/lib/api";
-import { ExternalPostLink } from "./external-post-link";
+import { ExternalLink } from "@/components/ui/external-link";
 import { WebsiteIcon } from "./website-icon";
 
 export function WebsiteEmbed({
@@ -26,7 +26,7 @@ export function WebsiteEmbed({
 
   return (
     <div className="mt-3">
-      <ExternalPostLink
+      <ExternalLink
         href={preview.href}
         className="block max-w-[25rem] overflow-hidden rounded-lg border bg-card text-sm text-card-foreground outline-none transition-colors hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring"
       >
@@ -45,7 +45,7 @@ export function WebsiteEmbed({
             </span>
           )}
         </span>
-      </ExternalPostLink>
+      </ExternalLink>
     </div>
   );
 }
@@ -55,7 +55,7 @@ function ImgurImageEmbed({ href, src }: { href: string; src: string }) {
   if (failed) return null;
   return (
     <div className="mt-3">
-      <ExternalPostLink
+      <ExternalLink
         href={href}
         className="inline-block max-w-full overflow-hidden rounded-lg border align-top outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
@@ -66,7 +66,7 @@ function ImgurImageEmbed({ href, src }: { href: string; src: string }) {
           onError={() => setFailed(true)}
           className="max-h-96 max-w-full object-contain"
         />
-      </ExternalPostLink>
+      </ExternalLink>
     </div>
   );
 }

@@ -97,7 +97,8 @@ export function Thread({
   const focusedRef = useRef<HTMLDivElement>(null);
   const anchored = useRef(false);
   const navigationType = useNavigationType();
-  const goBack = useGoBack();
+  const parentPath = data?.post.parentId ? `/posts/${data.post.parentId}` : "/";
+  const goBack = useGoBack(parentPath);
   const load = useCallback(
     async (signal?: AbortSignal) => {
       const startedAt = getActionRevision();
@@ -235,7 +236,7 @@ export function Thread({
   return (
     <div className="mx-auto max-w-xl">
       <header className="mb-3 flex items-center gap-3">
-        <IconLink to="/" label="Back" onClick={goBack}>
+        <IconLink to={parentPath} label="Back" onClick={goBack}>
           <ArrowLeft />
         </IconLink>
         <h1 className="text-lg font-semibold">

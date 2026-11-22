@@ -16,6 +16,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 const storageKey = "ysocial:skip-external-link-warning";
 let skipWithoutStorage = false;
@@ -36,14 +37,16 @@ function skipFutureWarnings() {
   }
 }
 
-export function ExternalPostLink({
+export function ExternalLink({
   href,
   children,
   className,
+  label,
 }: {
   href: string;
   children: ReactNode;
   className: string;
+  label?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [remember, setRemember] = useState(false);
@@ -56,19 +59,28 @@ export function ExternalPostLink({
     setRemember(false);
     setOpen(true);
   }
+  const link = (
+    <a
+      ref={linkRef}
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={className}
+      aria-label={label}
+      onClick={warn}
+      onAuxClick={warn}
+    >
+      {children}
+    </a>
+  );
   return (
     <>
-      <a
-        ref={linkRef}
-        href={href}
-        target="_blank"
-        rel="noopener noreferrer"
-        className={className}
-        onClick={warn}
-        onAuxClick={warn}
-      >
-        {children}
-      </a>
+      {label ? (
+        <Tooltip>
+          <TooltipTrigger render={link} />
+          <TooltipContent>{label}</TooltipContent>
+        </Tooltip>
+      ) : link}
       <AlertDialog open={open} onOpenChange={setOpen}>
         <AlertDialogContent initialFocus={cancelRef} finalFocus={linkRef}>
           <AlertDialogHeader>

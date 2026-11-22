@@ -1,7 +1,15 @@
 import { useEffect, useState } from "react";
 import { BellRing } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { api, errorMessage } from "@/lib/api";
+import { api, errorMessage, type MuteDuration } from "@/lib/api";
+
+export const muteOptions: { value: Exclude<MuteDuration, "off">; label: string }[] = [
+  { value: "1h", label: "1 hour" },
+  { value: "8h", label: "8 hours" },
+  { value: "24h", label: "24 hours" },
+  { value: "1w", label: "1 week" },
+  { value: "forever", label: "Forever" },
+];
 import {
   Dialog,
   DialogContent,
@@ -11,7 +19,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 
-import { enablePush, supportsPush as supported } from "./enable-push";
+import { enablePush, registerPushWorker, supportsPush as supported } from "./enable-push";
 type PushState =
   | "loading"
   | "unsupported"
@@ -48,7 +56,7 @@ export function PushSettings() {
         return;
       }
       try {
-        const registration = await navigator.serviceWorker.register("/sw.js");
+        const registration = await registerPushWorker();
         const subscription = await registration.pushManager.getSubscription();
         const config = await api.pushConfig(
           subscription?.endpoint,
@@ -109,7 +117,7 @@ export function PushSettings() {
       setBusy(false);
     }
   }
-  async function mute(duration: "1h" | "8h" | "forever" | "off") {
+  async function mute(duration: MuteDuration) {
     setBusy(true);
     setError("");
     try {
@@ -188,14 +196,14 @@ export function PushSettings() {
             <DialogDescription>For how long?</DialogDescription>
           </DialogHeader>
           <DialogFooter className="flex-col md:flex-row">
-            {(["1h", "8h", "forever"] as const).map((duration) => (
+            {muteOptions.map(({ value, label }) => (
               <Button
-                key={duration}
+                key={value}
                 variant="outline"
                 disabled={busy}
-                onClick={() => void mute(duration)}
+                onClick={() => void mute(value)}
               >
-                {duration === "forever" ? "Forever" : duration}
+                {label}
               </Button>
             ))}
           </DialogFooter>

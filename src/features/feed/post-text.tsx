@@ -19,7 +19,7 @@ import {
   type MdNode,
 } from "@/lib/markdown";
 import { splitTopics, topicPath } from "@/lib/topics";
-import { ExternalPostLink } from "./external-post-link";
+import { ExternalLink } from "@/components/ui/external-link";
 import { MentionText } from "./mention-text";
 import { PostEmbed } from "./post-embed";
 import { WebsiteEmbed } from "./website-embed";
@@ -111,7 +111,7 @@ export function PostText({
       const iconSrc =
         website?.iconKey && api.websitePreviewIcon(post.id, website.iconKey);
       return (
-        <ExternalPostLink key={key} href={part.href} className={chipClass}>
+        <ExternalLink key={key} href={part.href} className={chipClass}>
           {pending ? (
             <ChipSkeleton label={part.text} />
           ) : (
@@ -126,7 +126,7 @@ export function PostText({
               </bdi>
             </>
           )}
-        </ExternalPostLink>
+        </ExternalLink>
       );
     }
     const linkedPost =
@@ -416,6 +416,7 @@ function PostChipLabel({
     post.content.trim().replace(/\s+/g, " ") ||
     post.poll?.title ||
     post.gif?.title ||
+    (post.imageIds.length ? "Image attachment" : "") ||
     "Post";
   return (
     <>

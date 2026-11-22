@@ -1,4 +1,5 @@
 import {
+  Suspense,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -33,23 +34,31 @@ import { TrendingTopicsStrip } from "@/components/account/trending-topics";
 import { Account, ApprovalBanner } from "@/features/auth/account";
 import { useAuth, type AuthState } from "@/features/auth/use-auth";
 import { usePageTitle } from "@/hooks/use-page-title";
-import { Thread } from "@/features/feed/thread";
-import { TopicPage } from "@/features/topics/topic-page";
-import { SearchPage } from "@/features/search/search-page";
 import { useSearchShortcut } from "@/features/search/use-search-shortcut";
 import { isTopicName, normalizeTopic } from "@/lib/topics";
-import { ProfilePage } from "@/features/profile/profile";
 import type { Session } from "@/lib/api";
 import { useFeed } from "@/features/feed/use-feed";
-import { ProfileSkeleton } from "@/components/loading-skeletons";
+import { PostListSkeleton, ProfileSkeleton } from "@/components/loading-skeletons";
 import { ConnectionBanner } from "@/components/connection-banner";
+import { DynamicFavicon } from "@/components/dynamic-favicon";
 import { StagingNotice } from "@/components/staging-notice";
 import { cn } from "@/lib/utils";
 import { recallScroll, rememberScroll } from "@/lib/scroll-memory";
 import { useGoBack } from "@/hooks/use-go-back";
-import { SettingsPage } from "@/features/settings/settings";
 import { NotificationsProvider } from "@/features/notifications/notifications-context";
-import { NotificationsPage } from "@/features/notifications/notifications";
+import { DmUnreadProvider } from "@/features/dms/dm-unread";
+import { ActivityPage, NotificationsPage } from "@/features/notifications/notifications";
+import {
+  AccountSettingsPage,
+  MessagesPage,
+  ProfilePage,
+  SearchPage,
+  SettingsPage,
+  Thread,
+  TopicPage,
+  preloadRoutesWhenIdle,
+} from "@/routes";
+import { AppUpdatePrompt } from "@/features/updates/app-update";
 
 export function App() {
   return (
@@ -57,6 +66,7 @@ export function App() {
       <TooltipProvider delay={250}>
         <Toaster>
           <StagingNotice />
+          <AppUpdatePrompt />
           <AppShell />
         </Toaster>
       </TooltipProvider>
@@ -72,20 +82,60 @@ function AppShell() {
   // State, not a ref: the section is recreated when the signed-in session
   // arrives, and the scroll listeners must follow the live element.
   const [scroller, setScroller] = useState<HTMLElement | null>(null);
+  const [wordmarkReady, setWordmarkReady] = useState(false);
   const logoClickCount = useRef(0);
   const navigate = useNavigate();
   const { pathname, key: navigationKey } = useLocation();
   const profileHandle = matchPath("/:profileHandle", pathname)?.params
     .profileHandle;
+  const messagesLayout = !!matchPath("/messages/*", pathname) &&
+    (auth.session === null ? !auth.error :
+      auth.session.authenticated && !auth.session.needsOnboarding && !auth.session.pendingApproval && !auth.session.ban);
+  const threadView = messagesLayout && pathname.replace(/\/+$/, "") !== "/messages";
   const hideAccountSidebar =
     /^@[a-z0-9_]{3,32}$/.test(profileHandle ?? "") ||
-    matchPath("/profile", pathname) !== null;
+    matchPath("/profile", pathname) !== null || messagesLayout;
+  useEffect(() => {
+    preloadRoutesWhenIdle();
+  }, []);
+  useEffect(() => {
+    // Paint the base logo before enabling the tint on a direct Settings visit.
+    let frame = requestAnimationFrame(() => {
+      frame = requestAnimationFrame(() => setWordmarkReady(true));
+    });
+    return () => cancelAnimationFrame(frame);
+  }, []);
+  useEffect(() => {
+    if (pathname !== "/") logoClickCount.current = 0;
+  }, [pathname]);
+
   function handleLogoClick(event: MouseEvent<HTMLAnchorElement>) {
+    if (
+      pathname !== "/" ||
+      event.defaultPrevented ||
+      event.button !== 0 ||
+      event.altKey ||
+      event.ctrlKey ||
+      event.metaKey ||
+      event.shiftKey
+    )
+      return;
+
     logoClickCount.current += 1;
-    if (logoClickCount.current === 4) {
+    if (logoClickCount.current === 3) {
       logoClickCount.current = 0;
       event.preventDefault();
       navigate("/asettings");
+    } else if (
+      logoClickCount.current === 2 &&
+      window.matchMedia("(prefers-reduced-motion: no-preference)").matches
+    ) {
+      event.currentTarget.animate(
+        [0, -5, 5, -3, 3, 0].map((offset) => ({
+          transform: `translateX(${offset}px)`,
+        })),
+        { duration: 360 },
+      );
     }
   }
   const navigationType = useNavigationType();
@@ -152,8 +202,24 @@ function AppShell() {
       }
       holdPrompt={auth.showApprovalWelcome}
     >
-      <div className="relative flex h-dvh min-h-0 flex-col">
-        <MobileHeader auth={auth} onLogoClick={handleLogoClick} />
+     <DmUnreadProvider
+      userId={
+        auth.session?.authenticated && !auth.session.needsOnboarding
+          ? auth.session.user.id
+          : null
+      }
+      enabled={
+        !!auth.session?.authenticated && !auth.session.needsOnboarding && !auth.session.pendingApproval && !auth.session.ban
+      }
+     >
+      <DynamicFavicon />
+      <div
+        className="relative flex h-dvh min-h-0 flex-col"
+        data-settings-page={
+          wordmarkReady && matchPath("/asettings", pathname) ? "" : undefined
+        }
+      >
+        {!threadView && <MobileHeader auth={auth} onLogoClick={handleLogoClick} />}
         {awaitingApproval && <div aria-hidden="true" className="h-[calc(4rem+env(safe-area-inset-top))] shrink-0 md:hidden" />}
         <ConnectionBanner />
         {awaitingApproval && <ApprovalBanner />}
@@ -175,11 +241,19 @@ function AppShell() {
             aria-label="Main content"
             tabIndex={0}
             className={cn(
-              "content-scroll min-h-0 min-w-0 overflow-x-hidden overflow-y-auto overscroll-y-contain px-4 pt-4 pb-[calc(6.5rem+env(safe-area-inset-bottom))] has-[[data-skeleton-scroll-lock]]:overflow-y-hidden sm:px-10 sm:pt-6 md:pb-6 lg:px-12",
-              awaitingApproval ? "max-md:pt-3" : "max-md:pt-[calc(4.75rem+env(safe-area-inset-top))]",
+              messagesLayout
+                ? cn(
+                    "flex min-h-0 min-w-0 flex-col overflow-hidden",
+                    threadView
+                      ? "max-md:pt-0 max-md:pb-0"
+                      : "max-md:pt-[calc(4rem+env(safe-area-inset-top))] max-md:pb-[calc(4.5rem+env(safe-area-inset-bottom))]",
+                  )
+                : "content-scroll min-h-0 min-w-0 overflow-x-hidden overflow-y-auto overscroll-y-contain px-4 pt-4 pb-[calc(6.5rem+env(safe-area-inset-bottom))] has-[[data-skeleton-scroll-lock]]:overflow-y-hidden sm:px-10 sm:pt-6 md:pb-6 lg:px-12",
+              !messagesLayout && (awaitingApproval ? "max-md:pt-3" : "max-md:pt-[calc(4.75rem+env(safe-area-inset-top))]"),
             )}
           >
             <Account auth={auth} />
+            <Suspense fallback={<RouteFallback />}>
             <Routes>
               <Route path="/" element={<HomeFeed session={auth.session} />} />
               <Route
@@ -204,6 +278,10 @@ function AppShell() {
               <Route path="/profile" element={<MyProfileRoute auth={auth} />} />
               <Route path="/asettings" element={<SettingsPage auth={auth} />} />
               <Route
+                path="/settings/account"
+                element={<AccountSettingsPage auth={auth} />}
+              />
+              <Route
                 path="/onboarding"
                 element={<OnboardingRoute session={auth.session} />}
               />
@@ -211,10 +289,8 @@ function AppShell() {
                 path="/login"
                 element={<LoginRoute session={auth.session} />}
               />
-              <Route
-                path="/messages"
-                element={<ComingSoon title="Messages" />}
-              />
+              <Route path="/messages/:conversationId?" element={<MessagesPage session={auth.session} sessionError={auth.error} />} />
+              <Route path="/messages/devices" element={<MessagesPage session={auth.session} sessionError={auth.error} managingDevices />} />
               <Route
                 path="/search"
                 element={<SearchPage session={auth.session} />}
@@ -245,15 +321,26 @@ function AppShell() {
                 element={<ComingSoon title="Communities" />}
               />
               <Route path="/notifications" element={<NotificationsPage />} />
+              <Route path="/activity" element={<ActivityPage />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
+            </Suspense>
           </section>
           {!hideAccountSidebar && <AccountSidebar auth={auth} />}
         </main>
-        <MobileNavigation auth={auth} />
+        {!threadView && <MobileNavigation auth={auth} />}
       </div>
+     </DmUnreadProvider>
     </NotificationsProvider>
   );
+}
+
+function RouteFallback() {
+  const { pathname } = useLocation();
+  if (/^\/@/.test(pathname) || pathname === "/profile") return <ProfileSkeleton />;
+  if (pathname.startsWith("/messages")) return null;
+  if (pathname.startsWith("/settings") || pathname === "/asettings") return null;
+  return <PostListSkeleton />;
 }
 
 function HomeFeed({ session }: { session: Session | null }) {

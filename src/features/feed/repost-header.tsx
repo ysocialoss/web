@@ -1,5 +1,5 @@
 import { Repeat2, Users } from "lucide-react";
-import { Link } from "react-router";
+import { ProfileHoverLink } from "@/features/profile/profile-hover-link";
 import { cn } from "@/lib/utils";
 import type { RepostContext } from "@/lib/api";
 import { DisplayName } from "@/components/display-name";
@@ -27,12 +27,12 @@ export function RepostHeader({
     >
       <Icon className="size-3.5 shrink-0" aria-hidden="true" />
       <span className="min-w-0 truncate">
-        <Link
-          to={`/@${repost.by.handle}`}
+        <ProfileHoverLink
+          handle={repost.by.handle}
           className="font-medium underline-offset-4 hover:text-foreground hover:underline"
         >
           <DisplayName user={repost.by} name={name} />
-        </Link>{" "}
+        </ProfileHoverLink>{" "}
         reposted{friends ? " to friends" : ""}
         {repost.others > 0 &&
           ` and ${repost.others.toLocaleString()} other${repost.others === 1 ? "" : "s"}`}

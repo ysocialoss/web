@@ -1,6 +1,6 @@
 import type { MouseEventHandler } from "react";
 import { Plus } from "lucide-react";
-import { Link, NavLink } from "react-router";
+import { NavLink } from "react-router";
 import { Button } from "@/components/ui/button";
 import { useNewPostTarget } from "@/features/feed/new-post-target";
 import {
@@ -9,10 +9,15 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { navigation } from "./navigation";
+import { countLabel, useDmUnread } from "@/features/dms/dm-unread";
 import { LegalMenu } from "./legal-menu";
 import { AccountMenu } from "@/features/auth/account-menu";
 import type { AuthState } from "@/features/auth/use-auth";
 import { NotificationsBell } from "@/features/notifications/notifications";
+import { useNotifications } from "@/features/notifications/notifications-context";
+import { SiteLogoLink, SiteLogoMark, SiteWordmark } from "./site-wordmark";
+import { preloadRoute } from "@/routes";
+import { useSessionHint } from "@/features/auth/session-hint";
 
 export function NavigationSidebar({
   showAccount = false,
@@ -24,38 +29,37 @@ export function NavigationSidebar({
   onLogoClick: MouseEventHandler<HTMLAnchorElement>;
 }) {
   const newPost = useNewPostTarget();
+  const { unread } = useDmUnread();
+  const { unreadCount, signedIn: confirmedSignedIn } = useNotifications();
+  const hint = useSessionHint(auth?.session ?? null);
+  const signedIn = confirmedSignedIn || !!hint;
   return (
     <aside
       aria-label="Sidebar"
       className="hidden min-h-0 min-w-0 flex-col overflow-y-auto p-2 md:flex lg:p-3"
     >
       <div className="flex flex-col items-start gap-4">
-        <Link
-          to="/"
-          className="w-fit max-w-full rounded-lg p-1 outline-none focus-visible:ring-2 focus-visible:ring-ring lg:px-3"
-          aria-label="ysocial home"
-          onClick={onLogoClick}
+        <SiteLogoLink
+          onHomeClick={onLogoClick}
+          tooltipSide="right"
+          className="w-fit max-w-full cursor-pointer rounded-lg p-1 outline-none focus-visible:ring-2 focus-visible:ring-ring lg:px-3"
         >
-          <img
-            src="/favicon.png"
-            alt="ysocial"
-            width={48}
-            height={48}
-            className="lg:hidden"
-          />
-          <img
-            src="/logo.png"
-            alt="ysocial"
-            width={1708}
-            height={644}
-            className="hidden h-auto w-32 object-contain object-left lg:block"
-          />
-        </Link>
+          {(variation) => (
+            <>
+              <SiteLogoMark variation={variation} className="lg:hidden" />
+              <SiteWordmark
+                rem={7.75}
+                variation={variation}
+                className="hidden lg:block"
+              />
+            </>
+          )}
+        </SiteLogoLink>
         <nav
           aria-label="Main navigation"
           className="flex w-full flex-col gap-1"
         >
-          {navigation.map(({ label, icon: Icon, to, disabled }) => (
+          {navigation.filter((entry) => !entry.auth || signedIn).map(({ label, icon: Icon, to, disabled }) => (
             <Tooltip key={to}>
               <TooltipTrigger
                 render={
@@ -79,17 +83,38 @@ export function NavigationSidebar({
                     <NavLink
                       to={to}
                       end={to === "/"}
-                      aria-label={label}
+                      onPointerEnter={() => preloadRoute(to)}
+                      onTouchStart={() => preloadRoute(to)}
+                      onFocus={() => preloadRoute(to)}
+                      aria-label={(() => { const n = to === "/messages" ? unread : to === "/activity" ? unreadCount : 0; return n > 0 ? `${label}, ${n} unread` : label; })()}
                       className={({ isActive }) =>
                         `group/nav flex h-10 w-full items-center gap-3 rounded-lg px-3 outline-none transition-[background-color,color,transform] duration-200 hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97] ${isActive ? "bg-muted font-semibold text-foreground" : "font-medium text-muted-foreground hover:text-foreground"}`
                       }
                     >
                       {({ isActive }) => (
                         <>
-                          <Icon
-                            className="size-5 shrink-0 transition-transform duration-200 group-hover/nav:scale-110"
-                            strokeWidth={isActive ? 2.25 : 2}
-                          />
+                          <span className="relative shrink-0">
+                            <Icon
+                              className="size-5 transition-transform duration-200 group-hover/nav:scale-110"
+                              strokeWidth={isActive ? 2.25 : 2}
+                            />
+                            {to === "/activity" && unreadCount > 0 && (
+                              <span
+                                aria-hidden="true"
+                                className="absolute -top-1.5 -right-2 grid h-4 min-w-4 place-items-center rounded-full bg-primary px-1 text-[0.65rem] leading-none font-bold text-primary-foreground ring-2 ring-background"
+                              >
+                                {countLabel(unreadCount)}
+                              </span>
+                            )}
+                            {to === "/messages" && unread > 0 && (
+                              <span
+                                aria-hidden="true"
+                                className="absolute -top-1.5 -right-2 grid h-4 min-w-4 place-items-center rounded-full bg-primary px-1 text-[0.65rem] leading-none font-bold text-primary-foreground ring-2 ring-background"
+                              >
+                                {countLabel(unread)}
+                              </span>
+                            )}
+                          </span>
                           <span className="hidden lg:inline">{label}</span>
                         </>
                       )}

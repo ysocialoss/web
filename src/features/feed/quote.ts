@@ -8,6 +8,7 @@ export function quoteOf(post: Post): PostQuote {
       id: post.id,
       content: post.content,
       gif: post.gif,
+      imageIds: post.imageIds,
       createdAt: post.createdAt,
       editedAt: post.editedAt,
       parentId: post.parentId,
