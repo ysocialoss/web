@@ -8,6 +8,7 @@ import {
   Ban,
   Bookmark,
   LogOut,
+  Mail,
   RefreshCw,
   Monitor,
   Moon,
@@ -31,6 +32,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useTheme } from "@/components/theme-provider";
 import { cn } from "@/lib/utils";
 import { preloadRoute } from "@/routes";
+import { countLabel, useDmUnread } from "@/features/dms/dm-unread";
 import type { AuthState } from "./use-auth";
 import { useSessionHint } from "./session-hint";
 
@@ -133,9 +135,15 @@ export function AccountMenu({ auth }: { auth: AuthState }) {
   const [confirmLogout, setConfirmLogout] = useState(false);
   const [blockedOpen, setBlockedOpen] = useState(false);
   const { session } = auth;
+  const { unread } = useDmUnread();
   const hint = useSessionHint(session);
   const user =
     session?.authenticated && !session.needsOnboarding ? session.user : null;
+  const showMessages = session?.authenticated && !session.needsOnboarding &&
+    !session.pendingApproval && !session.ban &&
+    session.user.navigation?.includes("messages") === false;
+  const showMessageBadge = showMessages && unread > 0;
+  const unreadMessageLabel = `${unread} unread ${unread === 1 ? "message" : "messages"}`;
   const avatarUrl = session?.authenticated ? session.avatarUrl : (hint?.avatarUrl ?? null);
   const shownUser = user ?? hint;
   const initials = shownUser
@@ -150,8 +158,8 @@ export function AccountMenu({ auth }: { auth: AuthState }) {
             <IconButton
               variant="ghost"
               size="icon"
-              className="size-11 rounded-[30%] [corner-shape:squircle] md:size-9"
-              label="Account menu"
+              className="relative size-11 rounded-[30%] [corner-shape:squircle] md:size-9"
+              label={showMessageBadge ? `Account menu, ${unreadMessageLabel}` : "Account menu"}
               disabled={auth.busy || (!session && !auth.error)}
             >
               {!session && !auth.error && !hint ? (
@@ -165,6 +173,14 @@ export function AccountMenu({ auth }: { auth: AuthState }) {
                   initials={initials}
                   className="size-full"
                 />
+              )}
+              {showMessageBadge && (
+                <span
+                  aria-hidden="true"
+                  className="absolute -top-1 -right-1 z-10 grid h-4 min-w-4 place-items-center rounded-full bg-primary px-1 text-[0.65rem] leading-none font-bold text-primary-foreground ring-2 ring-background"
+                >
+                  {countLabel(unread)}
+                </span>
               )}
             </IconButton>
           }
@@ -217,6 +233,18 @@ export function AccountMenu({ auth }: { auth: AuthState }) {
           {isStandaloneApp() && (
             <MenuRow icon={RefreshCw} onClick={reloadApp}>
               Reload app
+            </MenuRow>
+          )}
+          {showMessages && (
+            <MenuRow
+              icon={Mail}
+              to="/messages"
+              onClick={close}
+              onPointerEnter={() => preloadRoute("/messages")}
+              aria-label={showMessageBadge ? `Messages, ${unreadMessageLabel}` : undefined}
+            >
+              <span className="flex-1">Messages</span>
+              {showMessageBadge && <span aria-hidden="true">{countLabel(unread)}</span>}
             </MenuRow>
           )}
           {user && (

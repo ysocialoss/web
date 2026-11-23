@@ -25,6 +25,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ConnectionsPanel } from "@/features/settings/connections-panel";
+import { NavigationEditor } from "./navigation-editor";
 import { IconLink } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -408,6 +409,13 @@ function SignedInSettings({
           </div>
         </div>
         <BrandingPicker />
+        {active && (
+          <NavigationEditor
+            userId={user.id}
+            items={user.navigation}
+            onSaved={auth.updateNavigationItems}
+          />
+        )}
       </Section>
 
       {active && (

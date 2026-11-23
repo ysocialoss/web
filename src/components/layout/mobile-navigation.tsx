@@ -1,5 +1,5 @@
 import { useEffect, useState, type MouseEventHandler } from "react";
-import { Heart, House, Mail, MessageCircle, Plus, Search, UserRound } from "lucide-react";
+import { MessageCircle, Plus, UserRound } from "lucide-react";
 import { useLocation } from "react-router";
 import { LegalMenu } from "./legal-menu";
 import { ProgressiveBlur } from "@/components/ui/progressive-blur";
@@ -15,6 +15,8 @@ import { cn } from "@/lib/utils";
 import { SiteLogoLink, SiteWordmark } from "./site-wordmark";
 import { useSessionHint } from "@/features/auth/session-hint";
 import { preloadRoute } from "@/routes";
+import { defaultNavigation, hiddenNavigation, navigation } from "./navigation";
+import { HiddenNavigation } from "./hidden-navigation";
 
 const COMPACT_AFTER = 64;
 const DIRECTION_STEP = 10;
@@ -106,10 +108,8 @@ export function MobileNavigation({ auth }: { auth: AuthState }) {
   const { unreadCount } = useNotifications();
   const session = auth.session;
   const hint = useSessionHint(session);
-  const user =
-    session?.authenticated && !session.needsOnboarding
-      ? session.user
-      : hint;
+  const account = session?.authenticated && !session.needsOnboarding ? session : null;
+  const user = account?.user ?? hint;
   const avatarUrl =
     session?.authenticated && !session.needsOnboarding
       ? session.avatarUrl
@@ -127,19 +127,20 @@ export function MobileNavigation({ auth }: { auth: AuthState }) {
   ) : (
     <UserRound aria-hidden="true" />
   );
-  const items = [
-    {
-      to: "/",
-      label: "Feed",
-      icon: <House aria-hidden="true" />,
-    },
-    { to: "/search", label: "Search", icon: <Search aria-hidden="true" /> },
-    ...(user
-      ? [{ to: "/activity", label: "Activity", icon: <Heart aria-hidden="true" />, badge: unreadCount }]
-      : []),
-    { to: "/messages", label: "Messages", icon: <Mail aria-hidden="true" />, badge: unread },
-    { to: profilePath, label: "Profile", icon: profileIcon },
-  ];
+  const order = account?.user.navigation ?? defaultNavigation;
+  const hidden = hiddenNavigation(order, !!user);
+  const items = order
+    .filter((id) => user || !navigation[id].auth)
+    .map((id) => {
+      const { to, label, icon: Icon, disabled } = navigation[id];
+      return {
+        to: id === "profile" ? profilePath : to,
+        label,
+        icon: id === "profile" ? profileIcon : <Icon aria-hidden="true" />,
+        disabled,
+        badge: id === "messages" ? unread : id === "activity" ? unreadCount : undefined,
+      };
+    });
   const activeTo = pathname.startsWith("/posts/")
     ? "/"
     : pathname.startsWith("/messages/")
@@ -147,6 +148,7 @@ export function MobileNavigation({ auth }: { auth: AuthState }) {
       : (items.find(({ to }) => to === pathname)?.to ?? null);
 
   const compact = useScrolledDown(pathname);
+  const hasNav = items.length > 0 || hidden.length > 0;
   const [lastKind, setLastKind] = useState<"post" | "reply">("post");
   const kind = newPost?.kind === "reply" ? "reply" : "post";
   if (newPost && kind !== lastKind) setLastKind(kind);
@@ -160,19 +162,24 @@ export function MobileNavigation({ auth }: { auth: AuthState }) {
           compact ? "scale-[0.8]" : "scale-100",
         )}
       >
-        <FloatingNavigation
-          items={items}
-          activeTo={activeTo}
-          onPreload={preloadRoute}
-          label="Mobile navigation"
-          className={cn("pointer-events-auto w-full", user ? "max-w-80" : "max-w-64")}
-        />
+        {hasNav && (
+          <FloatingNavigation
+            items={items}
+            activeTo={activeTo}
+            onPreload={preloadRoute}
+            label="Mobile navigation"
+            endContent={hidden.length > 0 && (
+              <HiddenNavigation items={hidden} profilePath={profilePath} mobile />
+            )}
+            className="pointer-events-auto w-max min-w-0 max-w-80"
+          />
+        )}
         <div
           inert={!newPost}
           className={cn(
             "shrink-0 transition-[width,margin,opacity,transform] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
             newPost
-              ? "pointer-events-auto ml-2 w-14 scale-100 opacity-100"
+              ? cn("pointer-events-auto w-14 scale-100 opacity-100", hasNav && "ml-2")
               : "pointer-events-none ml-0 w-0 scale-50 opacity-0",
           )}
         >
