@@ -1,5 +1,5 @@
 import type { MouseEventHandler } from "react";
-import { Plus } from "lucide-react";
+import { Plus, UserRound } from "lucide-react";
 import { NavLink } from "react-router";
 import { Button } from "@/components/ui/button";
 import { useNewPostTarget } from "@/features/feed/new-post-target";
@@ -31,8 +31,14 @@ export function NavigationSidebar({
   const newPost = useNewPostTarget();
   const { unread } = useDmUnread();
   const { unreadCount, signedIn: confirmedSignedIn } = useNotifications();
-  const hint = useSessionHint(auth?.session ?? null);
+  const session = auth?.session ?? null;
+  const hint = useSessionHint(session);
   const signedIn = confirmedSignedIn || !!hint;
+  const user = session?.authenticated && !session.needsOnboarding ? session.user : hint;
+  const entries: typeof navigation = [
+    ...navigation,
+    { label: "Profile", icon: UserRound, to: user ? `/@${user.handle}` : "/profile" },
+  ];
   return (
     <aside
       aria-label="Sidebar"
@@ -59,7 +65,7 @@ export function NavigationSidebar({
           aria-label="Main navigation"
           className="flex w-full flex-col gap-1"
         >
-          {navigation.filter((entry) => !entry.auth || signedIn).map(({ label, icon: Icon, to, disabled }) => (
+          {entries.filter((entry) => !entry.auth || signedIn).map(({ label, icon: Icon, to, disabled }) => (
             <Tooltip key={to}>
               <TooltipTrigger
                 render={
