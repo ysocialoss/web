@@ -38,7 +38,6 @@ export const defaultNavigation: readonly NavigationItem[] = [
   "search",
   "messages",
   "activity",
-  "communities",
   "profile",
 ];
 

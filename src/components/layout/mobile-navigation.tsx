@@ -17,6 +17,7 @@ import { useSessionHint } from "@/features/auth/session-hint";
 import { preloadRoute } from "@/routes";
 import { defaultNavigation, hiddenNavigation, navigation } from "./navigation";
 import { HiddenNavigation } from "./hidden-navigation";
+import { useShowHiddenNavigation } from "@/lib/show-hidden-navigation";
 
 const COMPACT_AFTER = 64;
 const DIRECTION_STEP = 10;
@@ -128,7 +129,8 @@ export function MobileNavigation({ auth }: { auth: AuthState }) {
     <UserRound aria-hidden="true" />
   );
   const order = account?.user.navigation ?? defaultNavigation;
-  const hidden = hiddenNavigation(order, !!user);
+  const showHidden = useShowHiddenNavigation();
+  const hidden = showHidden ? hiddenNavigation(order, !!user) : [];
   const items = order
     .filter((id) => user || !navigation[id].auth)
     .map((id) => {

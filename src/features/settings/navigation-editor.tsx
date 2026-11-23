@@ -10,6 +10,11 @@ import {
 } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import {
+  setShowHiddenNavigation,
+  useShowHiddenNavigation,
+} from "@/lib/show-hidden-navigation";
 import {
   Dialog,
   DialogContent,
@@ -45,6 +50,7 @@ export function NavigationEditor({
   items: NavigationItem[] | null;
   onSaved: (userId: string, items: NavigationItem[] | null) => void;
 }) {
+  const showHidden = useShowHiddenNavigation();
   const [open, setOpen] = useState(false);
   const reduceMotion = useReducedMotion();
   const [edits, setEdits] = useState<{
@@ -165,11 +171,17 @@ export function NavigationEditor({
             them.
           </DialogDescription>
         </DialogHeader>
+        <label className="flex items-center justify-between gap-3 text-sm font-medium">
+          <span>Show hidden shortcuts in navigation</span>
+          <Switch checked={showHidden} onCheckedChange={setShowHiddenNavigation} />
+        </label>
         <div className="space-y-2">
           <h3 className="font-medium">Visible shortcuts</h3>
           {shown.length === 0 ? (
             <p className="py-2 text-muted-foreground">
-              All shortcuts are under Show hidden.
+              {showHidden
+                ? "All shortcuts are under Show hidden."
+                : "No shortcuts are visible in navigation."}
             </p>
           ) : (
             <ol

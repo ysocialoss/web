@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/tooltip";
 import { defaultNavigation, hiddenNavigation, navigation } from "./navigation";
 import { HiddenNavigation } from "./hidden-navigation";
+import { useShowHiddenNavigation } from "@/lib/show-hidden-navigation";
 import { countLabel, useDmUnread } from "@/features/dms/dm-unread";
 import { LegalMenu } from "./legal-menu";
 import { AccountMenu } from "@/features/auth/account-menu";
@@ -45,7 +46,8 @@ export function NavigationSidebar({
   const user = account?.user ?? hint;
   const profilePath = user ? `/@${user.handle}` : session?.authenticated ? "/profile" : null;
   const items = account?.user.navigation ?? defaultNavigation;
-  const hidden = hiddenNavigation(items, signedIn);
+  const showHidden = useShowHiddenNavigation();
+  const hidden = showHidden ? hiddenNavigation(items, signedIn) : [];
   const entries = items
     .filter((id) => id !== "profile" || profilePath !== null)
     .map((id) => id === "profile" && profilePath
