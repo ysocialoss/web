@@ -1,6 +1,14 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router";
-import { ArrowUpRight, BadgeCheck, Check, ChevronRight, Copy, LoaderCircle, Trash2 } from "lucide-react";
+import {
+  ArrowUpRight,
+  BadgeCheck,
+  Check,
+  ChevronRight,
+  Copy,
+  LoaderCircle,
+  Trash2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import {
@@ -32,11 +40,18 @@ function CopyField({ label, value }: { label: string; value: string }) {
     <div className="min-w-0">
       <p className="text-xs font-medium text-muted-foreground">{label}</p>
       <div className="mt-1 flex items-center gap-1.5">
-        <code className="min-w-0 flex-1 rounded-md bg-muted px-2 py-1.5 text-xs break-all select-all">{value}</code>
+        <code className="min-w-0 flex-1 rounded-md bg-muted px-2 py-1.5 text-xs break-all select-all">
+          {value}
+        </code>
         <IconButton
           label={copied ? "Copied" : `Copy ${label.toLowerCase()}`}
           size="icon-sm"
-          onClick={() => void writeClipboard(value).then(() => setCopied(true), () => setCopied(false))}
+          onClick={() =>
+            void writeClipboard(value).then(
+              () => setCopied(true),
+              () => setCopied(false),
+            )
+          }
         >
           {copied ? <Check className="text-primary" /> : <Copy />}
         </IconButton>
@@ -104,7 +119,8 @@ function PendingDomainDialog({
         <DialogHeader>
           <DialogTitle className="break-all">{domain.domain}</DialogTitle>
           <DialogDescription>
-            Add this TXT record where your domain's DNS is managed. We check automatically, or press Verify.
+            Add this TXT record where your domain's DNS is managed. We check
+            automatically, or press Verify.
           </DialogDescription>
         </DialogHeader>
         {domain.record && (
@@ -117,15 +133,29 @@ function PendingDomainDialog({
           </div>
         )}
         <p className="text-xs text-muted-foreground">
-          Domain Connect is an open standard that lets supported DNS providers add the record for you.
+          Domain Connect is an open standard that lets supported DNS providers
+          add the record for you.
         </p>
         <DialogFooter>
-          <Button variant="outline" disabled={verifying || connecting} onClick={() => void connectAutomatically()}>
-            {connecting ? <LoaderCircle className="animate-spin" aria-hidden="true" /> : <ArrowUpRight aria-hidden="true" />}
+          <Button
+            variant="outline"
+            disabled={verifying || connecting}
+            onClick={() => void connectAutomatically()}
+          >
+            {connecting ? (
+              <LoaderCircle className="animate-spin" aria-hidden="true" />
+            ) : (
+              <ArrowUpRight aria-hidden="true" />
+            )}
             Set up with Domain Connect
           </Button>
-          <Button disabled={verifying || connecting} onClick={() => void verify()}>
-            {verifying && <LoaderCircle className="animate-spin" aria-hidden="true" />}
+          <Button
+            disabled={verifying || connecting}
+            onClick={() => void verify()}
+          >
+            {verifying && (
+              <LoaderCircle className="animate-spin" aria-hidden="true" />
+            )}
             Verify
           </Button>
         </DialogFooter>
@@ -134,7 +164,12 @@ function PendingDomainDialog({
   );
 }
 
-export function DomainsPanel({ onChange }: { returnTo: "profile" | "settings"; onChange?: () => void }) {
+export function DomainsPanel({
+  onChange,
+}: {
+  returnTo: "profile" | "settings";
+  onChange?: () => void;
+}) {
   const [params, setParams] = useSearchParams();
   const [domains, setDomains] = useState<OwnedDomain[] | null>(null);
   const [max, setMax] = useState(10);
@@ -143,7 +178,9 @@ export function DomainsPanel({ onChange }: { returnTo: "profile" | "settings"; o
   const [loadFailed, setLoadFailed] = useState(false);
   const [adding, setAdding] = useState(false);
   const [removing, setRemoving] = useState<OwnedDomain | null>(null);
-  const [openId, setOpenId] = useState<string | null>(() => params.get("domainconnect"));
+  const [openId, setOpenId] = useState<string | null>(() =>
+    params.get("domainconnect"),
+  );
   const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
@@ -171,10 +208,15 @@ export function DomainsPanel({ onChange }: { returnTo: "profile" | "settings"; o
     return () => controller.abort();
   }, [attempt]);
 
-  const open = domains?.find((entry) => entry.id === openId && !entry.verified) ?? null;
+  const open =
+    domains?.find((entry) => entry.id === openId && !entry.verified) ?? null;
 
   function verified(domain: OwnedDomain) {
-    setDomains((current) => current?.map((entry) => (entry.id === domain.id ? domain : entry)) ?? current);
+    setDomains(
+      (current) =>
+        current?.map((entry) => (entry.id === domain.id ? domain : entry)) ??
+        current,
+    );
     setOpenId(null);
     onChange?.();
   }
@@ -196,7 +238,10 @@ export function DomainsPanel({ onChange }: { returnTo: "profile" | "settings"; o
   async function remove(domain: OwnedDomain) {
     try {
       await api.removeDomain(domain.id);
-      setDomains((current) => current?.filter((entry) => entry.id !== domain.id) ?? current);
+      setDomains(
+        (current) =>
+          current?.filter((entry) => entry.id !== domain.id) ?? current,
+      );
       onChange?.();
       return true;
     } catch (reason) {
@@ -207,16 +252,10 @@ export function DomainsPanel({ onChange }: { returnTo: "profile" | "settings"; o
 
   return (
     <section aria-label="Domains" className="@container">
-      <div className="overflow-hidden rounded-xl border bg-card text-card-foreground">
-        <div className="space-y-1 p-4 pb-3">
-          <h2 className="text-sm font-semibold">Your domains</h2>
-          <p className="text-sm text-muted-foreground">
-            Prove you own a domain with a DNS record and its icon appears on your public profile. You can add up to {max}.
-          </p>
-        </div>
-        {!domains && !loadFailed && <Skeleton className="mx-4 mb-4 h-10" />}
+      <div className="text-card-foreground">
+        {!domains && !loadFailed && <Skeleton className="mx-4 mt-4 h-10" />}
         {loadFailed && !domains && (
-          <div className="px-4 pb-4">
+          <div className="px-4 pt-4">
             <Button
               size="sm"
               variant="ghost"
@@ -230,19 +269,24 @@ export function DomainsPanel({ onChange }: { returnTo: "profile" | "settings"; o
           </div>
         )}
         {domains && domains.length > 0 && (
-          <ul className="divide-y border-t">
+          <ul className="divide-y border-b">
             {domains.map((domain) => {
               const body = (
                 <>
-                  <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-muted">
+                  <span className="grid size-10 shrink-0 place-items-center rounded-md bg-muted">
                     <DomainIcon domain={domain.domain} className="size-5" />
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-semibold">{domain.domain}</span>
+                    <span className="block truncate text-sm font-semibold">
+                      {domain.domain}
+                    </span>
                     <span className="flex items-center gap-1 text-xs text-muted-foreground">
                       {domain.verified ? (
                         <>
-                          <BadgeCheck className="size-3.5 text-primary" aria-hidden="true" />
+                          <BadgeCheck
+                            className="size-3.5 text-primary"
+                            aria-hidden="true"
+                          />
                           Verified · shown on your profile
                         </>
                       ) : (
@@ -255,16 +299,21 @@ export function DomainsPanel({ onChange }: { returnTo: "profile" | "settings"; o
               return (
                 <li key={domain.id} className="flex items-center gap-1 pr-3">
                   {domain.verified ? (
-                    <div className="flex min-w-0 flex-1 items-center gap-3 p-4">{body}</div>
+                    <div className="flex min-w-0 flex-1 items-center gap-3 px-4 py-3.5">
+                      {body}
+                    </div>
                   ) : (
                     <button
                       type="button"
                       aria-label={`${domain.domain}: finish verification`}
                       onClick={() => setOpenId(domain.id)}
-                      className="flex min-w-0 flex-1 items-center gap-3 p-4 text-left outline-none transition-colors hover:bg-muted/50 focus-visible:bg-muted/50"
+                      className="flex min-w-0 flex-1 items-center gap-3 px-4 py-3.5 text-left outline-none transition-colors hover:bg-muted/50 focus-visible:bg-muted/50"
                     >
                       {body}
-                      <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                      <ChevronRight
+                        className="size-4 shrink-0 text-muted-foreground"
+                        aria-hidden="true"
+                      />
                     </button>
                   )}
                   <IconButton
@@ -281,7 +330,7 @@ export function DomainsPanel({ onChange }: { returnTo: "profile" | "settings"; o
           </ul>
         )}
         <form
-          className="flex gap-2 border-t p-4"
+          className="flex gap-2 p-3"
           onSubmit={(event) => {
             event.preventDefault();
             if (draft.trim() && !adding) void add();
@@ -299,8 +348,16 @@ export function DomainsPanel({ onChange }: { returnTo: "profile" | "settings"; o
             disabled={!domains || adding || domains.length >= max}
             onChange={(event) => setDraft(event.target.value)}
           />
-          <Button type="submit" disabled={!domains || adding || !draft.trim() || domains.length >= max}>
-            {adding && <LoaderCircle className="animate-spin" aria-hidden="true" />}
+          <Button
+            type="submit"
+            variant="outline"
+            disabled={
+              !domains || adding || !draft.trim() || domains.length >= max
+            }
+          >
+            {adding && (
+              <LoaderCircle className="animate-spin" aria-hidden="true" />
+            )}
             Add domain
           </Button>
         </form>
@@ -314,7 +371,11 @@ export function DomainsPanel({ onChange }: { returnTo: "profile" | "settings"; o
           onError={(reason) => setError(errorMessage(reason))}
         />
       )}
-      <ErrorDialog title="Domains" message={error} onClose={() => setError("")} />
+      <ErrorDialog
+        title="Domains"
+        message={error}
+        onClose={() => setError("")}
+      />
       <ConfirmationDialog
         open={removing !== null}
         onOpenChange={(next) => {

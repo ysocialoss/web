@@ -1,3 +1,4 @@
+import { SettingsGroup } from "./settings-group";
 import { useEffect, useId, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -17,12 +18,20 @@ const labels = {
   friend: "New friends",
 } satisfies Record<NotificationPreferenceKind, string>;
 const groups: { title: string; kinds: NotificationPreferenceKind[] }[] = [
-  { title: "Post activity", kinds: ["like", "reply", "mention", "repost", "friends_repost", "quote"] },
-  { title: "Messages and connections", kinds: ["dm_message", "dm_invite", "follow", "friend"] },
+  {
+    title: "Post activity",
+    kinds: ["like", "reply", "mention", "repost", "friends_repost", "quote"],
+  },
+  {
+    title: "Messages and connections",
+    kinds: ["dm_message", "dm_invite", "follow", "friend"],
+  },
 ];
 
 export function NotificationPreferences({ userId }: { userId: string }) {
-  const [mutedKinds, setMutedKinds] = useState<NotificationPreferenceKind[] | null>(null);
+  const [mutedKinds, setMutedKinds] = useState<
+    NotificationPreferenceKind[] | null
+  >(null);
   const [error, setError] = useState("");
   const [loadAttempt, setLoadAttempt] = useState(0);
 
@@ -40,41 +49,50 @@ export function NotificationPreferences({ userId }: { userId: string }) {
   }, [loadAttempt]);
 
   return (
-    <div className="py-3">
+    <div>
       <fieldset className="min-w-0">
-        <legend className="px-4 text-sm font-semibold">When to notify me</legend>
+        <legend className="sr-only">When to notify me</legend>
         {mutedKinds && (
-          <div className="mt-2 divide-y">
+          <div className="space-y-8">
             {groups.map(({ title, kinds }) => (
-              <div key={title} role="group" aria-label={title} className="py-1">
-                <p className="px-4 py-1 text-xs font-medium text-muted-foreground">{title}</p>
-                {kinds.map((kind) => (
-                  <PreferenceRow
-                    key={kind}
-                    kind={kind}
-                    initialEnabled={!mutedKinds.includes(kind)}
-                    userId={userId}
-                  />
-                ))}
+              <div key={title} role="group" aria-label={title}>
+                <SettingsGroup title={title}>
+                  {kinds.map((kind) => (
+                    <PreferenceRow
+                      key={kind}
+                      kind={kind}
+                      initialEnabled={!mutedKinds.includes(kind)}
+                      userId={userId}
+                    />
+                  ))}
+                </SettingsGroup>
               </div>
             ))}
           </div>
         )}
       </fieldset>
       {!mutedKinds && (
-        <div className="space-y-2 px-4 pt-2 text-sm">
+        <div className="space-y-2 px-1 text-sm">
           {error ? (
             <>
-              <p role="alert" className="text-destructive">{error}</p>
-              <Button variant="outline" size="sm" onClick={() => {
-                setError("");
-                setLoadAttempt((attempt) => attempt + 1);
-              }}>
+              <p role="alert" className="text-destructive">
+                {error}
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setError("");
+                  setLoadAttempt((attempt) => attempt + 1);
+                }}
+              >
                 Retry
               </Button>
             </>
           ) : (
-            <p role="status" className="text-muted-foreground">Loading preferences…</p>
+            <p role="status" className="text-muted-foreground">
+              Loading preferences…
+            </p>
           )}
         </div>
       )}
@@ -82,7 +100,11 @@ export function NotificationPreferences({ userId }: { userId: string }) {
   );
 }
 
-function PreferenceRow({ kind, initialEnabled, userId }: {
+function PreferenceRow({
+  kind,
+  initialEnabled,
+  userId,
+}: {
   kind: NotificationPreferenceKind;
   initialEnabled: boolean;
   userId: string;
@@ -112,7 +134,7 @@ function PreferenceRow({ kind, initialEnabled, userId }: {
     <div>
       <label
         htmlFor={id}
-        className="flex min-h-11 cursor-pointer items-center justify-between gap-4 px-4 py-2 text-sm font-medium hover:bg-muted/60"
+        className="flex min-h-12 cursor-pointer items-center justify-between gap-4 px-4 py-2.5 text-sm font-medium transition-colors hover:bg-muted/50"
       >
         <span id={`${id}-label`}>{labels[kind]}</span>
         <Switch
@@ -125,7 +147,15 @@ function PreferenceRow({ kind, initialEnabled, userId }: {
           onCheckedChange={(checked) => void save(checked)}
         />
       </label>
-      {error && <p id={`${id}-error`} role="alert" className="px-4 pb-2 text-sm text-destructive">{error}</p>}
+      {error && (
+        <p
+          id={`${id}-error`}
+          role="alert"
+          className="px-4 pb-2 text-sm text-destructive"
+        >
+          {error}
+        </p>
+      )}
     </div>
   );
 }

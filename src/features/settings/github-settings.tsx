@@ -1,10 +1,6 @@
 import { useEffect, useEffectEvent, useId, useState } from "react";
 import { useSearchParams } from "react-router";
-import {
-  ArrowUpRight,
-  GitPullRequest,
-  LoaderCircle,
-} from "lucide-react";
+import { ArrowUpRight, GitPullRequest, LoaderCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { ErrorDialog } from "@/components/ui/error-dialog";
@@ -71,7 +67,8 @@ export function GithubSettings({
         const result = await api.githubSettings(controller.signal);
         if (controller.signal.aborted) return;
         receiveSettings(result);
-        if (!result.configured || result.github?.contributionCount !== null) return;
+        if (!result.configured || result.github?.contributionCount !== null)
+          return;
       } catch (cause) {
         if (controller.signal.aborted) return;
         if (!polling) {
@@ -122,9 +119,9 @@ export function GithubSettings({
 
   return (
     <section aria-labelledby={headingId} className="@container">
-      <div className="overflow-hidden rounded-xl border bg-card text-card-foreground">
-        <div className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-3 gap-y-4 p-4">
-          <div className="grid size-10 place-items-center self-start rounded-lg bg-muted text-foreground">
+      <div className="text-card-foreground">
+        <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-3 px-4 py-3.5">
+          <div className="grid size-10 place-items-center rounded-md bg-muted text-foreground">
             <GithubMark className="size-5" />
           </div>
           <div className="min-w-0 self-center">
@@ -164,7 +161,9 @@ export function GithubSettings({
             </Button>
           ) : settings?.configured ? (
             <Button
-              className="col-span-2 w-full @sm:col-span-1 @sm:col-start-2 @sm:w-fit"
+              variant="outline"
+              size="sm"
+              className="col-span-2 w-full @sm:col-span-1 @sm:col-start-3 @sm:row-start-1 @sm:w-fit"
               disabled={action !== null}
               onClick={() => void change("connect")}
             >
@@ -178,7 +177,7 @@ export function GithubSettings({
           ) : null}
         </div>
         {github && (
-          <div className="flex items-center gap-2 border-t bg-muted/35 px-4 py-2.5">
+          <div className="flex items-center gap-2 px-4 pb-3">
             <GitPullRequest
               className="size-4 shrink-0 text-muted-foreground"
               aria-hidden="true"
@@ -194,7 +193,7 @@ export function GithubSettings({
         )}
         {!settings &&
           (error ? (
-            <div className="border-t px-4 py-2">
+            <div className="px-4 pb-2">
               <Button
                 variant="ghost"
                 size="sm"
@@ -209,7 +208,7 @@ export function GithubSettings({
           ) : (
             <p
               role="status"
-              className="flex items-center gap-2 border-t px-4 py-2.5 text-sm text-muted-foreground"
+              className="flex items-center gap-2 px-4 pb-3 text-sm text-muted-foreground"
             >
               <LoaderCircle
                 className="size-4 animate-spin"
@@ -219,7 +218,7 @@ export function GithubSettings({
             </p>
           ))}
         {settings && !settings.configured && !github && (
-          <p className="border-t px-4 py-2.5 text-sm text-muted-foreground">
+          <p className="px-4 pb-3 text-sm text-muted-foreground">
             GitHub connections are currently unavailable.
           </p>
         )}

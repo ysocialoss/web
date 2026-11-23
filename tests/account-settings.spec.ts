@@ -179,7 +179,6 @@ test("deleting the account needs the handle typed and calls the API", async ({ p
   });
   await page.route("**/auth/logout", (route) => route.fulfill({ status: 204, body: "" }));
   await page.goto("/settings/account");
-  await page.getByRole("button", { name: "Session", exact: true }).click();
   await page.getByRole("button", { name: "Delete", exact: true }).click();
   const confirm = page.getByRole("button", { name: "Delete account" }).last();
   await expect(confirm).toBeDisabled();

@@ -7,23 +7,49 @@ import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { ErrorDialog } from "@/components/ui/error-dialog";
 import { ExternalLink } from "@/components/ui/external-link";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { api, errorMessage } from "@/lib/api";
 import { GithubSettings } from "./github-settings";
 import { DomainsPanel } from "./domains-panel";
-import { connectionProviders, type ConnectionProviderId } from "./connection-providers";
+import { SettingsGroup } from "./settings-group";
+import {
+  connectionProviders,
+  type ConnectionProviderId,
+} from "./connection-providers";
 import type { ComponentProps } from "react";
 
 type Listing = Awaited<ReturnType<typeof api.linkedAccounts>>["providers"];
 
 const resultText: Record<string, { text: string; error: boolean }> = {
   cancelled: { text: "Connection cancelled.", error: false },
-  account_taken: { text: "That account is already linked to another ysocial account.", error: true },
-  invalid_state: { text: "The connection request expired. Try connecting again.", error: true },
-  no_channel: { text: "That Google account has no YouTube channel.", error: true },
-  not_configured: { text: "This connection is not available right now.", error: true },
-  unavailable: { text: "The service didn't answer. Try again in a moment.", error: true },
-  already_connected: { text: "This account is already connected.", error: false },
+  account_taken: {
+    text: "That account is already linked to another ysocial account.",
+    error: true,
+  },
+  invalid_state: {
+    text: "The connection request expired. Try connecting again.",
+    error: true,
+  },
+  no_channel: {
+    text: "That Google account has no YouTube channel.",
+    error: true,
+  },
+  not_configured: {
+    text: "This connection is not available right now.",
+    error: true,
+  },
+  unavailable: {
+    text: "The service didn't answer. Try again in a moment.",
+    error: true,
+  },
+  already_connected: {
+    text: "This account is already connected.",
+    error: false,
+  },
 };
 
 export function ConnectionsPanel({
@@ -43,9 +69,17 @@ export function ConnectionsPanel({
   const [attempt, setAttempt] = useState(0);
   const [acknowledged, setAcknowledged] = useState("");
   const [callbackDismissed, setCallbackDismissed] = useState(false);
-  const [links, setLinks] = useState<Partial<Record<ConnectionProviderId, string>>>({});
+  const [links, setLinks] = useState<
+    Partial<Record<ConnectionProviderId, string>>
+  >({});
   const callbackProvider = params.get("connection");
-  const callback = callbackProvider && params.get("result") !== "connected" ? (resultText[params.get("result") ?? ""] ?? { text: "Could not connect. Try again.", error: true }) : null;
+  const callback =
+    callbackProvider && params.get("result") !== "connected"
+      ? (resultText[params.get("result") ?? ""] ?? {
+          text: "Could not connect. Try again.",
+          error: true,
+        })
+      : null;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -93,9 +127,15 @@ export function ConnectionsPanel({
     setError("");
     setBusy(provider);
     try {
-      const { connection } = await api.linkProvider(provider, links[provider] ?? "");
-      setListing((current) =>
-        current?.map((entry) => (entry.provider === provider ? { ...entry, connection } : entry)) ?? current,
+      const { connection } = await api.linkProvider(
+        provider,
+        links[provider] ?? "",
+      );
+      setListing(
+        (current) =>
+          current?.map((entry) =>
+            entry.provider === provider ? { ...entry, connection } : entry,
+          ) ?? current,
       );
       setLinks((current) => ({ ...current, [provider]: "" }));
       onChange?.();
@@ -110,8 +150,13 @@ export function ConnectionsPanel({
     setError("");
     try {
       await api.disconnectProvider(provider);
-      setListing((current) =>
-        current?.map((entry) => (entry.provider === provider ? { ...entry, connection: null } : entry)) ?? current,
+      setListing(
+        (current) =>
+          current?.map((entry) =>
+            entry.provider === provider
+              ? { ...entry, connection: null }
+              : entry,
+          ) ?? current,
       );
       onChange?.();
       return true;
@@ -121,115 +166,162 @@ export function ConnectionsPanel({
     }
   }
 
-  const confirming = connectionProviders.find((provider) => provider.id === confirm);
+  const confirming = connectionProviders.find(
+    (provider) => provider.id === confirm,
+  );
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-8">
+      <SettingsGroup
+        title="Linked accounts"
+        description="Show your other accounts on your public profile."
+      >
       <GithubSettings returnTo="profile" onGithubChange={onGithubChange} />
-      {connectionProviders.map(({ id, name, description, Mark, color, kind, placeholder }) => {
-        const entry = listing?.find((item) => item.provider === id);
-        const connection = entry?.connection ?? null;
-        const unavailable = !!entry && !entry.configured && !connection;
-        const button = !entry ? (
-          <Skeleton className="col-span-2 h-9 w-full @sm:col-span-1 @sm:col-start-2 @sm:w-32" />
-        ) : connection ? (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="col-start-2 -mt-1 justify-self-start @xs:col-start-3 @xs:row-start-1 @xs:mt-0 @xs:self-center"
-            disabled={busy !== null}
-            onClick={() => setConfirm(id)}
-          >
-            Disconnect
-          </Button>
-        ) : kind === "link" ? (
-          <form
-            className="col-span-2 flex gap-2 @sm:col-start-2 @sm:col-span-1"
-            onSubmit={(event) => {
-              event.preventDefault();
-              if ((links[id] ?? "").trim()) void link(id);
-            }}
-          >
-            <Input
-              type="url"
-              inputMode="url"
-              autoComplete="off"
-              spellCheck={false}
-              aria-label={`${name} profile link`}
-              placeholder={placeholder}
-              maxLength={300}
-              value={links[id] ?? ""}
-              disabled={!entry || busy !== null}
-              onChange={(event) => setLinks((current) => ({ ...current, [id]: event.target.value }))}
-            />
-            <Button type="submit" disabled={!entry || busy !== null || !(links[id] ?? "").trim()}>
-              {busy === id ? <LoaderCircle className="animate-spin" aria-hidden="true" /> : null}
-              Add
+      {connectionProviders.map(
+        ({ id, name, description, Mark, color, kind, placeholder }) => {
+          const entry = listing?.find((item) => item.provider === id);
+          const connection = entry?.connection ?? null;
+          const unavailable = !!entry && !entry.configured && !connection;
+          const button = !entry ? (
+            <Skeleton className="col-span-2 h-8 w-full @sm:col-span-1 @sm:col-start-3 @sm:row-start-1 @sm:w-28" />
+          ) : connection ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="col-start-2 -mt-1 justify-self-start @xs:col-start-3 @xs:row-start-1 @xs:mt-0 @xs:self-center"
+              disabled={busy !== null}
+              onClick={() => setConfirm(id)}
+            >
+              Disconnect
             </Button>
-          </form>
-        ) : (
-          <Button
-            className="col-span-2 w-full @sm:col-span-1 @sm:col-start-2 @sm:w-fit"
-            disabled={!entry || unavailable || busy !== null}
-            onClick={() => void connect(id)}
-          >
-            {busy === id ? (
-              <LoaderCircle className="animate-spin" aria-hidden="true" />
-            ) : (
-              <ArrowUpRight aria-hidden="true" />
-            )}
-            {busy === id ? `Opening ${name}…` : `Connect ${name}`}
-          </Button>
-        );
-        return (
-          <section key={id} aria-label={name} className="@container">
-            <div className="overflow-hidden rounded-xl border bg-card text-card-foreground">
-              <div className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-3 gap-y-4 p-4">
-                <div className="grid size-10 place-items-center self-start rounded-lg bg-muted">
-                  <Mark className={`size-5 ${color}`} />
-                </div>
-                <div className="min-w-0 self-center">
-                  <h2 className="text-sm font-semibold">{name}</h2>
-                  {connection ? (
-                    <ExternalLink
-                      className="mt-0.5 inline-flex max-w-full items-center gap-1 rounded-sm text-sm text-muted-foreground hover:text-foreground hover:underline focus-visible:outline-2 focus-visible:outline-ring"
-                      href={connection.profileUrl}
-                    >
-                      <span className="min-w-0 truncate">{connection.username}</span>
-                      <ArrowUpRight className="size-3.5 shrink-0" aria-hidden="true" />
-                    </ExternalLink>
-                  ) : !listing && !error ? (
-                    <Skeleton className="mt-1.5 h-3.5 w-40" />
+          ) : kind === "link" ? (
+            <form
+              className="col-span-2 flex gap-2 @sm:col-span-1 @sm:col-start-3 @sm:row-start-1 @sm:w-72"
+              onSubmit={(event) => {
+                event.preventDefault();
+                if ((links[id] ?? "").trim()) void link(id);
+              }}
+            >
+              <Input
+                type="url"
+                inputMode="url"
+                autoComplete="off"
+                spellCheck={false}
+                aria-label={`${name} profile link`}
+                placeholder={placeholder}
+                maxLength={300}
+                value={links[id] ?? ""}
+                disabled={!entry || busy !== null}
+                onChange={(event) =>
+                  setLinks((current) => ({
+                    ...current,
+                    [id]: event.target.value,
+                  }))
+                }
+              />
+              <Button
+                type="submit"
+                variant="outline"
+                disabled={!entry || busy !== null || !(links[id] ?? "").trim()}
+              >
+                {busy === id ? (
+                  <LoaderCircle className="animate-spin" aria-hidden="true" />
+                ) : null}
+                Add
+              </Button>
+            </form>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              className="col-span-2 w-full @sm:col-span-1 @sm:col-start-3 @sm:row-start-1 @sm:w-fit"
+              disabled={!entry || unavailable || busy !== null}
+              onClick={() => void connect(id)}
+            >
+              {busy === id ? (
+                <LoaderCircle className="animate-spin" aria-hidden="true" />
+              ) : (
+                <ArrowUpRight aria-hidden="true" />
+              )}
+              {busy === id ? `Opening ${name}…` : `Connect ${name}`}
+            </Button>
+          );
+          return (
+            <section key={id} aria-label={name} className="@container">
+              <div className="text-card-foreground">
+                <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-3 px-4 py-3.5">
+                  <div className="grid size-10 place-items-center rounded-md bg-muted">
+                    <Mark className={`size-5 ${color}`} />
+                  </div>
+                  <div className="min-w-0 self-center">
+                    <h2 className="text-sm font-semibold">{name}</h2>
+                    {connection ? (
+                      <ExternalLink
+                        className="mt-0.5 inline-flex max-w-full items-center gap-1 rounded-sm text-sm text-muted-foreground hover:text-foreground hover:underline focus-visible:outline-2 focus-visible:outline-ring"
+                        href={connection.profileUrl}
+                      >
+                        <span className="min-w-0 truncate">
+                          {connection.username}
+                        </span>
+                        <ArrowUpRight
+                          className="size-3.5 shrink-0"
+                          aria-hidden="true"
+                        />
+                      </ExternalLink>
+                    ) : !listing && !error ? (
+                      <Skeleton className="mt-1.5 h-3.5 w-40" />
+                    ) : (
+                      <p className="mt-0.5 text-sm text-muted-foreground">
+                        {description}
+                      </p>
+                    )}
+                  </div>
+                  {unavailable ? (
+                    <Tooltip>
+                      <TooltipTrigger
+                        render={
+                          <span
+                            tabIndex={0}
+                            className="col-span-2 cursor-not-allowed rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring @sm:col-span-1 @sm:col-start-3 @sm:row-start-1"
+                          />
+                        }
+                      >
+                        <span className="pointer-events-none block">
+                          {button}
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        This connection isn't set up yet
+                      </TooltipContent>
+                    </Tooltip>
                   ) : (
-                    <p className="mt-0.5 text-sm text-muted-foreground">{description}</p>
+                    button
                   )}
                 </div>
-                {unavailable ? (
-                  <Tooltip>
-                    <TooltipTrigger
-                      render={<span tabIndex={0} className="col-span-2 cursor-not-allowed rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring @sm:col-span-1 @sm:col-start-2" />}
-                    >
-                      <span className="pointer-events-none block">{button}</span>
-                    </TooltipTrigger>
-                    <TooltipContent>This connection isn't set up yet</TooltipContent>
-                  </Tooltip>
-                ) : (
-                  button
+                {connection && (
+                  <p className="px-4 pb-3 text-sm text-muted-foreground">
+                    Shown on your public profile.
+                  </p>
                 )}
               </div>
-              {connection && (
-                <p className="border-t bg-muted/35 px-4 py-2.5 text-sm text-muted-foreground">
-                  Shown on your public profile.
-                </p>
-              )}
-            </div>
-          </section>
-        );
-      })}
-      <DomainsPanel returnTo={returnTo} onChange={onChange} />
+            </section>
+          );
+        },
+      )}
+      </SettingsGroup>
+      <SettingsGroup
+        title="Domains"
+        description="Prove you own a domain with a DNS record and its icon appears on your public profile."
+      >
+        <DomainsPanel returnTo={returnTo} onChange={onChange} />
+      </SettingsGroup>
       {error && !listing && (
         <div className="flex justify-end">
-          <Button size="sm" variant="ghost" onClick={() => setAttempt((current) => current + 1)}>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => setAttempt((current) => current + 1)}
+          >
             Try again
           </Button>
         </div>
