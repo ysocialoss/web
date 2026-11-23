@@ -13,6 +13,9 @@ const now = "2026-01-01T00:00:00.000Z";
 
 test.beforeEach(async ({ page }) => {
   await page.route("**/api/**", (route) => route.fulfill({ json: {} }));
+  await page.route("**/api/domains", (route) =>
+    route.fulfill({ json: { domains: [], max: 10 } }),
+  );
   await page.route("**/auth/me", (route) =>
     route.fulfill({
       json: {

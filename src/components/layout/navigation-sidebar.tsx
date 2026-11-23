@@ -9,7 +9,9 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { navigation } from "./navigation";
+import { defaultNavigation, hiddenNavigation, navigation } from "./navigation";
+import { HiddenNavigation } from "./hidden-navigation";
+import { useShowHiddenNavigation } from "@/lib/show-hidden-navigation";
 import { countLabel, useDmUnread } from "@/features/dms/dm-unread";
 import { LegalMenu } from "./legal-menu";
 import { AccountMenu } from "@/features/auth/account-menu";
@@ -40,11 +42,17 @@ export function NavigationSidebar({
   const session = auth?.session ?? null;
   const hint = useSessionHint(session);
   const signedIn = confirmedSignedIn || !!hint;
-  const user = session?.authenticated && !session.needsOnboarding ? session.user : hint;
+  const account = session?.authenticated && !session.needsOnboarding ? session : null;
+  const user = account?.user ?? hint;
   const profilePath = user ? `/@${user.handle}` : session?.authenticated ? "/profile" : null;
-  const entries: typeof navigation = profilePath
-    ? [...navigation, { label: "Profile", icon: UserRound, to: profilePath }]
-    : navigation;
+  const items = account?.user.navigation ?? defaultNavigation;
+  const showHidden = useShowHiddenNavigation();
+  const hidden = showHidden ? hiddenNavigation(items, signedIn) : [];
+  const entries = items
+    .filter((id) => id !== "profile" || profilePath !== null)
+    .map((id) => id === "profile" && profilePath
+      ? { ...navigation[id], to: profilePath }
+      : navigation[id]);
   return (
     <aside
       aria-label="Sidebar"
@@ -166,6 +174,9 @@ export function NavigationSidebar({
                 description="Sign in with CNS to access your profile."
               />
             </Dialog>
+          )}
+          {hidden.length > 0 && profilePath && (
+            <HiddenNavigation items={hidden} profilePath={profilePath} />
           )}
         </nav>
         {newPost && newPost.kind !== "reply" && (

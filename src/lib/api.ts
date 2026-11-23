@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { beginConnectionRetry } from "./connection-status";
+import { navigationItemsSchema, type NavigationItem } from "./navigation-items";
 
 export const bannerCropSchema = z.object({
   x: z.number(),
@@ -206,6 +207,7 @@ const sessionSchema = z.union([
       pronouns: z.string().default(""),
       bannerUrl: z.string().nullable(),
       bannerCrop: bannerCropSchema.nullable(),
+      navigation: navigationItemsSchema,
     }),
     avatarUrl: z.string().nullable(),
     suggestedHandle: z.string(),
@@ -737,6 +739,8 @@ function attemptSignal(ms: number, signal?: AbortSignal) {
 const postPath = (id: string) => `/api/posts/${encodeURIComponent(id)}`;
 export const postImageUrl = (id: string) => `/api/post-images/${encodeURIComponent(id)}`;
 export const api = {
+  setNavigationItems: (userId: string, items: NavigationItem[] | null) =>
+    request("/auth/navigation", z.undefined(), "PUT", { userId, items }, AbortSignal.timeout(10_000)),
   uploadPostImage: (file: File, signal: AbortSignal) =>
     sendRequest("/api/post-images", z.object({ id: z.uuid() }), "POST",
       file.slice(0, file.size, "application/octet-stream"), attemptSignal(45_000, signal), {
