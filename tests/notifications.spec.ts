@@ -198,3 +198,60 @@ test("the bell panel marks notifications read as they come into view", async ({
     })
     .toBe(true);
 });
+
+test("mute duration options stay inside the dialog", async ({ page }) => {
+  await page.setViewportSize({ width: 1024, height: 768 });
+  await page.addInitScript(() => {
+    Object.defineProperty(Notification, "permission", { value: "granted" });
+    PushManager.prototype.getSubscription = async () =>
+      new PushSubscriptionForTest();
+
+    class PushSubscriptionForTest implements PushSubscription {
+      endpoint = "https://example.com/push";
+      expirationTime = null;
+      options = { applicationServerKey: null, userVisibleOnly: true };
+      getKey = () => null;
+      toJSON = () => ({ endpoint: this.endpoint });
+      unsubscribe = async () => true;
+    }
+  });
+  await page.route("**/api/notifications?*", (route) =>
+    route.fulfill({
+      json: { notifications: [], unreadCount: 0, nextCursor: null },
+    }),
+  );
+  await page.route("**/api/notifications/push?*", (route) =>
+    route.fulfill({
+      json: {
+        publicKey: "test-key",
+        subscribed: true,
+        promptDismissed: true,
+        mutedUntil: null,
+        mutedForever: false,
+      },
+    }),
+  );
+
+  await page.goto("/notifications");
+  await page
+    .getByRole("region", { name: "Main content" })
+    .getByRole("button", { name: "Mute", exact: true })
+    .click();
+
+  const dialog = page.getByRole("dialog", { name: "Mute notifications" });
+  const durations = dialog.getByRole("button", {
+    name: /^(1 hour|8 hours|24 hours|1 week|Forever)$/,
+  });
+  await expect(durations).toHaveCount(5);
+  const bounds = await dialog.boundingBox();
+  if (!bounds) throw new Error("Expected the mute dialog to be visible");
+  for (const button of await durations.all()) {
+    const position = await button.boundingBox();
+    if (!position)
+      throw new Error("Expected the duration button to be visible");
+    expect(position.x).toBeGreaterThanOrEqual(bounds.x);
+    expect(position.x + position.width).toBeLessThanOrEqual(
+      bounds.x + bounds.width,
+    );
+  }
+});
