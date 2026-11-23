@@ -195,7 +195,7 @@ export function PushSettings() {
             <DialogTitle>Mute notifications</DialogTitle>
             <DialogDescription>For how long?</DialogDescription>
           </DialogHeader>
-          <DialogFooter className="flex-col md:flex-row">
+          <DialogFooter className="min-w-0 flex-col md:flex-wrap md:justify-start">
             {muteOptions.map(({ value, label }) => (
               <Button
                 key={value}
