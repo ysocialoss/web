@@ -296,9 +296,16 @@ export type TopicCount = z.infer<typeof topicCountSchema>;
 export type SearchUser = z.infer<typeof searchUserSchema>;
 export type Session = z.infer<typeof sessionSchema>;
 export type Profile = z.infer<typeof profileSchema>;
+const socialNotificationKind = z.enum([
+  "like", "repost", "friends_repost", "reply", "follow", "friend", "mention", "quote",
+]);
+const notificationPreferenceKind = z.enum([...socialNotificationKind.options, "dm_message", "dm_invite"]);
+const notificationPreferences = z.object({ mutedKinds: z.array(notificationPreferenceKind) });
+export type NotificationPreferenceKind = z.infer<typeof notificationPreferenceKind>;
+
 const notificationSchema = z.object({
   id: z.string(),
-  kind: z.enum(["like", "repost", "reply", "follow", "mention", "quote"]),
+  kind: socialNotificationKind,
   actor: userSchema,
   postId: z.string().nullable(),
   conversationId: z.uuid().nullish(),
@@ -815,7 +822,7 @@ export const api = {
     ),
   notifications: (cursor?: string, unread = false, signal?: AbortSignal) =>
     request(
-      `/api/notifications?unread=${unread}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`,
+      `/api/notifications?unread=${unread}&extendedKinds=true${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`,
       notificationsSchema,
       "GET",
       undefined,
@@ -850,6 +857,10 @@ export const api = {
     request("/api/notifications/push/prompt-dismissal", z.undefined(), "PUT"),
   setNotificationContentHidden: (hideContent: boolean) =>
     request("/api/notifications/previews", z.undefined(), "PATCH", { hideContent }),
+  notificationPreferences: (signal: AbortSignal) =>
+    request("/api/notifications/preferences", notificationPreferences, "GET", undefined, signal),
+  setNotificationPreference: (kind: NotificationPreferenceKind, enabled: boolean) =>
+    request("/api/notifications/preferences", notificationPreferences, "PATCH", { kind, enabled }),
   mutePush: (endpoint: string, duration: MuteDuration) =>
     request(
       "/api/notifications/push/mute",

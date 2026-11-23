@@ -62,6 +62,66 @@ test.beforeEach(async ({ page }) => {
       json: { publicKey: null, subscribed: false, promptDismissed: true, hideContent: false, mutedUntil: null, mutedForever: false },
     }),
   );
+  await page.route("**/api/notifications/preferences", (route) =>
+    route.fulfill({ json: { mutedKinds: [] } }),
+  );
+});
+
+test("notification switches save independently and survive a reload", async ({ page }) => {
+  const muted = new Set(["dm_message"]);
+  let finishLikesSave: () => void = () => {};
+  const releaseLikesSave = new Promise<void>((resolve) => { finishLikesSave = resolve; });
+  await page.route("**/api/notifications/preferences", async (route) => {
+    if (route.request().method() !== "PATCH")
+      return route.fulfill({ json: { mutedKinds: [...muted] } });
+
+    const { kind, enabled } = route.request().postDataJSON();
+    if (kind === "quote")
+      return route.fulfill({ status: 503, json: { error: "unavailable" } });
+
+    expect(enabled).toEqual(muted.has(kind));
+    if (kind === "like" && !enabled) await releaseLikesSave;
+    if (enabled) muted.delete(kind);
+    else muted.add(kind);
+    await route.fulfill({ json: { mutedKinds: [...muted] } });
+  });
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/settings/account");
+  const preferences = page.getByRole("group", { name: "When to notify me" });
+  const likes = preferences.getByRole("switch", { name: "Likes" });
+  const messages = preferences.getByRole("switch", { name: "Messages" });
+  const invites = preferences.getByRole("switch", { name: "Message invites" });
+  const quotes = preferences.getByRole("switch", { name: "Quotes" });
+  await expect(preferences.getByRole("switch")).toHaveCount(10);
+  await expect(likes).toHaveAttribute("data-slot", "switch");
+  await expect(likes).toBeChecked();
+  await expect(messages).not.toBeChecked();
+  await expect(invites).toBeChecked();
+  await invites.click();
+  await expect(invites).toHaveAttribute("aria-busy", "false");
+  await expect(invites).not.toBeChecked();
+  try {
+    await preferences.getByText("Likes", { exact: true }).click();
+    await expect(likes).not.toBeChecked();
+    await expect(likes).toHaveAttribute("aria-busy", "true");
+    await messages.press("Space");
+    await expect(messages).toBeChecked();
+    await expect(messages).toHaveAttribute("aria-busy", "false");
+  } finally {
+    finishLikesSave();
+  }
+  await expect(likes).toHaveAttribute("aria-busy", "false");
+  await page.reload();
+  await expect(likes).not.toBeChecked();
+  await expect(messages).toBeChecked();
+  await expect(invites).not.toBeChecked();
+  await likes.click();
+  await expect(likes).toHaveAttribute("aria-busy", "false");
+  await expect(likes).toBeChecked();
+  await quotes.click();
+  await expect(preferences.getByRole("alert")).toBeVisible();
+  await expect(quotes).toBeChecked();
 });
 
 test("account settings reuse the profile popups and keep the account menu entry", async ({ page }) => {
