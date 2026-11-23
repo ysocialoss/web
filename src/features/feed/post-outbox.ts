@@ -39,9 +39,7 @@ export function subscribeToPublished(listener: () => void) {
 }
 export function acknowledgePosts(posts: Post[]) {
   const ids = new Set(posts.map((post) => post.id));
-  const remaining = snapshot.filter(
-    (entry) => entry.status === "sending" || !ids.has(entry.post.id),
-  );
+  const remaining = snapshot.filter((entry) => !ids.has(entry.post.id));
   if (remaining.length !== snapshot.length) update(remaining);
 }
 
@@ -148,6 +146,11 @@ export function publishOptimistically({
         ),
       );
     } catch (error) {
+      // A feed or thread response can confirm the post before the send returns.
+      if (!snapshot.some((entry) => entry.post.id === optimistic.id)) {
+        finishReply?.(true);
+        return true;
+      }
       finishReply?.(false);
       update(snapshot.filter((entry) => entry.post.id !== optimistic.id));
       failedToastId = toast.add({
