@@ -13,6 +13,12 @@ const quotes: readonly ComposerQuote[] = [
   {
     text: "All of humanity's problems stem from man's inability to sit quietly in a room alone.",
   },
+  { text: "Nothing in life is to be feared, it is only to be understood." },
+  { text: "Well begun is half done" },
+  { text: "The only true wisdom is in knowing you know nothing." },
+  { text: "Simplicity is prerequisite for reliability." },
+  { text: "Be kind, for everyone you meet is fighting a hard battle" },
+  { text: "Fall seven times, stand up eight." },
 ];
 
 let previous: ComposerQuote | undefined;
