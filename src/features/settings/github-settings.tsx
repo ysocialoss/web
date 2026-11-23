@@ -6,10 +6,14 @@ import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { ErrorDialog } from "@/components/ui/error-dialog";
 import { GithubMark } from "@/components/ui/github-mark";
 import { ExternalLink } from "@/components/ui/external-link";
-import { api, ApiError, errorMessage } from "@/lib/api";
+import { api, ApiError, errorMessage, type Profile } from "@/lib/api";
 
 type GithubSettings = Awaited<ReturnType<typeof api.githubSettings>>;
-type GithubAction = "connect" | "disconnect";
+type GithubAction = "connect" | "disconnect" | "visibility";
+type GithubSettingsOptions = {
+  returnTo?: "profile" | "settings";
+  onGithubChange?: (github: Profile["profile"]["github"]) => void;
+};
 
 function callbackMessage(result: string | null) {
   switch (result) {
@@ -34,14 +38,10 @@ function callbackMessage(result: string | null) {
   }
 }
 
-export function GithubSettings({
+export function useGithubConnection({
   returnTo,
   onGithubChange,
-}: {
-  returnTo?: "profile";
-  onGithubChange?: (github: GithubSettings["github"]) => void;
-}) {
-  const headingId = useId();
+}: GithubSettingsOptions) {
   const [params, setParams] = useSearchParams();
   const [settings, setSettings] = useState<GithubSettings | null>(null);
   const [error, setError] = useState("");
@@ -52,14 +52,14 @@ export function GithubSettings({
   const [loadAttempt, setLoadAttempt] = useState(0);
   const callback = callbackMessage(params.get("github"));
   const github = settings?.github;
-  const disconnecting = action === "disconnect";
+  const updating = action === "disconnect" || action === "visibility";
   const receiveSettings = useEffectEvent((result: GithubSettings) => {
     setSettings(result);
-    onGithubChange?.(result.github);
+    onGithubChange?.(result.github?.displayOnProfile ? result.github : null);
   });
 
   useEffect(() => {
-    if (disconnecting) return;
+    if (updating) return;
     const controller = new AbortController();
     let timer: number | undefined;
     async function load(polling: boolean) {
@@ -83,9 +83,23 @@ export function GithubSettings({
       controller.abort();
       window.clearTimeout(timer);
     };
-  }, [disconnecting, loadAttempt]);
+  }, [updating, loadAttempt]);
 
-  async function change(action: GithubAction) {
+  async function setVisibility(displayOnProfile: boolean) {
+    setError("");
+    setAction("visibility");
+    try {
+      const { github } = await api.setGithubVisibility(displayOnProfile);
+      setSettings((current) => current && { ...current, github });
+      onGithubChange?.(github?.displayOnProfile ? github : null);
+    } catch (cause) {
+      setError(errorMessage(cause));
+    } finally {
+      setAction(null);
+    }
+  }
+
+  async function change(action: "connect" | "disconnect") {
     setError("");
     setAction(action);
     if (params.has("github")) {
@@ -117,6 +131,68 @@ export function GithubSettings({
     }
   }
 
+  const retry = () => {
+    setError("");
+    setLoadAttempt((current) => current + 1);
+  };
+  const dialogs = (
+    <>
+      <ErrorDialog
+        title="GitHub"
+        message={
+          error && error !== acknowledged && !confirmDisconnect
+            ? error
+            : callback?.error && !callbackDismissed
+              ? callback.text
+              : ""
+        }
+        onClose={() => {
+          setAcknowledged(error);
+          setCallbackDismissed(true);
+        }}
+      />
+      <ConfirmationDialog
+        open={confirmDisconnect}
+        onOpenChange={setConfirmDisconnect}
+        title="Disconnect GitHub?"
+        description="Disconnecting removes your GitHub link and Contributor badge from your profile."
+        confirmLabel="Disconnect"
+        destructive
+        onConfirm={() => change("disconnect")}
+        error={error}
+      />
+    </>
+  );
+  return {
+    settings,
+    github,
+    action,
+    error,
+    callback,
+    dialogs,
+    retry,
+    setVisibility,
+    connect: () => change("connect"),
+    confirmDisconnect: () => {
+      setError("");
+      setConfirmDisconnect(true);
+    },
+  };
+}
+
+export function GithubSettings(options: GithubSettingsOptions) {
+  const headingId = useId();
+  const {
+    settings,
+    github,
+    action,
+    error,
+    callback,
+    dialogs,
+    retry,
+    connect,
+    confirmDisconnect,
+  } = useGithubConnection(options);
   return (
     <section aria-labelledby={headingId} className="@container">
       <div className="text-card-foreground">
@@ -152,10 +228,7 @@ export function GithubSettings({
               size="sm"
               className="col-start-2 -mt-1 justify-self-start @xs:col-start-3 @xs:row-start-1 @xs:mt-0 @xs:self-center"
               disabled={action !== null}
-              onClick={() => {
-                setError("");
-                setConfirmDisconnect(true);
-              }}
+              onClick={confirmDisconnect}
             >
               Disconnect
             </Button>
@@ -165,7 +238,7 @@ export function GithubSettings({
               size="sm"
               className="col-span-2 w-full @sm:col-span-1 @sm:col-start-3 @sm:row-start-1 @sm:w-fit"
               disabled={action !== null}
-              onClick={() => void change("connect")}
+              onClick={() => void connect()}
             >
               {action === "connect" ? (
                 <LoaderCircle className="animate-spin" aria-hidden="true" />
@@ -191,17 +264,15 @@ export function GithubSettings({
             </span>
           </div>
         )}
+        {callback && !callback.error && (
+          <p role="status" className="px-4 pb-3 text-sm text-muted-foreground">
+            {callback.text}
+          </p>
+        )}
         {!settings &&
           (error ? (
             <div className="px-4 pb-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setError("");
-                  setLoadAttempt((current) => current + 1);
-                }}
-              >
+              <Button variant="ghost" size="sm" onClick={retry}>
                 Try again
               </Button>
             </div>
@@ -223,30 +294,7 @@ export function GithubSettings({
           </p>
         )}
       </div>
-      <ErrorDialog
-        title="GitHub"
-        message={
-          error && error !== acknowledged && !confirmDisconnect
-            ? error
-            : callback?.error && !callbackDismissed
-              ? callback.text
-              : ""
-        }
-        onClose={() => {
-          setAcknowledged(error);
-          setCallbackDismissed(true);
-        }}
-      />
-      <ConfirmationDialog
-        open={confirmDisconnect}
-        onOpenChange={setConfirmDisconnect}
-        title="Disconnect GitHub?"
-        description="Your GitHub link and Contributor badge will be removed from your public profile."
-        confirmLabel="Disconnect"
-        destructive
-        onConfirm={() => change("disconnect")}
-        error={error}
-      />
+      {dialogs}
     </section>
   );
 }

@@ -85,7 +85,7 @@ type SignedInUser = Extract<Session, { needsOnboarding: false }>["user"];
 const sections = [
   "Account",
   "Appearance",
-  "App connections",
+  "Connections",
   "Notifications",
   "Privacy and safety",
 ] as const;
@@ -94,7 +94,7 @@ const SelectedSection = createContext<SettingsSection>("Account");
 
 const sectionIcons: Record<SettingsSection, LucideIcon> = {
   Account: User,
-  "App connections": Link2,
+  Connections: Link2,
   Appearance: Palette,
   Notifications: Bell,
   "Privacy and safety": ShieldCheck,
@@ -244,7 +244,7 @@ function Section({
       hidden={selected !== title}
       className="space-y-8 duration-200 ease-out animate-in fade-in-0 slide-in-from-bottom-1 motion-reduce:slide-in-from-bottom-0"
     >
-      <h2 className="sr-only">{title}</h2>
+      {title !== "Connections" && <h2 className="sr-only">{title}</h2>}
       {children}
     </section>
   );
@@ -349,8 +349,8 @@ function SignedInSettings({
   const [params] = useSearchParams();
   const [selected, setSelected] = useState<SettingsSection>(() => {
     if (!active) return "Appearance";
-    return params.has("connection") || params.has("domainconnect")
-      ? "App connections"
+    return params.has("connection") || params.has("domainconnect") || params.has("github")
+      ? "Connections"
       : "Account";
   });
   const available: readonly SettingsSection[] = active
@@ -372,19 +372,6 @@ function SignedInSettings({
     setEditTab(tab);
     setEditOpen(true);
   }
-
-  const signOutButton = (
-    <Button
-      variant="outline"
-      size="sm"
-      aria-haspopup="dialog"
-      disabled={auth.busy}
-      onClick={() => setConfirmLogout(true)}
-    >
-      <LogOut aria-hidden="true" />
-      Sign out
-    </Button>
-  );
 
   return (
     <SelectedSection.Provider value={current}>
@@ -574,16 +561,19 @@ function SignedInSettings({
                   </SettingsGroup>
                 </Section>
 
-                <Section title="App connections">
-                  <ConnectionsPanel
-                    returnTo="settings"
-                    onGithubChange={(github) =>
-                      own.update((current) => ({
-                        ...current,
-                        profile: { ...current.profile, github },
-                      }))
-                    }
-                  />
+                <Section title="Connections">
+                  {current === "Connections" && (
+                    <ConnectionsPanel
+                      returnTo="settings"
+                      onChange={own.retry}
+                      onGithubChange={(github) =>
+                        own.update((current) => ({
+                          ...current,
+                          profile: { ...current.profile, github },
+                        }))
+                      }
+                    />
+                  )}
                 </Section>
               </>
             )}
@@ -642,16 +632,6 @@ function SignedInSettings({
                 </Section>
               </>
             )}
-
-            <div className="mt-8 sm:hidden">
-              <SettingsGroup>
-                <Row
-                  title={name}
-                  description={`@${user.handle}`}
-                  action={signOutButton}
-                />
-              </SettingsGroup>
-            </div>
 
             {active && profile && (
               <EditProfileDialog

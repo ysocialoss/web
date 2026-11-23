@@ -164,10 +164,11 @@ function PendingDomainDialog({
   );
 }
 
-export function DomainsPanel({
+export function useDomainConnections({
   onChange,
+  onAdded,
 }: {
-  returnTo: "profile" | "settings";
+  onAdded?: () => void;
   onChange?: () => void;
 }) {
   const [params, setParams] = useSearchParams();
@@ -228,6 +229,7 @@ export function DomainsPanel({
       setDomains((current) => [...(current ?? []), domain]);
       setDraft("");
       setOpenId(domain.id);
+      onAdded?.();
     } catch (reason) {
       setError(errorMessage(reason));
     } finally {
@@ -250,20 +252,107 @@ export function DomainsPanel({
     }
   }
 
+  async function setVisibility(id: string, displayOnProfile: boolean) {
+    try {
+      const { domain } = await api.setDomainVisibility(id, displayOnProfile);
+      setDomains(
+        (current) =>
+          current?.map((entry) => (entry.id === id ? domain : entry)) ??
+          current,
+      );
+      onChange?.();
+    } catch (reason) {
+      setError(errorMessage(reason));
+    }
+  }
+
+  function retry() {
+    setLoadFailed(false);
+    setAttempt((current) => current + 1);
+  }
+
+  const form = (
+    <form
+      className="flex gap-2 p-3"
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (draft.trim() && !adding) void add();
+      }}
+    >
+      <Input
+        inputMode="url"
+        autoComplete="off"
+        autoCapitalize="none"
+        spellCheck={false}
+        aria-label="Domain to add"
+        placeholder="example.com"
+        maxLength={300}
+        value={draft}
+        disabled={!domains || adding || domains.length >= max}
+        onChange={(event) => setDraft(event.target.value)}
+      />
+      <Button
+        type="submit"
+        variant="outline"
+        disabled={!domains || adding || !draft.trim() || domains.length >= max}
+      >
+        {adding && <LoaderCircle className="animate-spin" aria-hidden="true" />}
+        Add domain
+      </Button>
+    </form>
+  );
+  const dialogs = (
+    <>
+      {open && (
+        <PendingDomainDialog
+          key={open.id}
+          domain={open}
+          onClose={() => setOpenId(null)}
+          onVerified={verified}
+          onError={(reason) => setError(errorMessage(reason))}
+        />
+      )}
+      <ErrorDialog
+        title="Domains"
+        message={error}
+        onClose={() => setError("")}
+      />
+      <ConfirmationDialog
+        open={removing !== null}
+        onOpenChange={(next) => {
+          if (!next) setRemoving(null);
+        }}
+        title={`Remove ${removing?.domain ?? "domain"}?`}
+        description="It disappears from your public profile. You can add it again any time."
+        confirmLabel="Remove"
+        destructive
+        onConfirm={() => (removing ? remove(removing) : false)}
+      />
+    </>
+  );
+  return {
+    domains,
+    max,
+    loadFailed,
+    retry,
+    form,
+    dialogs,
+    setOpenId,
+    setRemoving,
+    setVisibility,
+  };
+}
+
+export function DomainsPanel({ onChange }: { onChange?: () => void }) {
+  const { domains, loadFailed, retry, form, dialogs, setOpenId, setRemoving } =
+    useDomainConnections({ onChange });
   return (
     <section aria-label="Domains" className="@container">
       <div className="text-card-foreground">
         {!domains && !loadFailed && <Skeleton className="mx-4 mt-4 h-10" />}
         {loadFailed && !domains && (
           <div className="px-4 pt-4">
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => {
-                setLoadFailed(false);
-                setAttempt((current) => current + 1);
-              }}
-            >
+            <Button size="sm" variant="ghost" onClick={retry}>
               Try again
             </Button>
           </div>
@@ -287,7 +376,9 @@ export function DomainsPanel({
                             className="size-3.5 text-primary"
                             aria-hidden="true"
                           />
-                          Verified · shown on your profile
+                          {domain.displayOnProfile
+                            ? "Verified · shown on your profile"
+                            : "Verified · hidden from your profile"}
                         </>
                       ) : (
                         "Waiting for the DNS record"
@@ -329,64 +420,9 @@ export function DomainsPanel({
             })}
           </ul>
         )}
-        <form
-          className="flex gap-2 p-3"
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (draft.trim() && !adding) void add();
-          }}
-        >
-          <Input
-            inputMode="url"
-            autoComplete="off"
-            autoCapitalize="none"
-            spellCheck={false}
-            aria-label="Domain to add"
-            placeholder="example.com"
-            maxLength={300}
-            value={draft}
-            disabled={!domains || adding || domains.length >= max}
-            onChange={(event) => setDraft(event.target.value)}
-          />
-          <Button
-            type="submit"
-            variant="outline"
-            disabled={
-              !domains || adding || !draft.trim() || domains.length >= max
-            }
-          >
-            {adding && (
-              <LoaderCircle className="animate-spin" aria-hidden="true" />
-            )}
-            Add domain
-          </Button>
-        </form>
+        {form}
       </div>
-      {open && (
-        <PendingDomainDialog
-          key={open.id}
-          domain={open}
-          onClose={() => setOpenId(null)}
-          onVerified={verified}
-          onError={(reason) => setError(errorMessage(reason))}
-        />
-      )}
-      <ErrorDialog
-        title="Domains"
-        message={error}
-        onClose={() => setError("")}
-      />
-      <ConfirmationDialog
-        open={removing !== null}
-        onOpenChange={(next) => {
-          if (!next) setRemoving(null);
-        }}
-        title={`Remove ${removing?.domain ?? "domain"}?`}
-        description="It disappears from your public profile. You can add it again any time."
-        confirmLabel="Remove"
-        destructive
-        onConfirm={() => (removing ? remove(removing) : false)}
-      />
+      {dialogs}
     </section>
   );
 }

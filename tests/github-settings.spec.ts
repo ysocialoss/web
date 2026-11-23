@@ -18,6 +18,12 @@ for (const entry of ["settings", "profile"] as const) {
     const returnPath = entry === "profile" ? profilePath : "/asettings";
     let github: { login: string; contributionCount: number | null } | null = null;
     await page.route("**/api/**", (route) => route.fulfill({ json: {} }));
+    await page.route("**/api/connections", (route) =>
+      route.fulfill({ json: { providers: [] } }),
+    );
+    await page.route("**/api/domains", (route) =>
+      route.fulfill({ json: { domains: [], max: 10 } }),
+    );
     await page.route("**/auth/me", (route) =>
       route.fulfill({
         json: {

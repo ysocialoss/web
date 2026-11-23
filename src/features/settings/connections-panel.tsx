@@ -15,6 +15,7 @@ import {
 import { api, errorMessage } from "@/lib/api";
 import { GithubSettings } from "./github-settings";
 import { DomainsPanel } from "./domains-panel";
+import { AccountConnections } from "./account-connections";
 import { SettingsGroup } from "./settings-group";
 import {
   connectionProviders,
@@ -122,15 +123,12 @@ export function ConnectionsPanel({
     }
   }
 
-  async function link(provider: ConnectionProviderId) {
+  async function link(provider: ConnectionProviderId, url: string) {
     clearCallback();
     setError("");
     setBusy(provider);
     try {
-      const { connection } = await api.linkProvider(
-        provider,
-        links[provider] ?? "",
-      );
+      const { connection } = await api.linkProvider(provider, url);
       setListing(
         (current) =>
           current?.map((entry) =>
@@ -139,10 +137,34 @@ export function ConnectionsPanel({
       );
       setLinks((current) => ({ ...current, [provider]: "" }));
       onChange?.();
+      return true;
     } catch (reason) {
       fail(reason);
+      return false;
     } finally {
       setBusy(null);
+    }
+  }
+
+  async function setVisibility(
+    provider: ConnectionProviderId,
+    displayOnProfile: boolean,
+  ) {
+    setError("");
+    try {
+      const { connection } = await api.setProviderVisibility(
+        provider,
+        displayOnProfile,
+      );
+      setListing(
+        (current) =>
+          current?.map((entry) =>
+            entry.provider === provider ? { ...entry, connection } : entry,
+          ) ?? current,
+      );
+      onChange?.();
+    } catch (reason) {
+      fail(reason);
     }
   }
 
@@ -172,149 +194,179 @@ export function ConnectionsPanel({
 
   return (
     <div className="space-y-8">
-      <SettingsGroup
-        title="Linked accounts"
-        description="Show your other accounts on your public profile."
-      >
-      <GithubSettings returnTo="profile" onGithubChange={onGithubChange} />
-      {connectionProviders.map(
-        ({ id, name, description, Mark, color, kind, placeholder }) => {
-          const entry = listing?.find((item) => item.provider === id);
-          const connection = entry?.connection ?? null;
-          const unavailable = !!entry && !entry.configured && !connection;
-          const button = !entry ? (
-            <Skeleton className="col-span-2 h-8 w-full @sm:col-span-1 @sm:col-start-3 @sm:row-start-1 @sm:w-28" />
-          ) : connection ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="col-start-2 -mt-1 justify-self-start @xs:col-start-3 @xs:row-start-1 @xs:mt-0 @xs:self-center"
-              disabled={busy !== null}
-              onClick={() => setConfirm(id)}
-            >
-              Disconnect
-            </Button>
-          ) : kind === "link" ? (
-            <form
-              className="col-span-2 flex gap-2 @sm:col-span-1 @sm:col-start-3 @sm:row-start-1 @sm:w-72"
-              onSubmit={(event) => {
-                event.preventDefault();
-                if ((links[id] ?? "").trim()) void link(id);
-              }}
-            >
-              <Input
-                type="url"
-                inputMode="url"
-                autoComplete="off"
-                spellCheck={false}
-                aria-label={`${name} profile link`}
-                placeholder={placeholder}
-                maxLength={300}
-                value={links[id] ?? ""}
-                disabled={!entry || busy !== null}
-                onChange={(event) =>
-                  setLinks((current) => ({
-                    ...current,
-                    [id]: event.target.value,
-                  }))
-                }
-              />
-              <Button
-                type="submit"
-                variant="outline"
-                disabled={!entry || busy !== null || !(links[id] ?? "").trim()}
-              >
-                {busy === id ? (
-                  <LoaderCircle className="animate-spin" aria-hidden="true" />
-                ) : null}
-                Add
-              </Button>
-            </form>
-          ) : (
-            <Button
-              variant="outline"
-              size="sm"
-              className="col-span-2 w-full @sm:col-span-1 @sm:col-start-3 @sm:row-start-1 @sm:w-fit"
-              disabled={!entry || unavailable || busy !== null}
-              onClick={() => void connect(id)}
-            >
-              {busy === id ? (
-                <LoaderCircle className="animate-spin" aria-hidden="true" />
-              ) : (
-                <ArrowUpRight aria-hidden="true" />
-              )}
-              {busy === id ? `Opening ${name}…` : `Connect ${name}`}
-            </Button>
-          );
-          return (
-            <section key={id} aria-label={name} className="@container">
-              <div className="text-card-foreground">
-                <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-3 px-4 py-3.5">
-                  <div className="grid size-10 place-items-center rounded-md bg-muted">
-                    <Mark className={`size-5 ${color}`} />
-                  </div>
-                  <div className="min-w-0 self-center">
-                    <h2 className="text-sm font-semibold">{name}</h2>
-                    {connection ? (
-                      <ExternalLink
-                        className="mt-0.5 inline-flex max-w-full items-center gap-1 rounded-sm text-sm text-muted-foreground hover:text-foreground hover:underline focus-visible:outline-2 focus-visible:outline-ring"
-                        href={connection.profileUrl}
-                      >
-                        <span className="min-w-0 truncate">
-                          {connection.username}
-                        </span>
-                        <ArrowUpRight
-                          className="size-3.5 shrink-0"
+      {returnTo === "settings" ? (
+        <AccountConnections
+          listing={listing}
+          busy={busy}
+          loadingFailed={!!error && !listing}
+          onConnect={connect}
+          onLink={link}
+          onDisconnect={setConfirm}
+          onVisibilityChange={setVisibility}
+          onGithubChange={onGithubChange}
+          onChange={onChange}
+        />
+      ) : (
+        <>
+          <SettingsGroup
+            title="Linked accounts"
+            description="Show your other accounts on your public profile."
+          >
+            <GithubSettings
+              returnTo="profile"
+              onGithubChange={onGithubChange}
+            />
+            {connectionProviders.map(
+              ({ id, name, description, Mark, color, kind, placeholder }) => {
+                const entry = listing?.find((item) => item.provider === id);
+                const connection = entry?.connection ?? null;
+                const unavailable = !!entry && !entry.configured && !connection;
+                const button = !entry ? (
+                  <Skeleton className="col-span-2 h-8 w-full @sm:col-span-1 @sm:col-start-3 @sm:row-start-1 @sm:w-28" />
+                ) : connection ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="col-start-2 -mt-1 justify-self-start @xs:col-start-3 @xs:row-start-1 @xs:mt-0 @xs:self-center"
+                    disabled={busy !== null}
+                    onClick={() => setConfirm(id)}
+                  >
+                    Disconnect
+                  </Button>
+                ) : kind === "link" ? (
+                  <form
+                    className="col-span-2 flex gap-2 @sm:col-span-1 @sm:col-start-3 @sm:row-start-1 @sm:w-72"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      if ((links[id] ?? "").trim())
+                        void link(id, links[id] ?? "");
+                    }}
+                  >
+                    <Input
+                      type="url"
+                      inputMode="url"
+                      autoComplete="off"
+                      spellCheck={false}
+                      aria-label={`${name} profile link`}
+                      placeholder={placeholder}
+                      maxLength={300}
+                      value={links[id] ?? ""}
+                      disabled={!entry || busy !== null}
+                      onChange={(event) =>
+                        setLinks((current) => ({
+                          ...current,
+                          [id]: event.target.value,
+                        }))
+                      }
+                    />
+                    <Button
+                      type="submit"
+                      variant="outline"
+                      disabled={
+                        !entry || busy !== null || !(links[id] ?? "").trim()
+                      }
+                    >
+                      {busy === id ? (
+                        <LoaderCircle
+                          className="animate-spin"
                           aria-hidden="true"
                         />
-                      </ExternalLink>
-                    ) : !listing && !error ? (
-                      <Skeleton className="mt-1.5 h-3.5 w-40" />
+                      ) : null}
+                      Add
+                    </Button>
+                  </form>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="col-span-2 w-full @sm:col-span-1 @sm:col-start-3 @sm:row-start-1 @sm:w-fit"
+                    disabled={!entry || unavailable || busy !== null}
+                    onClick={() => void connect(id)}
+                  >
+                    {busy === id ? (
+                      <LoaderCircle
+                        className="animate-spin"
+                        aria-hidden="true"
+                      />
                     ) : (
-                      <p className="mt-0.5 text-sm text-muted-foreground">
-                        {description}
-                      </p>
+                      <ArrowUpRight aria-hidden="true" />
                     )}
-                  </div>
-                  {unavailable ? (
-                    <Tooltip>
-                      <TooltipTrigger
-                        render={
-                          <span
-                            tabIndex={0}
-                            className="col-span-2 cursor-not-allowed rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring @sm:col-span-1 @sm:col-start-3 @sm:row-start-1"
-                          />
-                        }
-                      >
-                        <span className="pointer-events-none block">
-                          {button}
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        This connection isn't set up yet
-                      </TooltipContent>
-                    </Tooltip>
-                  ) : (
-                    button
-                  )}
-                </div>
-                {connection && (
-                  <p className="px-4 pb-3 text-sm text-muted-foreground">
-                    Shown on your public profile.
-                  </p>
-                )}
-              </div>
-            </section>
-          );
-        },
+                    {busy === id ? `Opening ${name}…` : `Connect ${name}`}
+                  </Button>
+                );
+                return (
+                  <section key={id} aria-label={name} className="@container">
+                    <div className="text-card-foreground">
+                      <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-3 px-4 py-3.5">
+                        <div className="grid size-10 place-items-center rounded-md bg-muted">
+                          <Mark className={`size-5 ${color}`} />
+                        </div>
+                        <div className="min-w-0 self-center">
+                          <h2 className="text-sm font-semibold">{name}</h2>
+                          {connection ? (
+                            <ExternalLink
+                              className="mt-0.5 inline-flex max-w-full items-center gap-1 rounded-sm text-sm text-muted-foreground hover:text-foreground hover:underline focus-visible:outline-2 focus-visible:outline-ring"
+                              href={connection.profileUrl}
+                            >
+                              <span className="min-w-0 truncate">
+                                {connection.username}
+                              </span>
+                              <ArrowUpRight
+                                className="size-3.5 shrink-0"
+                                aria-hidden="true"
+                              />
+                            </ExternalLink>
+                          ) : !listing && !error ? (
+                            <Skeleton className="mt-1.5 h-3.5 w-40" />
+                          ) : (
+                            <p className="mt-0.5 text-sm text-muted-foreground">
+                              {description}
+                            </p>
+                          )}
+                        </div>
+                        {unavailable ? (
+                          <Tooltip>
+                            <TooltipTrigger
+                              render={
+                                <span
+                                  tabIndex={0}
+                                  className="col-span-2 cursor-not-allowed rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring @sm:col-span-1 @sm:col-start-3 @sm:row-start-1"
+                                />
+                              }
+                            >
+                              <span className="pointer-events-none block">
+                                {button}
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              This connection isn't set up yet
+                            </TooltipContent>
+                          </Tooltip>
+                        ) : (
+                          button
+                        )}
+                      </div>
+                      {connection && (
+                        <p className="px-4 pb-3 text-sm text-muted-foreground">
+                          {connection.displayOnProfile
+                            ? "Shown on your public profile."
+                            : "Hidden from your public profile."}
+                        </p>
+                      )}
+                    </div>
+                  </section>
+                );
+              },
+            )}
+          </SettingsGroup>
+          <SettingsGroup
+            title="Domains"
+            description="Prove you own a domain with a DNS record and its icon appears on your public profile."
+          >
+            <DomainsPanel onChange={onChange} />
+          </SettingsGroup>
+        </>
       )}
-      </SettingsGroup>
-      <SettingsGroup
-        title="Domains"
-        description="Prove you own a domain with a DNS record and its icon appears on your public profile."
-      >
-        <DomainsPanel returnTo={returnTo} onChange={onChange} />
-      </SettingsGroup>
       {error && !listing && (
         <div className="flex justify-end">
           <Button
