@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/dialog";
 import { ConnectionsPanel } from "@/features/settings/connections-panel";
 import { NavigationEditor } from "./navigation-editor";
+import { NotificationPreferences } from "./notification-preferences";
 import { IconLink } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -421,6 +422,7 @@ function SignedInSettings({
       {active && (
         <>
           <Section title="Notifications">
+            <NotificationPreferences userId={user.id} />
             <div className="px-4 py-3">
               <PushSettings />
             </div>

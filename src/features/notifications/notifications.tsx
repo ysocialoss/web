@@ -43,6 +43,12 @@ const kinds = {
     color:
       "bg-emerald-100 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400",
   },
+  friends_repost: {
+    icon: Repeat2,
+    text: "reposted your post to friends",
+    color:
+      "bg-emerald-100 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400",
+  },
   quote: {
     icon: Quote,
     text: "quoted your post",
@@ -62,6 +68,12 @@ const kinds = {
   follow: {
     icon: UserPlus,
     text: "followed you",
+    color:
+      "bg-violet-100 text-violet-600 dark:bg-violet-950 dark:text-violet-400",
+  },
+  friend: {
+    icon: UserPlus,
+    text: "is now your friend",
     color:
       "bg-violet-100 text-violet-600 dark:bg-violet-950 dark:text-violet-400",
   },
