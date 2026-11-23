@@ -219,9 +219,16 @@ const githubAccountSchema = z.object({
 });
 const githubSettingsSchema = z.object({
   configured: z.boolean(),
-  github: githubAccountSchema.nullable(),
+  github: githubAccountSchema.extend({ displayOnProfile: z.boolean().default(true) }).nullable(),
 });
 const connectionProviderSchema = z.enum(["discord", "twitch", "steam", "spotify", "apple_music"]);
+const linkedAccountSchema = z.object({
+  provider: connectionProviderSchema,
+  username: z.string(),
+  displayName: z.string(),
+  profileUrl: z.url(),
+  displayOnProfile: z.boolean().default(true),
+});
 export type ConnectionProviderName = z.infer<typeof connectionProviderSchema>;
 const profileSchema = z.object({
   profile: userSchema.extend({
@@ -268,6 +275,7 @@ const domainSchema = z.object({
   id: z.string(),
   domain: z.string(),
   verified: z.boolean(),
+  displayOnProfile: z.boolean().default(true),
   record: z.object({ type: z.literal("TXT"), host: z.string(), name: z.string(), value: z.string() }).nullable(),
 });
 export type OwnedDomain = z.infer<typeof domainSchema>;
@@ -757,7 +765,7 @@ export const api = {
     sendRequest(postImageUrl(id), z.undefined(), "DELETE", undefined, AbortSignal.timeout(10_000)),
   githubSettings: (signal: AbortSignal) =>
     request("/api/github", githubSettingsSchema, "GET", undefined, signal),
-  connectGithub: (returnTo?: "profile") => request("/api/github/connect", z.object({
+  connectGithub: (returnTo?: "profile" | "settings") => request("/api/github/connect", z.object({
     url: z.url().refine((value) => {
       const url = new URL(value);
       return url.origin === "https://github.com" && url.pathname === "/login/oauth/authorize";
@@ -776,12 +784,7 @@ export const api = {
       providers: z.array(z.object({
         provider: connectionProviderSchema,
         configured: z.boolean(),
-        connection: z.object({
-          provider: z.string(),
-          username: z.string(),
-          displayName: z.string(),
-          profileUrl: z.url(),
-        }).nullable(),
+        connection: linkedAccountSchema.nullable(),
       })),
     }), "GET", undefined, signal),
   connectProvider: (provider: string, returnTo: "profile" | "settings") =>
@@ -790,9 +793,11 @@ export const api = {
     }), "POST", { returnTo }),
   disconnectProvider: (provider: string) =>
     request(`/api/connections/${provider}`, z.undefined(), "DELETE"),
+  setProviderVisibility: (provider: ConnectionProviderName, displayOnProfile: boolean) =>
+    request(`/api/connections/${provider}`, z.object({ connection: linkedAccountSchema }), "PATCH", { displayOnProfile }),
   linkProvider: (provider: string, url: string) =>
     request(`/api/connections/${provider}/link`, z.object({
-      connection: z.object({ provider: z.string(), username: z.string(), displayName: z.string(), profileUrl: z.url() }),
+      connection: linkedAccountSchema,
     }), "POST", { url }),
   domains: (signal?: AbortSignal) =>
     request("/api/domains", z.object({ domains: z.array(domainSchema), max: z.number() }), "GET", undefined, signal),
@@ -802,12 +807,16 @@ export const api = {
     request(`/api/domains/${encodeURIComponent(id)}/verify`, z.object({ domain: domainSchema }), "POST"),
   removeDomain: (id: string) =>
     request(`/api/domains/${encodeURIComponent(id)}`, z.undefined(), "DELETE"),
+  setDomainVisibility: (id: string, displayOnProfile: boolean) =>
+    request(`/api/domains/${encodeURIComponent(id)}`, z.object({ domain: domainSchema }), "PATCH", { displayOnProfile }),
   domainConnect: (id: string) =>
     request(`/api/domains/${encodeURIComponent(id)}/domain-connect`, z.object({
       url: z.url().refine((value) => new URL(value).protocol === "https:"),
       provider: z.string().nullable(),
     }), "POST"),
   disconnectGithub: () => request("/api/github", z.undefined(), "DELETE"),
+  setGithubVisibility: (displayOnProfile: boolean) =>
+    request("/api/github", githubSettingsSchema.pick({ github: true }), "PATCH", { displayOnProfile }),
   pronounRecommendations: (signal: AbortSignal) =>
     request(
       "/api/profiles/pronouns/recommendations",

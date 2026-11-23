@@ -6,7 +6,6 @@ import {
   Eye,
   EyeOff,
   GripVertical,
-  SlidersHorizontal,
 } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import { Button } from "@/components/ui/button";
@@ -136,21 +135,15 @@ export function NavigationEditor({
             ref={triggerRef}
             type="button"
             aria-label="Customize navigation"
-            className="flex w-full cursor-pointer items-center gap-3 px-4 py-3 text-left outline-none transition-colors hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+            className="flex w-full cursor-pointer items-center gap-4 px-4 py-3.5 text-left outline-none transition-colors hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
           />
         }
       >
-        <span
-          aria-hidden="true"
-          className="grid size-9 shrink-0 place-items-center rounded-lg bg-muted text-foreground"
-        >
-          <SlidersHorizontal className="size-4.5" />
-        </span>
         <span className="min-w-0 flex-1">
           <span className="block text-sm font-medium">
             Customize navigation
           </span>
-          <span className="block text-sm text-muted-foreground">
+          <span className="mt-0.5 block text-sm text-muted-foreground">
             Set the shortcuts for your sidebar and mobile navigation bar.
           </span>
         </span>
@@ -174,7 +167,10 @@ export function NavigationEditor({
         <div className="-mx-4 min-h-0 space-y-4 overflow-y-auto overscroll-contain px-4 py-1">
           <label className="flex items-center justify-between gap-3 text-sm font-medium">
             <span>Show hidden shortcuts in navigation</span>
-            <Switch checked={showHidden} onCheckedChange={setShowHiddenNavigation} />
+            <Switch
+              checked={showHidden}
+              onCheckedChange={setShowHiddenNavigation}
+            />
           </label>
           <div className="space-y-2">
             <h3 className="font-medium">Visible shortcuts</h3>
@@ -192,7 +188,7 @@ export function NavigationEditor({
                 onPointerCancel={cancel}
                 onLostPointerCapture={cancel}
                 aria-label="Navigation shortcuts"
-                className="rounded-2xl border border-border/75 bg-linear-to-b from-muted/45 to-muted/15 p-1 ring-1 ring-foreground/5"
+                className="p-1"
               >
                 {shown.map((id, index) => {
                   const { label, icon: Icon } = navigation[id];
@@ -233,7 +229,9 @@ export function NavigationEditor({
                             canDrag ? (event) => start(event, index) : undefined
                           }
                           initial={false}
-                          animate={{ scale: lifted && !reduceMotion ? 1.14 : 1 }}
+                          animate={{
+                            scale: lifted && !reduceMotion ? 1.14 : 1,
+                          }}
                           transition={
                             reduceMotion ? { duration: 0 } : reorderSpring
                           }
@@ -286,7 +284,9 @@ export function NavigationEditor({
                             disabled={saving}
                             onClick={() => {
                               pendingFocus.current =
-                                shown[index + 1] ?? shown[index - 1] ?? "hidden";
+                                shown[index + 1] ??
+                                shown[index - 1] ??
+                                "hidden";
                               setEdits({
                                 items: shown.filter((item) => item !== id),
                               });

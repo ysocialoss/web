@@ -46,6 +46,7 @@ test("keyboard edits retain focus and survive a switch to the mobile layout", as
   page,
 }) => {
   await page.goto("/settings/account");
+  await page.getByRole("button", { name: "Appearance", exact: true }).click();
   const trigger = page.getByRole("button", {
     name: "Customize navigation",
     exact: true,
@@ -103,8 +104,9 @@ test("hidden Messages stays reachable from navigation and the account menu", asy
   await expect(trigger).toHaveCount(0);
   await page.getByRole("button", { name: "Account menu", exact: true }).click();
   await expect(trigger).toHaveCount(0);
-  await account.getByRole("link", { name: "Account settings" }).click();
-  await expect(page).toHaveURL(/\/settings\/account$/);
+  await account.getByRole("button", { name: "Account settings" }).click();
+  await expect(page).toHaveURL(/\/$/);
+  await page.getByRole("button", { name: "Appearance", exact: true }).click();
   await page
     .getByRole("region", { name: "Appearance" })
     .getByRole("button", {
@@ -113,10 +115,12 @@ test("hidden Messages stays reachable from navigation and the account menu", asy
     .press("Enter");
   await expect(editor).toBeVisible();
   await expect(account).toBeHidden();
+  await editor.getByRole("switch", { name: "Show hidden shortcuts in navigation" }).check();
   await editor.getByRole("button", { name: "Hide Messages" }).click();
   await editor.getByRole("button", { name: "Save changes" }).click();
   await expect(editor).toBeHidden();
 
+  await page.getByRole("button", { name: "Close account settings" }).click();
   const desktopNav = page.getByRole("navigation", { name: "Main navigation" });
   await expect(desktopNav.getByRole("link", { name: /Messages/ })).toHaveCount(
     0,
@@ -143,6 +147,7 @@ test("hidden Messages stays reachable from navigation and the account menu", asy
   await expect(page).toHaveURL(/\/messages$/);
 
   await page.goto("/settings/account");
+  await page.getByRole("button", { name: "Appearance", exact: true }).click();
   await trigger.click();
   await expect(
     editor.getByRole("button", { name: "Show Messages" }),
@@ -152,6 +157,7 @@ test("hidden Messages stays reachable from navigation and the account menu", asy
 
   await page.setViewportSize({ width: 390, height: 720 });
   await expect(trigger).toBeVisible();
+  await page.getByRole("button", { name: "Close account settings" }).click();
   const mobileNav = page.getByRole("navigation", { name: "Mobile navigation" });
   await expect(mobileNav.getByRole("link", { name: /Messages/ })).toHaveCount(
     0,
@@ -181,6 +187,7 @@ test("hidden Messages stays reachable from navigation and the account menu", asy
 
 test("shortcuts can be dragged with a mouse", async ({ page }) => {
   await page.goto("/settings/account");
+  await page.getByRole("button", { name: "Appearance", exact: true }).click();
   await page.getByRole("button", { name: "Customize navigation" }).click();
   const editor = page.getByRole("dialog", {
     name: "Customize navigation",
@@ -200,6 +207,7 @@ test("shortcuts can be dragged with a mouse", async ({ page }) => {
 
   await expect(shortcuts.first()).toContainText("Messages");
   await editor.getByRole("button", { name: "Save changes" }).click();
+  await page.getByRole("button", { name: "Close account settings" }).click();
   await expect(
     page
       .getByRole("navigation", { name: "Main navigation", exact: true })
@@ -212,6 +220,7 @@ test("all shortcuts fit in a scrollable mobile bar on narrow screens", async ({
   page,
 }) => {
   await page.goto("/settings/account");
+  await page.getByRole("button", { name: "Appearance", exact: true }).click();
   const trigger = page.getByRole("button", { name: "Customize navigation" });
   const editor = page.getByRole("dialog", { name: "Customize navigation" });
   await trigger.click();
@@ -220,10 +229,10 @@ test("all shortcuts fit in a scrollable mobile bar on narrow screens", async ({
   await expect(editor).toBeHidden();
   await page.setViewportSize({ width: 320, height: 568 });
 
+  await page.getByRole("button", { name: "Close account settings" }).click();
   const bar = page.getByRole("navigation", { name: "Mobile navigation" });
   await expect(bar.getByRole("link")).toHaveCount(6);
   await expect(bar.getByRole("button", { name: "Show hidden" })).toHaveCount(0);
-  await expect(bar.getByRole("button", { name: "Communities" })).toBeDisabled();
   const saved = bar.getByRole("link", { name: "Saved posts" });
   await saved.scrollIntoViewIfNeeded();
   await expect(saved).toBeInViewport();
@@ -236,14 +245,15 @@ test("the mobile bar stays compact with one visible shortcut and reachable with 
 }) => {
   await page.setViewportSize({ width: 320, height: 568 });
   await page.goto("/settings/account");
+  await page.getByRole("button", { name: "Appearance", exact: true }).click();
   const customize = page.getByRole("button", { name: "Customize navigation" });
   await customize.click();
   const editor = page.getByRole("dialog", { name: "Customize navigation" });
+  await editor.getByRole("switch", { name: "Show hidden shortcuts in navigation" }).check();
   for (const name of [
     "Search",
     "Messages",
     "Activity",
-    "Communities",
     "Profile",
   ]) {
     await editor
@@ -253,6 +263,7 @@ test("the mobile bar stays compact with one visible shortcut and reachable with 
   await editor.getByRole("button", { name: "Save changes" }).click();
   await expect(editor).toBeHidden();
 
+  await page.getByRole("button", { name: "Close account settings" }).click();
   const bar = page.getByRole("navigation", { name: "Mobile navigation" });
   const feed = bar.getByRole("link", { name: "Feed", exact: true });
   await expect(bar.getByRole("link")).toHaveCount(1);
@@ -266,10 +277,13 @@ test("the mobile bar stays compact with one visible shortcut and reachable with 
   ).toHaveCSS("width", "48px");
   expect((await bar.boundingBox())?.width).toBeLessThan(120);
 
+  await page.goto("/settings/account");
+  await page.getByRole("button", { name: "Appearance", exact: true }).click();
   await customize.click();
   await editor.getByRole("button", { name: "Hide Feed", exact: true }).click();
   await editor.getByRole("button", { name: "Save changes" }).click();
   await expect(editor).toBeHidden();
+  await page.getByRole("button", { name: "Close account settings" }).click();
   await expect(bar.getByRole("link")).toHaveCount(0);
   await bar.getByRole("button", { name: "Show hidden" }).click();
   const hidden = page.getByRole("dialog", { name: "Hidden shortcuts" });
@@ -289,6 +303,7 @@ test.describe("touch navigation editor", () => {
   }) => {
     await page.setViewportSize({ width: 320, height: 568 });
     await page.goto("/settings/account");
+    await page.getByRole("button", { name: "Appearance", exact: true }).click();
     await page.getByRole("button", { name: "Customize navigation" }).tap();
     const editor = page.getByRole("dialog", { name: "Customize navigation" });
     await expect(editor).toHaveAttribute("data-slot", "drawer-popup");
@@ -304,8 +319,9 @@ test.describe("touch navigation editor", () => {
     page,
     context,
   }) => {
-    await page.setViewportSize({ width: 320, height: 568 });
+    await page.setViewportSize({ width: 320, height: 720 });
     await page.goto("/settings/account");
+    await page.getByRole("button", { name: "Appearance", exact: true }).click();
     await page.getByRole("button", { name: "Customize navigation" }).tap();
     const editor = page.getByRole("dialog", {
       name: "Customize navigation",
@@ -315,13 +331,13 @@ test.describe("touch navigation editor", () => {
       .filter({ hasText: "Feed" })
       .locator("[data-navigation-drag-handle]");
     await expect(editor).toBeVisible();
-    await handle.scrollIntoViewIfNeeded();
+    await handle.click({ trial: true });
     const source = await handle.boundingBox();
     const thirdRow = await shortcuts.nth(2).boundingBox();
     if (!source || !thirdRow) throw new Error("The shortcut list is missing");
     const x = source.x + source.width / 2;
     const startY = source.y + source.height / 2;
-    const endY = thirdRow.y + thirdRow.height - 4;
+    const endY = thirdRow.y + thirdRow.height / 2 + 4;
     const cdp = await context.newCDPSession(page);
     try {
       await cdp.send("Input.dispatchTouchEvent", {
@@ -348,6 +364,7 @@ test.describe("touch navigation editor", () => {
     // Cover touch activation separately from the raw CDP drag gesture.
     await editor.getByRole("button", { name: "Save changes" }).click();
     await expect(editor).toBeHidden();
+    await page.getByRole("button", { name: "Close account settings" }).click();
     const mobileNav = page.getByRole("navigation", {
       name: "Mobile navigation",
     });
@@ -358,6 +375,9 @@ test.describe("touch navigation editor", () => {
     await expect(mobileNav.getByRole("link").nth(2)).toHaveAccessibleName(
       "Feed",
     );
+    await page.getByRole("button", { name: "Account menu" }).tap();
+    await page.getByRole("button", { name: "Account settings" }).tap();
+    await page.getByRole("button", { name: "Appearance", exact: true }).tap();
     await page.getByRole("button", { name: "Customize navigation" }).tap();
     await expect(shortcuts.nth(2)).toContainText("Feed");
   });

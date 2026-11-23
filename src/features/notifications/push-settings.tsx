@@ -167,14 +167,16 @@ export function PushSettings() {
           {state === "blocked"
             ? "Enable notifications in your browser settings."
             : state === "enabled"
-              ? "Mute Notifications?"
+              ? "Notifications are on"
               : state === "muted"
                 ? mutedUntil
                   ? `Notifications muted for ${durationLabel}`
                   : "Notifications muted forever"
-                : "Allow notifications"}
+                : state === "unsupported" || state === "unconfigured"
+                  ? "Not available in this browser"
+                  : "Allow notifications"}
         </p>
-        {state !== "blocked" && (
+        {!["blocked", "unsupported", "unconfigured"].includes(state) && (
           <Button
             variant="outline"
             size="sm"
