@@ -505,12 +505,13 @@ function SignedInSettings({
           paint={
             <PaintPicker
               user={profile.profile}
-              onSaved={(paint) =>
+              onSaved={(paint) => {
                 own.update((current) => ({
                   ...current,
                   profile: { ...current.profile, paint },
-                }))
-              }
+                }));
+                auth.updatePaint(user.id, paint);
+              }}
             />
           }
           onGithubChange={(github) =>

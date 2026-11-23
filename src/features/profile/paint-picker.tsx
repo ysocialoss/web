@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { Check, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DisplayName } from "@/components/display-name";
@@ -50,9 +50,6 @@ export function PaintPicker({
     setSaving(paintId);
     setError("");
     try {
-      const session = await api.session();
-      if (!session.authenticated || session.needsOnboarding || session.user.id !== user.id)
-        throw new ApiError(403, "retry_account_changed");
       await api.setPaint(paintId);
       const equipped = paint ? { id: paint.id, name: paint.name, definition: paint.definition } : null;
       updateAuthor(user.id, { paint: equipped });
@@ -72,9 +69,33 @@ export function PaintPicker({
     { key: "none", paint: null },
     ...(paints ?? []).map((paint) => ({ key: paint.id, paint })),
   ];
+  const optionRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const usable = options.flatMap((option, index) =>
+    option.paint === null || option.paint.owned ? [index] : [],
+  );
+  const selectedIndex = options.findIndex(({ paint }) => (paint?.id ?? null) === selectedId);
+  // Roving tabindex: the group is a single tab stop, arrow keys move between options.
+  const tabStop = usable.includes(selectedIndex) ? selectedIndex : (usable[0] ?? 0);
+
+  function onGroupKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    const current = usable.indexOf(
+      optionRefs.current.findIndex((element) => element === document.activeElement),
+    );
+    if (current === -1 || usable.length === 0) return;
+    let next: number;
+    if (event.key === "ArrowRight" || event.key === "ArrowDown") next = (current + 1) % usable.length;
+    else if (event.key === "ArrowLeft" || event.key === "ArrowUp")
+      next = (current - 1 + usable.length) % usable.length;
+    else if (event.key === "Home") next = 0;
+    else if (event.key === "End") next = usable.length - 1;
+    else return;
+    event.preventDefault();
+    // Focus only; Space/Enter picks, so browsing does not save every paint on the way.
+    optionRefs.current[usable[next]!]?.focus();
+  }
 
   return (
-    <section className="space-y-3 text-sm" aria-labelledby="paint-picker-heading gay">
+    <section className="space-y-3 text-sm" aria-labelledby="paint-picker-heading">
       <div>
         <h2 id="paint-picker-heading" className="font-semibold">
           Name paint
@@ -95,19 +116,30 @@ export function PaintPicker({
           Loading paints…
         </p>
       ) : (
-        <div role="radiogroup" aria-labelledby="paint-picker-heading" className="grid grid-cols-2 gap-2">
-          {options.map(({ key, paint }) => {
+        <div
+          role="radiogroup"
+          aria-labelledby="paint-picker-heading"
+          aria-busy={saving !== undefined || undefined}
+          className="grid grid-cols-2 gap-2"
+          onKeyDown={onGroupKeyDown}
+        >
+          {options.map(({ key, paint }, index) => {
             const selected = (paint?.id ?? null) === selectedId;
             const locked = paint !== null && !paint.owned;
             const pending = saving !== undefined && saving === (paint?.id ?? null);
             return (
               <button
                 key={key}
+                ref={(element) => {
+                  optionRefs.current[index] = element;
+                }}
                 type="button"
                 role="radio"
                 aria-checked={selected}
                 aria-disabled={locked || undefined}
-                disabled={locked || saving !== undefined}
+                // Not disabled while saving, so keyboard focus stays on the option.
+                disabled={locked}
+                tabIndex={index === tabStop ? 0 : -1}
                 title={locked ? `${paint.name} is locked` : undefined}
                 onClick={() => void choose(paint)}
                 className={cn(

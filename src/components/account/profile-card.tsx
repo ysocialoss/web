@@ -206,7 +206,12 @@ export function ProfileCard({
               </DialogTrigger>
               <ProfileEditDialogContent
                 saving={saving}
-                paint={<PaintPicker user={user} />}
+                paint={
+                  <PaintPicker
+                    user={user}
+                    onSaved={(paint) => auth.updatePaint(user.id, paint)}
+                  />
+                }
               >
                 {loadError ? (
                   <p role="alert" className="text-sm text-destructive">

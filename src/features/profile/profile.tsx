@@ -6,6 +6,7 @@ import {
   type Profile,
   type Session,
   type BannerCrop,
+  type Paint,
 } from "@/lib/api";
 import {
   ArrowLeft,
@@ -93,6 +94,7 @@ export function ProfilePage({
   onAvatarSaved,
   onBannerSaved,
   onProfileSaved,
+  onPaintSaved,
 }: {
   handle: string;
   session: Session | null;
@@ -106,6 +108,7 @@ export function ProfilePage({
     bannerUrl: string | null,
     bannerCrop: BannerCrop | null,
   ) => void;
+  onPaintSaved: (userId: string, paint: Paint | null) => void;
 }) {
   const hint = useSessionHint(session);
   const [loadedProfile, setProfile] = useState<Profile | null>(() => {
@@ -315,13 +318,14 @@ export function ProfilePage({
                   paint={
                     <PaintPicker
                       user={profile.profile}
-                      onSaved={(paint) =>
+                      onSaved={(paint) => {
                         setProfile((current) =>
                           current?.profile.id === profile.profile.id
                             ? { ...current, profile: { ...current.profile, paint } }
                             : current,
-                        )
-                      }
+                        );
+                        onPaintSaved(profile.profile.id, paint);
+                      }}
                     />
                   }
                   onGithubChange={(github) => {

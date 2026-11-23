@@ -1,6 +1,6 @@
 import type { ElementType } from "react";
 import type { Paint } from "@/lib/api";
-import { paintStyle } from "@/lib/paint";
+import { paintClassName, paintStyle } from "@/lib/paint";
 import { cn } from "@/lib/utils";
 
 type DisplayNameProps = {
@@ -21,9 +21,8 @@ export function DisplayName({
   if (!paint) return <Component className={className}>{name}</Component>;
   return (
     <Component
-      className={cn("[-webkit-box-decoration-break:clone] [box-decoration-break:clone]", className)}
+      className={cn(className, paintClassName)}
       style={paintStyle(paint.definition)}
-      title={paint.name}
     >
       {name}
     </Component>

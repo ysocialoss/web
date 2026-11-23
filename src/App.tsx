@@ -272,6 +272,7 @@ function AppShell() {
                     onAvatarSaved={auth.updateAvatar}
                     onBannerSaved={auth.updateBanner}
                     onProfileSaved={auth.updateProfile}
+                    onPaintSaved={auth.updatePaint}
                   />
                 }
               />
@@ -400,11 +401,13 @@ function ProfileRoute({
   onAvatarSaved,
   onBannerSaved,
   onProfileSaved,
+  onPaintSaved,
 }: {
   session: Session | null;
   onAvatarSaved: (userId: string, avatarUrl: string) => void;
   onBannerSaved: AuthState["updateBanner"];
   onProfileSaved: AuthState["updateProfile"];
+  onPaintSaved: AuthState["updatePaint"];
 }) {
   const { profileHandle = "" } = useParams();
   if (!/^@[a-z0-9_]{3,32}$/.test(profileHandle)) return <NotFound />;
@@ -417,6 +420,7 @@ function ProfileRoute({
       onAvatarSaved={onAvatarSaved}
       onBannerSaved={onBannerSaved}
       onProfileSaved={onProfileSaved}
+      onPaintSaved={onPaintSaved}
     />
   );
 }
