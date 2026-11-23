@@ -1,7 +1,7 @@
-import { useEffect, useState, type ReactNode } from "react";
-import { Link, useNavigate } from "react-router";
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { Dialog as SettingsDialog } from "@base-ui/react/dialog";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import {
-  ArrowLeft,
   Ban,
   Camera,
   ChevronRight,
@@ -27,8 +27,8 @@ import {
 import { ConnectionsPanel } from "@/features/settings/connections-panel";
 import { NavigationEditor } from "./navigation-editor";
 import { NotificationPreferences } from "./notification-preferences";
-import { IconLink } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
+import { Kbd } from "@/components/ui/kbd";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "@/components/ui/toast-manager";
@@ -51,8 +51,6 @@ import { useNotifications } from "@/features/notifications/notifications-context
 import { BlockedAccountsDialog } from "@/features/reports/blocked-accounts-dialog";
 import { SiteWordmark } from "@/components/layout/site-wordmark";
 import { useNow } from "@/hooks/use-now";
-import { useGoBack } from "@/hooks/use-go-back";
-import { usePageTitle } from "@/hooks/use-page-title";
 import { api, errorMessage, type MuteDuration, type Profile, type Session } from "@/lib/api";
 import {
   MAIN_LOGO,
@@ -65,9 +63,19 @@ import { cn } from "@/lib/utils";
 
 type SignedInUser = Extract<Session, { needsOnboarding: false }>["user"];
 
-export function AccountSettingsPage({ auth }: { auth: AuthState }) {
-  usePageTitle("Account settings");
-  const goBack = useGoBack();
+const sections = ["Account", "App connections", "Appearance", "Notifications", "Privacy and safety", "Session"] as const;
+type SettingsSection = (typeof sections)[number];
+const SelectedSection = createContext<SettingsSection>("Account");
+
+export function AccountSettingsModal({
+  auth,
+  onClose,
+  returnFocus,
+}: {
+  auth: AuthState;
+  onClose: () => void;
+  returnFocus: HTMLButtonElement | null;
+}) {
   const { session } = auth;
   const hint = useSessionHint(session);
 
@@ -118,15 +126,34 @@ export function AccountSettingsPage({ auth }: { auth: AuthState }) {
   }
 
   return (
-    <div className="mx-auto max-w-xl pb-8">
-      <header className="mb-6 flex min-h-10 items-center gap-3">
-        <IconLink to="/" label="Back" onClick={goBack}>
-          <ArrowLeft />
-        </IconLink>
-        <h1 className="text-lg font-semibold">Account settings</h1>
-      </header>
-      {body}
-    </div>
+    <SettingsDialog.Root
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <SettingsDialog.Portal>
+        <SettingsDialog.Backdrop className="fixed inset-0 z-50 bg-black/55 backdrop-blur-xs" />
+        <SettingsDialog.Popup
+          finalFocus={() => returnFocus ?? true}
+          className="fixed top-1/2 left-1/2 z-50 flex h-[min(46rem,calc(100dvh-1rem))] w-[calc(100%-1rem)] max-w-4xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border bg-background text-foreground shadow-2xl outline-none sm:h-[min(46rem,calc(100dvh-4rem))] sm:w-[calc(100%-4rem)]"
+        >
+          <header className="flex shrink-0 items-center justify-between border-b px-4 py-2 sm:px-6">
+            <SettingsDialog.Title className="text-lg font-semibold">Account settings</SettingsDialog.Title>
+            <SettingsDialog.Close
+              aria-label="Close account settings"
+              className="flex min-h-11 cursor-pointer items-center gap-2 rounded-full px-2 text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <span className="text-sm font-medium">Close</span>
+              <Kbd aria-hidden="true" className="hidden sm:inline-flex">Esc</Kbd>
+            </SettingsDialog.Close>
+          </header>
+          {session?.authenticated && !session.needsOnboarding ? body : (
+            <div className="min-h-0 overflow-auto p-4 sm:p-8">{body}</div>
+          )}
+        </SettingsDialog.Popup>
+      </SettingsDialog.Portal>
+    </SettingsDialog.Root>
   );
 }
 
@@ -155,15 +182,16 @@ function Section({
   children,
   bare = false,
 }: {
-  title: string;
+  title: SettingsSection;
   description?: string;
   children: ReactNode;
   bare?: boolean;
 }) {
+  const selected = useContext(SelectedSection);
   return (
-    <section aria-label={title} className="space-y-2">
+    <section aria-label={title} hidden={selected !== title} className="space-y-2">
       <div className="px-1">
-        <h2 className="text-sm font-semibold">{title}</h2>
+        <h2 className="text-xl font-semibold">{title}</h2>
         {description && (
           <p className="text-sm text-muted-foreground">{description}</p>
         )}
@@ -266,6 +294,14 @@ function SignedInSettings({
   active: boolean;
 }) {
   const own = useOwnProfile(user);
+  const [params] = useSearchParams();
+  const [selected, setSelected] = useState<SettingsSection>(() => {
+    if (!active) return "Appearance";
+    return params.has("connection") || params.has("domainconnect") ? "App connections" : "Account";
+  });
+  const available: readonly SettingsSection[] = active ? sections : sections.filter((section) => section === "Appearance" || section === "Session");
+  const current = available.includes(selected) ? selected : "Appearance";
+  const content = useRef<HTMLDivElement>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [editTab, setEditTab] = useState<ProfileEditTab>("profile");
   const [pictureOpen, setPictureOpen] = useState(false);
@@ -281,280 +317,303 @@ function SignedInSettings({
   }
 
   return (
-    <div className="space-y-6">
-      {active && (
-        <>
-          <Section title="Account">
-            <div className="relative aspect-3/1 bg-linear-to-br from-muted to-muted/40">
-              {user.bannerUrl && (
-                <BannerImage src={user.bannerUrl} crop={user.bannerCrop} alt="" />
-              )}
-              <BannerEditor
-                bannerUrl={user.bannerUrl}
-                verifyAccount={(signal) => verifyAccount(user.id, signal)}
-                onSaved={(url, crop) => {
-                  auth.updateBanner(user.id, url, crop);
-                  own.update((current) => ({
-                    ...current,
-                    profile: { ...current.profile, bannerUrl: url, bannerCrop: crop },
-                  }));
-                }}
-              />
-            </div>
-            <div className="px-4 pb-4">
-              <div className="flex items-end justify-between gap-3">
-                <Tooltip>
-                  <TooltipTrigger
-                    render={
-                      <button
-                        type="button"
-                        aria-label="Change profile picture"
-                        aria-haspopup="dialog"
-                        onClick={() => setPictureOpen(true)}
-                        className="group relative -mt-8 size-16 cursor-pointer rounded-[30%] ring-4 ring-card outline-none [corner-shape:squircle] focus-visible:ring-ring"
-                      />
-                    }
-                  >
-                    <Avatar hat className="size-full">
-                      {avatarUrl && (
-                        <AvatarImage src={avatarUrl} alt="" referrerPolicy="no-referrer" />
+    <SelectedSection.Provider value={current}>
+      <div className="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] sm:grid-cols-[12rem_minmax(0,1fr)] sm:grid-rows-1">
+        <nav
+          aria-label="Settings sections"
+          className="flex gap-1 overflow-auto border-b bg-muted/45 p-2 sm:flex-col sm:border-r sm:border-b-0 sm:p-4"
+        >
+          {available.map((section) => (
+            <button
+              key={section}
+              type="button"
+              aria-current={current === section ? "true" : undefined}
+              onClick={() => {
+                setSelected(section);
+                if (content.current) content.current.scrollTop = 0;
+              }}
+              className="shrink-0 cursor-pointer rounded-lg px-3 py-2 text-left text-sm font-medium whitespace-nowrap text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring aria-[current=true]:bg-accent aria-[current=true]:text-accent-foreground"
+            >
+              {section}
+            </button>
+          ))}
+        </nav>
+        <div ref={content} className="min-w-0 overflow-y-auto overscroll-contain p-4 sm:p-8">
+          {active && (
+            <>
+              <Section title="Account">
+                <div className="relative aspect-3/1 bg-linear-to-br from-muted to-muted/40">
+                  {user.bannerUrl && (
+                    <BannerImage src={user.bannerUrl} crop={user.bannerCrop} alt="" />
+                  )}
+                  <BannerEditor
+                    bannerUrl={user.bannerUrl}
+                    verifyAccount={(signal) => verifyAccount(user.id, signal)}
+                    onSaved={(url, crop) => {
+                      auth.updateBanner(user.id, url, crop);
+                      own.update((current) => ({
+                        ...current,
+                        profile: { ...current.profile, bannerUrl: url, bannerCrop: crop },
+                      }));
+                    }}
+                  />
+                </div>
+                <div className="px-4 pb-4">
+                  <div className="flex items-end justify-between gap-3">
+                    <Tooltip>
+                      <TooltipTrigger
+                        render={
+                          <button
+                            type="button"
+                            aria-label="Change profile picture"
+                            aria-haspopup="dialog"
+                            onClick={() => setPictureOpen(true)}
+                            className="group relative -mt-8 size-16 cursor-pointer rounded-[30%] ring-4 ring-card outline-none [corner-shape:squircle] focus-visible:ring-ring"
+                          />
+                        }
+                      >
+                        <Avatar hat className="size-full">
+                          {avatarUrl && (
+                            <AvatarImage src={avatarUrl} alt="" referrerPolicy="no-referrer" />
+                          )}
+                          <AvatarFallback className="text-lg">{name.slice(0, 2)}</AvatarFallback>
+                          <span className="absolute inset-0 flex items-center justify-center rounded-[inherit] bg-black/60 text-white opacity-0 transition-opacity [corner-shape:inherit] group-hover:opacity-100 group-focus-visible:opacity-100">
+                            <Camera className="size-6" aria-hidden="true" />
+                          </span>
+                        </Avatar>
+                      </TooltipTrigger>
+                      <TooltipContent>Change profile picture</TooltipContent>
+                    </Tooltip>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      aria-haspopup="dialog"
+                      disabled={!profile}
+                      onClick={() => edit("profile")}
+                    >
+                      {profile || own.error ? (
+                        <Pencil aria-hidden="true" />
+                      ) : (
+                        <LoaderCircle className="animate-spin" aria-hidden="true" />
                       )}
-                      <AvatarFallback className="text-lg">{name.slice(0, 2)}</AvatarFallback>
-                      <span className="absolute inset-0 flex items-center justify-center rounded-[inherit] bg-black/60 text-white opacity-0 transition-opacity [corner-shape:inherit] group-hover:opacity-100 group-focus-visible:opacity-100">
-                        <Camera className="size-6" aria-hidden="true" />
+                      Edit profile
+                    </Button>
+                  </div>
+                  <button
+                    type="button"
+                    aria-haspopup="dialog"
+                    aria-label="Edit profile"
+                    disabled={!profile}
+                    onClick={() => edit("profile")}
+                    className="-mx-2 mt-2 block w-[calc(100%+1rem)] cursor-pointer rounded-lg px-2 py-1.5 text-left outline-none hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default disabled:hover:bg-transparent"
+                  >
+                    <span className="block wrap-anywhere text-base font-semibold">{name}</span>
+                    <span className="block wrap-anywhere text-sm text-muted-foreground">
+                      @{user.handle}
+                    </span>
+                    {user.pronouns && (
+                      <span className="block wrap-anywhere text-sm text-muted-foreground">
+                        <bdi>{user.pronouns}</bdi>
                       </span>
-                    </Avatar>
-                  </TooltipTrigger>
-                  <TooltipContent>Change profile picture</TooltipContent>
-                </Tooltip>
+                    )}
+                    {profile ? (
+                      <span
+                        className={cn(
+                          "mt-1.5 block text-sm wrap-anywhere whitespace-pre-wrap",
+                          !profile.profile.bio && "text-muted-foreground",
+                        )}
+                      >
+                        {profile.profile.bio || "Add a short bio"}
+                      </span>
+                    ) : (
+                      !own.error && <Skeleton className="mt-2 h-4 w-2/3" />
+                    )}
+                  </button>
+                  {own.error && (
+                    <div role="alert" className="mt-2 flex items-center gap-2 text-sm text-destructive">
+                      <CircleAlert className="size-4 shrink-0" aria-hidden="true" />
+                      <span className="min-w-0 flex-1">{own.error}</span>
+                      <Button size="sm" variant="ghost" onClick={own.retry}>
+                        Retry
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </Section>
+
+              <Section
+                title="App connections"
+                description="Link other accounts to show on your public profile."
+                bare
+              >
+                <ConnectionsPanel
+                  returnTo="settings"
+                  onGithubChange={(github) =>
+                    own.update((current) => ({
+                      ...current,
+                      profile: { ...current.profile, github },
+                    }))
+                  }
+                />
+              </Section>
+            </>
+          )}
+
+          <Section title="Appearance">
+            <div className="space-y-2 px-4 py-3">
+              <p className="text-sm font-medium">Theme</p>
+              <div className="-mx-1">
+                <ThemeSwitch />
+              </div>
+            </div>
+            <BrandingPicker />
+            {active && (
+              <NavigationEditor
+                userId={user.id}
+                items={user.navigation}
+                onSaved={auth.updateNavigationItems}
+              />
+            )}
+          </Section>
+
+          {active && (
+            <>
+              <Section title="Notifications">
+                <NotificationPreferences userId={user.id} />
+                <div className="px-4 py-3">
+                  <PushSettings />
+                </div>
+                <MuteRow />
+                <HidePreviewsRow userId={user.id} />
+              </Section>
+
+              <Section title="Privacy and safety">
+                <button
+                  type="button"
+                  aria-haspopup="dialog"
+                  onClick={() => setBlockedOpen(true)}
+                  className="flex w-full cursor-pointer items-center gap-3 px-4 py-3 text-left outline-none transition-colors hover:bg-muted/60 focus-visible:bg-muted/60 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                >
+                  <span aria-hidden="true" className="grid size-9 shrink-0 place-items-center rounded-lg bg-muted">
+                    <Ban className="size-4.5" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-medium">Blocked accounts</span>
+                    <span className="block text-sm text-muted-foreground">
+                      See and unblock people you blocked.
+                    </span>
+                  </span>
+                  <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                </button>
+                <Link
+                  to="/messages/devices"
+                  className="flex w-full items-center gap-3 px-4 py-3 text-left outline-none transition-colors hover:bg-muted/60 focus-visible:bg-muted/60 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                >
+                  <span aria-hidden="true" className="grid size-9 shrink-0 place-items-center rounded-lg bg-muted">
+                    <KeyRound className="size-4.5" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-medium">Chat devices</span>
+                    <span className="block text-sm text-muted-foreground">
+                      Manage the devices that can read your messages.
+                    </span>
+                  </span>
+                  <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                </Link>
+              </Section>
+            </>
+          )}
+
+          <Section title="Session">
+            <Row
+              icon={<LogOut />}
+              title="Sign out"
+              description={`Signed in as @${user.handle}.`}
+              action={
                 <Button
                   size="sm"
                   variant="outline"
-                  aria-haspopup="dialog"
-                  disabled={!profile}
-                  onClick={() => edit("profile")}
+                  disabled={auth.busy}
+                  onClick={() => setConfirmLogout(true)}
                 >
-                  {profile || own.error ? (
-                    <Pencil aria-hidden="true" />
-                  ) : (
-                    <LoaderCircle className="animate-spin" aria-hidden="true" />
-                  )}
-                  Edit profile
+                  Sign out
                 </Button>
-              </div>
-              <button
-                type="button"
-                aria-haspopup="dialog"
-                aria-label="Edit profile"
-                disabled={!profile}
-                onClick={() => edit("profile")}
-                className="-mx-2 mt-2 block w-[calc(100%+1rem)] cursor-pointer rounded-lg px-2 py-1.5 text-left outline-none hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default disabled:hover:bg-transparent"
-              >
-                <span className="block wrap-anywhere text-base font-semibold">{name}</span>
-                <span className="block wrap-anywhere text-sm text-muted-foreground">
-                  @{user.handle}
-                </span>
-                {user.pronouns && (
-                  <span className="block wrap-anywhere text-sm text-muted-foreground">
-                    <bdi>{user.pronouns}</bdi>
-                  </span>
-                )}
-                {profile ? (
-                  <span
-                    className={cn(
-                      "mt-1.5 block text-sm wrap-anywhere whitespace-pre-wrap",
-                      !profile.profile.bio && "text-muted-foreground",
-                    )}
+              }
+            />
+            {active && (
+              <Row
+                destructive
+                icon={<Trash2 />}
+                title="Delete account"
+                description="Permanently delete your profile, posts and media. This can't be undone."
+                action={
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    aria-haspopup="dialog"
+                    onClick={() => setDeleting(true)}
                   >
-                    {profile.profile.bio || "Add a short bio"}
-                  </span>
-                ) : (
-                  !own.error && <Skeleton className="mt-2 h-4 w-2/3" />
-                )}
-              </button>
-              {own.error && (
-                <div role="alert" className="mt-2 flex items-center gap-2 text-sm text-destructive">
-                  <CircleAlert className="size-4 shrink-0" aria-hidden="true" />
-                  <span className="min-w-0 flex-1">{own.error}</span>
-                  <Button size="sm" variant="ghost" onClick={own.retry}>
-                    Retry
+                    Delete
                   </Button>
-                </div>
-              )}
-            </div>
+                }
+              />
+            )}
           </Section>
 
-          <Section
-            title="App connections"
-            description="Link other accounts to show on your public profile."
-            bare
-          >
-            <ConnectionsPanel
-              returnTo="settings"
+          {active && profile && (
+            <EditProfileDialog
+              open={editOpen}
+              onOpenChange={setEditOpen}
+              tab={editTab}
+              onTabChange={setEditTab}
+              userId={user.id}
+              profile={profile.profile}
               onGithubChange={(github) =>
                 own.update((current) => ({
                   ...current,
                   profile: { ...current.profile, github },
                 }))
               }
+              onSaved={(updated) => {
+                own.update((current) => ({
+                  ...current,
+                  profile: { ...current.profile, ...updated },
+                }));
+                auth.updateProfile(user.id, updated);
+              }}
             />
-          </Section>
-        </>
-      )}
-
-      <Section title="Appearance">
-        <div className="space-y-2 px-4 py-3">
-          <p className="text-sm font-medium">Theme</p>
-          <div className="-mx-1">
-            <ThemeSwitch />
-          </div>
-        </div>
-        <BrandingPicker />
-        {active && (
-          <NavigationEditor
+          )}
+          <ProfilePictureDialog
+            open={pictureOpen}
+            onOpenChange={setPictureOpen}
             userId={user.id}
-            items={user.navigation}
-            onSaved={auth.updateNavigationItems}
+            onChanged={(url) => {
+              auth.updateAvatar(user.id, url);
+              own.update((current) => ({
+                ...current,
+                profile: { ...current.profile, avatarUrl: url },
+              }));
+            }}
           />
-        )}
-      </Section>
-
-      {active && (
-        <>
-          <Section title="Notifications">
-            <NotificationPreferences userId={user.id} />
-            <div className="px-4 py-3">
-              <PushSettings />
-            </div>
-            <MuteRow />
-            <HidePreviewsRow userId={user.id} />
-          </Section>
-
-          <Section title="Privacy and safety">
-            <button
-              type="button"
-              aria-haspopup="dialog"
-              onClick={() => setBlockedOpen(true)}
-              className="flex w-full cursor-pointer items-center gap-3 px-4 py-3 text-left outline-none transition-colors hover:bg-muted/60 focus-visible:bg-muted/60 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
-            >
-              <span aria-hidden="true" className="grid size-9 shrink-0 place-items-center rounded-lg bg-muted">
-                <Ban className="size-4.5" />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-sm font-medium">Blocked accounts</span>
-                <span className="block text-sm text-muted-foreground">
-                  See and unblock people you blocked.
-                </span>
-              </span>
-              <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-            </button>
-            <Link
-              to="/messages/devices"
-              className="flex w-full items-center gap-3 px-4 py-3 text-left outline-none transition-colors hover:bg-muted/60 focus-visible:bg-muted/60 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
-            >
-              <span aria-hidden="true" className="grid size-9 shrink-0 place-items-center rounded-lg bg-muted">
-                <KeyRound className="size-4.5" />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-sm font-medium">Chat devices</span>
-                <span className="block text-sm text-muted-foreground">
-                  Manage the devices that can read your messages.
-                </span>
-              </span>
-              <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-            </Link>
-          </Section>
-        </>
-      )}
-
-      <Section title="Session">
-        <Row
-          icon={<LogOut />}
-          title="Sign out"
-          description={`Signed in as @${user.handle}.`}
-          action={
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={auth.busy}
-              onClick={() => setConfirmLogout(true)}
-            >
-              Sign out
-            </Button>
-          }
-        />
-        {active && (
-          <Row
-            destructive
-            icon={<Trash2 />}
-            title="Delete account"
-            description="Permanently delete your profile, posts and media. This can't be undone."
-            action={
-              <Button
-                size="sm"
-                variant="destructive"
-                aria-haspopup="dialog"
-                onClick={() => setDeleting(true)}
-              >
-                Delete
-              </Button>
-            }
+          <BlockedAccountsDialog open={blockedOpen} onOpenChange={setBlockedOpen} />
+          <ConfirmationDialog
+            open={confirmLogout}
+            onOpenChange={setConfirmLogout}
+            title="Sign out of ysocial?"
+            description="You can keep browsing public posts and sign in again whenever you're ready."
+            confirmLabel="Sign out"
+            onConfirm={auth.logout}
+            error={auth.error}
           />
-        )}
-      </Section>
-
-      {active && profile && (
-        <EditProfileDialog
-          open={editOpen}
-          onOpenChange={setEditOpen}
-          tab={editTab}
-          onTabChange={setEditTab}
-          userId={user.id}
-          profile={profile.profile}
-          onGithubChange={(github) =>
-            own.update((current) => ({
-              ...current,
-              profile: { ...current.profile, github },
-            }))
-          }
-          onSaved={(updated) => {
-            own.update((current) => ({
-              ...current,
-              profile: { ...current.profile, ...updated },
-            }));
-            auth.updateProfile(user.id, updated);
-          }}
-        />
-      )}
-      <ProfilePictureDialog
-        open={pictureOpen}
-        onOpenChange={setPictureOpen}
-        userId={user.id}
-        onChanged={(url) => {
-          auth.updateAvatar(user.id, url);
-          own.update((current) => ({
-            ...current,
-            profile: { ...current.profile, avatarUrl: url },
-          }));
-        }}
-      />
-      <BlockedAccountsDialog open={blockedOpen} onOpenChange={setBlockedOpen} />
-      <ConfirmationDialog
-        open={confirmLogout}
-        onOpenChange={setConfirmLogout}
-        title="Sign out of ysocial?"
-        description="You can keep browsing public posts and sign in again whenever you're ready."
-        confirmLabel="Sign out"
-        onConfirm={auth.logout}
-        error={auth.error}
-      />
-      <DeleteAccountDialog
-        open={deleting}
-        onOpenChange={setDeleting}
-        handle={user.handle}
-        onDeleted={() => auth.logout()}
-      />
-    </div>
+          <DeleteAccountDialog
+            open={deleting}
+            onOpenChange={setDeleting}
+            handle={user.handle}
+            onDeleted={() => auth.logout()}
+          />
+        </div>
+      </div>
+    </SelectedSection.Provider>
   );
 }
 
@@ -741,7 +800,7 @@ function BrandingPicker() {
       <div
         role="radiogroup"
         aria-labelledby="branding-label"
-        className="grid grid-cols-2 gap-2 sm:grid-cols-3"
+        className="grid grid-cols-2 gap-2 md:grid-cols-3"
       >
         {options.map(({ value, label, detail, variation }) => {
           const selected = preference === value;

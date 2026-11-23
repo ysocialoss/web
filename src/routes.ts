@@ -26,11 +26,11 @@ export const SettingsPage = lazyRoute<
   ComponentProps<typeof import("@/features/settings/settings").SettingsPage>
 >(() => import("@/features/settings/settings").then((m) => ({ default: m.SettingsPage })));
 
-export const AccountSettingsPage = lazyRoute<
-  ComponentProps<typeof import("@/features/settings/account-settings").AccountSettingsPage>
+export const AccountSettingsModal = lazyRoute<
+  ComponentProps<typeof import("@/features/settings/account-settings").AccountSettingsModal>
 >(() =>
   import("@/features/settings/account-settings").then((m) => ({
-    default: m.AccountSettingsPage,
+    default: m.AccountSettingsModal,
   })),
 );
 
@@ -44,7 +44,7 @@ const pages: { pattern: string; page: { preload: () => Promise<unknown> } }[] = 
   { pattern: "/saved", page: SavedPage },
   { pattern: "/posts/:id", page: Thread },
   { pattern: "/topics/:topic", page: TopicPage },
-  { pattern: "/settings/account", page: AccountSettingsPage },
+  { pattern: "/settings/account", page: AccountSettingsModal },
   { pattern: "/asettings", page: SettingsPage },
   { pattern: "/profile", page: ProfilePage },
   { pattern: "/:handle", page: ProfilePage },

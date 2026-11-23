@@ -1,4 +1,5 @@
-import { useState, type ComponentProps } from "react";
+import { AccountSettingsContext } from "@/features/settings/account-settings-context";
+import { useContext, useRef, useState, type ComponentProps } from "react";
 import { IconButton } from "@/components/ui/icon-button";
 import { isStandaloneApp, reloadApp } from "@/features/updates/app-update";
 import { BlockedAccountsDialog } from "@/features/reports/blocked-accounts-dialog";
@@ -131,6 +132,8 @@ function AccountAvatar({
 }
 
 export function AccountMenu({ auth }: { auth: AuthState }) {
+  const openSettings = useContext(AccountSettingsContext);
+  const accountTrigger = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
   const [confirmLogout, setConfirmLogout] = useState(false);
   const [blockedOpen, setBlockedOpen] = useState(false);
@@ -154,6 +157,7 @@ export function AccountMenu({ auth }: { auth: AuthState }) {
     <>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger
+          ref={accountTrigger}
           render={
             <IconButton
               variant="ghost"
@@ -260,8 +264,11 @@ export function AccountMenu({ auth }: { auth: AuthState }) {
           {user && (
             <MenuRow
               icon={Settings}
-              to="/settings/account"
-              onClick={close}
+              aria-haspopup="dialog"
+              onClick={() => {
+                close();
+                openSettings(accountTrigger.current);
+              }}
               onPointerEnter={() => preloadRoute("/settings/account")}
             >
               Account settings
