@@ -38,6 +38,7 @@ export function useAuth() {
   const [session, setSession] = useState<Session | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [savingNamePaintsFor, setSavingNamePaintsFor] = useState<string>();
   const [welcomeUserId, setWelcomeUserId] = useState<string>();
   const sessionRevision = useRef(0);
   const reload = useCallback(async (signal?: AbortSignal, current?: {
@@ -232,6 +233,21 @@ export function useAuth() {
         : current,
     );
   }
+  async function setNamePaintsDisabled(userId: string, disabled: boolean) {
+    const startedAt = sessionRevision.current;
+    setSavingNamePaintsFor(userId);
+    try {
+      await api.setNamePaintsDisabled(userId, disabled);
+      if (sessionRevision.current === startedAt) sessionRevision.current++;
+      setSession((current) =>
+        current?.authenticated && !current.needsOnboarding && current.user.id === userId
+          ? { ...current, user: { ...current.user, namePaintsDisabled: disabled } }
+          : current,
+      );
+    } finally {
+      setSavingNamePaintsFor((current) => current === userId ? undefined : current);
+    }
+  }
   const showApprovalWelcome =
     session?.authenticated === true && !session.needsOnboarding &&
     !session.pendingApproval && !session.ban && session.user.id === welcomeUserId;
@@ -242,6 +258,8 @@ export function useAuth() {
     updateBanner,
     updateAvatar,
     updatePaint,
+    setNamePaintsDisabled,
+    savingNamePaintsFor,
     session,
     error,
     busy,

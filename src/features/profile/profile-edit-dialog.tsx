@@ -1,4 +1,4 @@
-import { useState, type ComponentProps, type ReactNode } from "react";
+import { useContext, useState, type ComponentProps, type ReactNode } from "react";
 import { Link2, Paintbrush, UserRound } from "lucide-react";
 import { GithubSettings } from "@/features/settings/github-settings";
 import { ConnectionsPanel } from "@/features/settings/connections-panel";
@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { api, Profile } from "@/lib/api";
+import { NamePaintsDisabledContext } from "./paint-visibility";
 import { ProfileForm } from "./profile-form";
 
 export type ProfileEditTab = "profile" | "paint" | "connections";
@@ -30,6 +31,8 @@ export function ProfileEditDialogContent({
   onTabChange?: (tab: ProfileEditTab) => void;
   onGithubChange?: ComponentProps<typeof GithubSettings>["onGithubChange"];
 }) {
+  const paintsDisabled = useContext(NamePaintsDisabledContext);
+
   return (
     <DialogContent
       className="max-h-[90dvh] gap-5 overflow-y-auto overscroll-contain px-5 pt-6 pb-5 sm:max-w-lg sm:px-6"
@@ -43,9 +46,9 @@ export function ProfileEditDialogContent({
       <Tabs
         className="min-w-0 gap-5"
         defaultValue="profile"
-        value={tab}
+        value={paintsDisabled && tab === "paint" ? "profile" : tab}
         onValueChange={(value) => {
-          if (value === "profile" || value === "paint" || value === "connections")
+          if (value === "profile" || value === "connections" || (value === "paint" && !paintsDisabled))
             onTabChange?.(value);
         }}
       >
@@ -55,7 +58,7 @@ export function ProfileEditDialogContent({
             Profile
           </TabsTrigger>
           {paint && (
-            <TabsTrigger value="paint" disabled={saving}>
+            <TabsTrigger value="paint" disabled={saving || paintsDisabled}>
               <Paintbrush aria-hidden="true" />
               Paint
             </TabsTrigger>
@@ -68,7 +71,7 @@ export function ProfileEditDialogContent({
         <TabsContent value="profile" keepMounted className="inert:hidden">
           {children}
         </TabsContent>
-        {paint && (
+        {paint && !paintsDisabled && (
           <TabsContent value="paint" className="inert:hidden">
             {paint}
           </TabsContent>

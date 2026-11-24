@@ -17,6 +17,7 @@ export const paintDefinitionSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("linear"),
     angle: z.number().min(0).max(360),
+    interpolation: z.literal("step").optional(),
     stops: z.array(paintStopSchema).min(2).max(8),
   }),
   z.object({
@@ -34,7 +35,7 @@ export type PaintDefinition = z.infer<typeof paintDefinitionSchema>;
 export type Paint = z.infer<typeof paintSchema>;
 // A paint that fails to parse falls back to the plain name instead of breaking the list.
 const userPaintSchema = paintSchema.nullable().catch(null);
-const userSchema = z.object({
+export const userSchema = z.object({
   id: z.string(),
   handle: z.string(),
   displayName: z.string(),
@@ -244,6 +245,7 @@ const sessionSchema = z.union([
       bannerUrl: z.string().nullable(),
       bannerCrop: bannerCropSchema.nullable(),
       navigation: navigationItemsSchema,
+      namePaintsDisabled: z.boolean().default(false),
     }),
     avatarUrl: z.string().nullable(),
     suggestedHandle: z.string(),
@@ -799,6 +801,8 @@ export const postImageUrl = (id: string) => `/api/post-images/${encodeURICompone
 export const api = {
   setNavigationItems: (userId: string, items: NavigationItem[] | null) =>
     request("/auth/navigation", z.undefined(), "PUT", { userId, items }, AbortSignal.timeout(10_000)),
+  setNamePaintsDisabled: (userId: string, disabled: boolean) =>
+    request("/auth/name-paints", z.undefined(), "PUT", { userId, disabled }, AbortSignal.timeout(10_000)),
   uploadPostImage: (file: File, signal: AbortSignal) =>
     sendRequest("/api/post-images", z.object({ id: z.uuid() }), "POST",
       file.slice(0, file.size, "application/octet-stream"), attemptSignal(45_000, signal), {

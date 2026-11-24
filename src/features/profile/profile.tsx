@@ -18,7 +18,7 @@ import {
   Camera,
   Gem,
   GitPullRequest,
-  Pencil,
+  Pen,
   UserCheck,
   UserPlus,
   UsersRound,
@@ -309,18 +309,18 @@ export function ProfilePage({
           <div className="relative ml-auto flex items-center gap-1.5">
             {canEditProfile && (
               <>
-                <Button
-                  size="sm"
-                  variant="outline"
+                <IconButton
+                  label="Edit profile"
+                  size="icon-sm"
+                  className="size-9 text-muted-foreground hover:text-foreground"
                   aria-haspopup="dialog"
                   onClick={() => {
                     setEditTab("profile");
                     setEditDialogOpen(true);
                   }}
                 >
-                  <Pencil aria-hidden="true" />
-                  Edit
-                </Button>
+                  <Pen aria-hidden="true" />
+                </IconButton>
                 <EditProfileDialog
                   open={editDialogOpen}
                   onOpenChange={(open) => {
@@ -677,8 +677,7 @@ export function ProfilePage({
           </div>
           <ConnectionsDialog
             key={profile.profile.handle}
-            handle={profile.profile.handle}
-            displayName={profile.profile.displayName}
+            profile={profile.profile}
             list={connections}
             onListChange={setConnections}
             onClose={() => setConnections(null)}

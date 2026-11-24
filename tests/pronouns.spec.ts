@@ -210,7 +210,7 @@ test("onboarding and profile editing save suggested and custom pronouns", async 
   await page.waitForURL(`**/@${user.handle}`);
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   await expect(page.getByText("hän", { exact: true })).toBeVisible();
-  const edit = page.getByRole("button", { name: "Edit", exact: true });
+  const edit = page.getByRole("button", { name: "Edit profile", exact: true });
   const done = page.getByRole("button", { name: "Done", exact: true });
   await page.emulateMedia({ reducedMotion: "no-preference" });
   await edit.click();

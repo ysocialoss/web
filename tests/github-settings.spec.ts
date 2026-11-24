@@ -76,7 +76,7 @@ for (const entry of ["settings", "profile"] as const) {
 
     const dialog = page.getByRole("dialog", { name: "Edit profile" });
     async function openConnections() {
-      await page.getByRole("button", { name: "Edit", exact: true }).click();
+      await page.getByRole("button", { name: "Edit profile", exact: true }).click();
       await dialog.getByRole("tab", { name: "Connections" }).click();
     }
     await page.goto(returnPath);

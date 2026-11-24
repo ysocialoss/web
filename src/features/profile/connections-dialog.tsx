@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router";
+import { DisplayName } from "@/components/display-name";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { LoadingSkeleton } from "@/components/loading-skeletons";
@@ -13,7 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useLoadMore } from "@/hooks/use-load-more";
-import { api, errorMessage, type ConnectionUser } from "@/lib/api";
+import { api, errorMessage, type ConnectionUser, type Profile } from "@/lib/api";
 import { toast } from "@/components/ui/toast-manager";
 
 export type ConnectionList = "followers" | "following";
@@ -128,7 +129,9 @@ function ConnectionPanel({
                 <AvatarFallback className="text-xs">{(user.displayName || user.handle).slice(0, 2)}</AvatarFallback>
               </Avatar>
               <div className="min-w-0 flex-1">
-                <p className="truncate font-semibold">{user.displayName || user.handle}</p>
+                <p className="truncate font-semibold">
+                  <DisplayName user={user} name={user.displayName || user.handle} />
+                </p>
                 <p className="truncate text-xs text-muted-foreground">@{user.handle}</p>
                 {user.bio && <p className="mt-1 line-clamp-1 text-xs wrap-anywhere">{user.bio}</p>}
               </div>
@@ -186,25 +189,26 @@ const panelClass =
   "col-start-1 row-start-1 min-h-0 transition-opacity duration-300 ease-in-out data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 motion-reduce:transition-none";
 
 export function ConnectionsDialog({
-  handle,
-  displayName,
+  profile,
   list,
   onListChange,
   onClose,
   canFollow,
 }: {
   canFollow: boolean;
-  handle: string;
-  displayName: string;
+  profile: Profile["profile"];
   list: ConnectionList | null;
   onListChange: (list: ConnectionList) => void;
   onClose: () => void;
 }) {
+  const { handle, displayName } = profile;
   return (
     <Dialog open={list !== null} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{displayName || `@${handle}`}</DialogTitle>
+          <DialogTitle>
+            <DisplayName user={profile} name={displayName || `@${handle}`} />
+          </DialogTitle>
           <DialogDescription>People who follow @{handle} and people @{handle} follows.</DialogDescription>
         </DialogHeader>
         <Tabs

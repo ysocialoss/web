@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Check, Link2, LoaderCircle, Plus, SendHorizontal } from "lucide-react";
 import { Link } from "react-router";
+import { DisplayName } from "@/components/display-name";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
@@ -20,7 +21,7 @@ const name = (user: DmUser) => user.displayName.trim() || user.handle;
 type Status = "sending" | "sent";
 
 function Tile({ caption, selected, status, onClick, children }: {
-  caption: string;
+  caption: React.ReactNode;
   selected?: boolean;
   status?: Status;
   onClick: () => void;
@@ -233,7 +234,7 @@ export function ShareButton({
               </span>
             </Tile>
             {ready && people.map((person) => (
-              <Tile key={person.id} caption={status[person.id] === "sent" ? "Sent" : name(person)}
+              <Tile key={person.id} caption={status[person.id] === "sent" ? "Sent" : <DisplayName user={person} name={name(person)} />}
                 selected={selected.some(({ id }) => id === person.id)} status={status[person.id]} onClick={() => toggle(person)}>
                 <Avatar className={circle}>
                   {person.avatarUrl && <AvatarImage src={person.avatarUrl} alt="" referrerPolicy="no-referrer" />}

@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { Search } from "lucide-react";
 import { useNavigate } from "react-router";
+import { DisplayName } from "@/components/display-name";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { api, type SearchUser } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -150,7 +151,9 @@ export function NewMessageDialog({
             >
               <PersonAvatar user={user} className="size-10" />
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">{nameOf(user)}</p>
+                <p className="truncate text-sm font-medium">
+                  <DisplayName user={user} name={nameOf(user)} />
+                </p>
                 <p className="truncate text-xs text-muted-foreground">@{user.handle}{user.bio ? ` · ${user.bio}` : ""}</p>
               </div>
             </div>

@@ -1,8 +1,8 @@
 import { z } from "zod";
-import { ApiError, errorMessage, sendRequest } from "@/lib/api";
+import { ApiError, errorMessage, sendRequest, userSchema } from "@/lib/api";
 import { deviceAccess, DeviceTrustError, type EncryptedMessage, type LocalDevice, type Registration } from "./dm-crypto";
 
-const user = z.object({ id: z.uuid(), handle: z.string(), displayName: z.string(), avatarUrl: z.string().nullable() });
+const user = userSchema.extend({ id: z.uuid() });
 const directoryDevice = z.object({
   id: z.uuid(),
   userId: z.uuid(),

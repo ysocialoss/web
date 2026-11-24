@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Ban, Mail, Plus, ShieldCheck, X } from "lucide-react";
 import { NavLink } from "react-router";
+import { DisplayName } from "@/components/display-name";
 import { IconButton, IconLink } from "@/components/ui/icon-button";
 import { JellyRadio } from "@/components/ui/jelly-radio";
 import { cn } from "@/lib/utils";
@@ -133,7 +134,9 @@ export function ConversationList({
               >
                 <PersonAvatar user={peer} className="size-10" />
                 <span className="min-w-0 flex-1">
-                  <span className={cn("block truncate text-sm", unread > 0 ? "font-semibold" : "font-medium")}>{nameOf(peer)}</span>
+                  <span className={cn("block truncate text-sm", unread > 0 ? "font-semibold" : "font-medium")}>
+                    <DisplayName user={peer} name={nameOf(peer)} />
+                  </span>
                   <span className={cn("flex items-center gap-1 truncate text-xs", unread > 0 || isTyping ? "text-foreground" : "text-muted-foreground", isTyping && "italic")}>
                     {blocked && <Ban aria-hidden="true" className="size-3 shrink-0" />}
                     <span className="truncate">{preview}</span>

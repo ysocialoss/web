@@ -21,6 +21,7 @@ import { useShowHiddenNavigation } from "@/lib/show-hidden-navigation";
 
 const COMPACT_AFTER = 64;
 const DIRECTION_STEP = 10;
+const NAV_COLLAPSE_TRANSITION = "duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none";
 
 function useScrolledDown(resetKey: string) {
   const [compact, setCompact] = useState(false);
@@ -157,61 +158,72 @@ export function MobileNavigation({ auth }: { auth: AuthState }) {
   const shownKind = newPost ? kind : lastKind;
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-30 px-[max(1rem,env(safe-area-inset-left),env(safe-area-inset-right))] pb-[max(1rem,env(safe-area-inset-bottom))] md:hidden">
-      <div
-        className={cn(
-          "flex origin-bottom items-center justify-center transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
-          compact ? "scale-[0.8]" : "scale-100",
-        )}
-      >
-        {hasNav && (
-          <FloatingNavigation
-            items={items}
-            activeTo={activeTo}
-            onPreload={preloadRoute}
-            label="Mobile navigation"
-            endContent={hidden.length > 0 && (
-              <HiddenNavigation items={hidden} profilePath={profilePath} mobile />
-            )}
-            className="pointer-events-auto w-max min-w-0 max-w-80"
-          />
-        )}
+    <>
+      {hasNav && (
+        <ProgressiveBlur
+          edge="bottom"
+          height="calc(4rem + max(1rem, env(safe-area-inset-bottom)))"
+          enabled={!compact}
+          className={cn("z-20 transition-[backdrop-filter,-webkit-backdrop-filter] md:hidden", NAV_COLLAPSE_TRANSITION)}
+        />
+      )}
+      <div className="pointer-events-none fixed inset-x-0 bottom-0 z-30 px-[max(1rem,env(safe-area-inset-left),env(safe-area-inset-right))] pb-[max(1rem,env(safe-area-inset-bottom))] md:hidden">
         <div
-          inert={!newPost}
           className={cn(
-            "shrink-0 transition-[width,margin,opacity,transform] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
-            newPost
-              ? cn("pointer-events-auto w-14 scale-100 opacity-100", hasNav && "ml-2")
-              : "pointer-events-none ml-0 w-0 scale-50 opacity-0",
+            "flex origin-bottom items-center justify-center transition-transform",
+            NAV_COLLAPSE_TRANSITION,
+            compact ? "scale-[0.8]" : "scale-100",
           )}
         >
-          <button
-            type="button"
-            aria-label={
-              shownKind === "reply" ? "Write a reply" : "Write a new post"
-            }
-            onClick={newPost?.open}
-            className="relative flex size-14 items-center justify-center rounded-full bg-primary/88 text-primary-foreground shadow-[0_4px_16px_-6px_rgb(0_0_0/0.3)] ring-1 ring-white/15 backdrop-blur-2xl backdrop-saturate-200 outline-none transition-transform duration-200 active:scale-95 focus-visible:ring-2 focus-visible:ring-white/90"
+          {hasNav && (
+            <FloatingNavigation
+              items={items}
+              activeTo={activeTo}
+              onPreload={preloadRoute}
+              label="Mobile navigation"
+              endContent={hidden.length > 0 && (
+                <HiddenNavigation items={hidden} profilePath={profilePath} mobile />
+              )}
+              className="pointer-events-auto w-max min-w-0 max-w-80"
+            />
+          )}
+          <div
+            inert={!newPost}
+            className={cn(
+              "shrink-0 transition-[width,margin,opacity,transform] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
+              newPost
+                ? cn("pointer-events-auto w-14 scale-100 opacity-100", hasNav && "ml-2")
+                : "pointer-events-none ml-0 w-0 scale-50 opacity-0",
+            )}
           >
-            {(["post", "reply"] as const).map((icon) => {
-              const Icon = icon === "reply" ? MessageCircle : Plus;
-              return (
-                <Icon
-                  key={icon}
-                  className={cn(
-                    "absolute size-6 transition-[opacity,transform] duration-300 ease-out motion-reduce:transition-none",
-                    shownKind === icon
-                      ? "scale-100 rotate-0 opacity-100"
-                      : "scale-50 -rotate-90 opacity-0",
-                  )}
-                  aria-hidden="true"
-                  strokeWidth={2.5}
-                />
-              );
-            })}
-          </button>
+            <button
+              type="button"
+              aria-label={
+                shownKind === "reply" ? "Write a reply" : "Write a new post"
+              }
+              onClick={newPost?.open}
+              className="relative flex size-14 items-center justify-center rounded-full bg-primary/88 text-primary-foreground shadow-[0_4px_16px_-6px_rgb(0_0_0/0.3)] ring-1 ring-white/15 backdrop-blur-2xl backdrop-saturate-200 outline-none transition-transform duration-200 active:scale-95 focus-visible:ring-2 focus-visible:ring-white/90"
+            >
+              {(["post", "reply"] as const).map((icon) => {
+                const Icon = icon === "reply" ? MessageCircle : Plus;
+                return (
+                  <Icon
+                    key={icon}
+                    className={cn(
+                      "absolute size-6 transition-[opacity,transform] duration-300 ease-out motion-reduce:transition-none",
+                      shownKind === icon
+                        ? "scale-100 rotate-0 opacity-100"
+                        : "scale-50 -rotate-90 opacity-0",
+                    )}
+                    aria-hidden="true"
+                    strokeWidth={2.5}
+                  />
+                );
+              })}
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }

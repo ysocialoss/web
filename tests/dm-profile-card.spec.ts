@@ -10,11 +10,17 @@ const sender = {
   bannerUrl: null,
   bannerCrop: null,
 };
+const paint = {
+  id: "sunset",
+  name: "Sunset",
+  definition: { kind: "linear", angle: 90, stops: [{ color: "#d04e0b", at: 0 }, { color: "#dd317d", at: 1 }] },
+};
 const recipient = {
   ...sender,
   id: "22222222-2222-4222-8222-222222222222",
   handle: "recipient",
   displayName: "Recipient",
+  paint,
 };
 const profile = {
   ...sender,
@@ -27,6 +33,7 @@ const profile = {
   followerCount: 4,
   followingCount: 5,
   postCount: 6,
+  paint,
 };
 const profilePath = `/@${profile.handle}`;
 const conversationId = "44444444-4444-4444-8444-444444444444";
@@ -62,7 +69,8 @@ async function setupBrowser(page: Page, user: typeof sender) {
 }
 
 test("sharing a profile delivers a clickable profile card to the recipient", async ({ page, browser }) => {
-  const recipientContext = await browser.newContext();
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  const recipientContext = await browser.newContext({ reducedMotion: "no-preference" });
   try {
     const recipientPage = await recipientContext.newPage();
     const [sendingDevice, receivingDevice] = (await Promise.all([
@@ -118,12 +126,16 @@ test("sharing a profile delivers a clickable profile card to the recipient", asy
     }));
 
     await page.goto("/messages");
-    await expect(page.getByRole("link", { name: /Recipient/ })).toBeVisible();
+    const recipientLink = page.getByRole("link", { name: /Recipient/ });
+    await expect(recipientLink).toBeVisible();
+    await expect(recipientLink.getByText(recipient.displayName, { exact: true })).toHaveCSS("animation-name", "name-paint-sweep");
     await page.goto(profilePath);
     await page.getByRole("button", { name: "Profile options" }).click();
     await page.getByRole("menuitem", { name: "Share profile" }).click();
     const shareMenu = page.getByRole("dialog", { name: "Share profile" });
-    await shareMenu.getByRole("button", { name: recipient.displayName }).click();
+    const recipientTile = shareMenu.getByRole("button", { name: recipient.displayName });
+    await expect(recipientTile.getByText(recipient.displayName, { exact: true })).toHaveCSS("animation-name", "name-paint-sweep");
+    await recipientTile.click();
     await shareMenu.getByRole("button", { name: `Send to ${recipient.displayName}` }).click();
     await expect(shareMenu).toBeHidden();
 
@@ -131,6 +143,7 @@ test("sharing a profile delivers a clickable profile card to the recipient", asy
     const message = recipientPage.locator("[data-message-id]");
     const card = message.getByRole("link", { name: /Shared profile @shared_profile/ });
     await expect(card).toHaveAttribute("href", profilePath);
+    await expect(card.getByText(profile.displayName, { exact: true })).toHaveCSS("animation-name", "name-paint-sweep");
     await expect(card.getByText(profile.bio)).toBeVisible();
     await expect(card.locator("img")).toBeVisible();
     await expect(message.getByText(new URL(profilePath, page.url()).href, { exact: true })).toHaveCount(0);
