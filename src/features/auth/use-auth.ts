@@ -7,6 +7,7 @@ import {
   type Session,
   type BannerCrop,
   type Paint,
+  type NamePaintPreference,
 } from "@/lib/api";
 import type { NavigationItem } from "@/lib/navigation-items";
 import { showRetryToast } from "@/lib/retry-toast";
@@ -233,15 +234,15 @@ export function useAuth() {
         : current,
     );
   }
-  async function setNamePaintsDisabled(userId: string, disabled: boolean) {
+  async function setNamePaintPreference(userId: string, preference: NamePaintPreference, disabled: boolean) {
     const startedAt = sessionRevision.current;
     setSavingNamePaintsFor(userId);
     try {
-      await api.setNamePaintsDisabled(userId, disabled);
+      await api.setNamePaintPreference(userId, preference, disabled);
       if (sessionRevision.current === startedAt) sessionRevision.current++;
       setSession((current) =>
         current?.authenticated && !current.needsOnboarding && current.user.id === userId
-          ? { ...current, user: { ...current.user, namePaintsDisabled: disabled } }
+          ? { ...current, user: { ...current.user, [preference]: disabled } }
           : current,
       );
     } finally {
@@ -258,7 +259,7 @@ export function useAuth() {
     updateBanner,
     updateAvatar,
     updatePaint,
-    setNamePaintsDisabled,
+    setNamePaintPreference,
     savingNamePaintsFor,
     session,
     error,

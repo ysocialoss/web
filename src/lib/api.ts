@@ -246,6 +246,7 @@ const sessionSchema = z.union([
       bannerCrop: bannerCropSchema.nullable(),
       navigation: navigationItemsSchema,
       namePaintsDisabled: z.boolean().default(false),
+      namePaintAnimationsDisabled: z.boolean().default(false),
     }),
     avatarUrl: z.string().nullable(),
     suggestedHandle: z.string(),
@@ -798,11 +799,18 @@ function attemptSignal(ms: number, signal?: AbortSignal) {
 }
 const postPath = (id: string) => `/api/posts/${encodeURIComponent(id)}`;
 export const postImageUrl = (id: string) => `/api/post-images/${encodeURIComponent(id)}`;
+const namePaintPreferencePaths = {
+  namePaintsDisabled: "/auth/name-paints",
+  namePaintAnimationsDisabled: "/auth/name-paint-animations",
+};
+
+export type NamePaintPreference = keyof typeof namePaintPreferencePaths;
+
 export const api = {
   setNavigationItems: (userId: string, items: NavigationItem[] | null) =>
     request("/auth/navigation", z.undefined(), "PUT", { userId, items }, AbortSignal.timeout(10_000)),
-  setNamePaintsDisabled: (userId: string, disabled: boolean) =>
-    request("/auth/name-paints", z.undefined(), "PUT", { userId, disabled }, AbortSignal.timeout(10_000)),
+  setNamePaintPreference: (userId: string, preference: NamePaintPreference, disabled: boolean) =>
+    request(namePaintPreferencePaths[preference], z.undefined(), "PUT", { userId, disabled }, AbortSignal.timeout(10_000)),
   uploadPostImage: (file: File, signal: AbortSignal) =>
     sendRequest("/api/post-images", z.object({ id: z.uuid() }), "POST",
       file.slice(0, file.size, "application/octet-stream"), attemptSignal(45_000, signal), {

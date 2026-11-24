@@ -169,7 +169,25 @@ test("both display names in account settings animate the equipped paint", async 
   for (const name of await names.all()) {
     await expect(name).toBeVisible();
     await expect(name).toHaveCSS("animation-name", "name-paint-sweep");
+    await expect(name).toHaveCSS("animation-play-state", "running");
   }
+
+  const name = names.first();
+  await name.evaluate((element) => {
+    // Create a nested scrollport like the ones used by dialogs and feeds.
+    const scrollport = document.createElement("div");
+    scrollport.style.cssText = "height: 24px; overflow: auto; overflow-anchor: none";
+    const spacer = document.createElement("div");
+    spacer.style.height = "100px";
+    element.before(scrollport);
+    scrollport.append(element, spacer);
+    scrollport.scrollTop = 100;
+  });
+  await expect(name).toHaveCSS("animation-play-state", "paused");
+  await expect(name).toHaveCSS("background-image", /linear-gradient/);
+  await name.scrollIntoViewIfNeeded();
+  await expect(name).toHaveCSS("animation-play-state", "running");
+
   const handles = dialog.getByText(/^@viewer\b/);
   await expect(handles).toHaveCount(2);
   for (const handle of await handles.all()) {
@@ -181,6 +199,49 @@ test("both display names in account settings animate the equipped paint", async 
     await expect(name).toHaveCSS("animation-name", "none");
     await expect(name).toHaveCSS("background-image", /^linear-gradient/);
   }
+});
+
+test("disabling name paint animations keeps the gradient and persists through reload", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  let namePaintAnimationsDisabled = false;
+  await page.route("**/auth/me", (route) => route.fulfill({
+    json: { ...session, user: { ...viewer, paint, namePaintAnimationsDisabled } },
+  }));
+  await page.route("**/auth/name-paint-animations", (route) => {
+    expect(route.request().method()).toBe("PUT");
+    const disabled = !namePaintAnimationsDisabled;
+    expect(route.request().postDataJSON()).toEqual({ userId: viewer.id, disabled });
+    namePaintAnimationsDisabled = disabled;
+    return route.fulfill({ status: 204 });
+  });
+
+  await page.goto("/settings/account");
+  const dialog = page.getByRole("dialog", { name: "Account settings" });
+  const names = dialog.getByText(viewer.displayName, { exact: true }).filter({ visible: true });
+  const animationSwitch = dialog.getByRole("switch", { name: "Disable name paint animations" });
+  const paintSwitch = dialog.getByRole("switch", { name: "Disable name paints", exact: true });
+  const appearance = dialog.getByRole("button", { name: "Appearance", exact: true });
+  await appearance.click();
+  await expect(names.first()).toHaveCSS("animation-name", "name-paint-sweep");
+  await expect(names.first()).toHaveCSS("animation-play-state", "running");
+
+  await animationSwitch.click();
+  await expect(animationSwitch).toBeChecked();
+  await expect(paintSwitch).not.toBeChecked();
+  for (const name of await names.all()) {
+    await expect(name).toHaveCSS("animation-name", "none");
+    await expect(name).toHaveCSS("background-image", /^linear-gradient/);
+  }
+
+  await page.reload();
+  await appearance.click();
+  await expect(animationSwitch).toBeChecked();
+  await expect(names.first()).toHaveCSS("animation-name", "none");
+  await animationSwitch.click();
+  await expect(animationSwitch).not.toBeChecked();
+  await expect(names.first()).toHaveCSS("animation-name", "name-paint-sweep");
+  await expect(names.first()).toHaveCSS("animation-play-state", "running");
 });
 
 test("disabling name paints hides every paint and persists through the account API", async ({ page }) => {
