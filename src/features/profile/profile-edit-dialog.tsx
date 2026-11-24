@@ -1,5 +1,5 @@
 import { useState, type ComponentProps, type ReactNode } from "react";
-import { Link2, UserRound } from "lucide-react";
+import { Link2, Paintbrush, UserRound } from "lucide-react";
 import { GithubSettings } from "@/features/settings/github-settings";
 import { ConnectionsPanel } from "@/features/settings/connections-panel";
 import {
@@ -12,16 +12,19 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { api, Profile } from "@/lib/api";
 import { ProfileForm } from "./profile-form";
 
-export type ProfileEditTab = "profile" | "connections";
+export type ProfileEditTab = "profile" | "paint" | "connections";
 
 export function ProfileEditDialogContent({
   children,
+  paint,
   saving,
   tab,
   onTabChange,
   onGithubChange,
 }: {
   children: ReactNode;
+  /** Content of the Paint tab; the tab is shown only when given. */
+  paint?: ReactNode;
   saving: boolean;
   tab?: ProfileEditTab;
   onTabChange?: (tab: ProfileEditTab) => void;
@@ -42,7 +45,8 @@ export function ProfileEditDialogContent({
         defaultValue="profile"
         value={tab}
         onValueChange={(value) => {
-          if (value === "profile" || value === "connections") onTabChange?.(value);
+          if (value === "profile" || value === "paint" || value === "connections")
+            onTabChange?.(value);
         }}
       >
         <TabsList aria-label="Edit profile sections" className="w-full">
@@ -50,6 +54,12 @@ export function ProfileEditDialogContent({
             <UserRound aria-hidden="true" />
             Profile
           </TabsTrigger>
+          {paint && (
+            <TabsTrigger value="paint" disabled={saving}>
+              <Paintbrush aria-hidden="true" />
+              Paint
+            </TabsTrigger>
+          )}
           <TabsTrigger value="connections" disabled={saving}>
             <Link2 aria-hidden="true" />
             Connections
@@ -58,6 +68,11 @@ export function ProfileEditDialogContent({
         <TabsContent value="profile" keepMounted className="inert:hidden">
           {children}
         </TabsContent>
+        {paint && (
+          <TabsContent value="paint" className="inert:hidden">
+            {paint}
+          </TabsContent>
+        )}
         <TabsContent value="connections" className="inert:hidden">
           <ConnectionsPanel returnTo="profile" onGithubChange={onGithubChange} />
         </TabsContent>
@@ -80,6 +95,7 @@ export function EditProfileDialog({
   profile,
   onSaved,
   onGithubChange,
+  paint,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -89,6 +105,7 @@ export function EditProfileDialog({
   profile: ProfileFields;
   onSaved: (updated: Awaited<ReturnType<typeof api.updateProfile>>) => void;
   onGithubChange?: ComponentProps<typeof GithubSettings>["onGithubChange"];
+  paint?: ReactNode;
 }) {
   const [saving, setSaving] = useState(false);
   return (
@@ -103,6 +120,7 @@ export function EditProfileDialog({
         tab={tab}
         onTabChange={onTabChange}
         onGithubChange={onGithubChange}
+        paint={paint}
       >
         {open && (
           <ProfileForm

@@ -9,6 +9,7 @@ import {
 import { Link2 } from "lucide-react";
 import { Link } from "react-router";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { DisplayName } from "@/components/display-name";
 import { api, type Post } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import {
@@ -432,7 +433,7 @@ function PostChipLabel({
         </AvatarFallback>
       </Avatar>
       <bdi className="min-w-0 truncate" title={`${name} / ${summary}`}>
-        <span className="font-semibold">{name}</span>
+        <DisplayName user={post.author} name={name} className="font-semibold" />
         {" / "}
         {summary}
       </bdi>

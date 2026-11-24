@@ -6,6 +6,7 @@ import {
   type Profile,
   type Session,
   type BannerCrop,
+  type Paint,
 } from "@/lib/api";
 import {
   ArrowLeft,
@@ -47,6 +48,8 @@ import { EditProfileDialog, type ProfileEditTab } from "./profile-edit-dialog";
 import { ProfilePictureDialog, verifyAccount } from "./profile-picture-dialog";
 import { peekProfile, profileCacheKey, storeProfile } from "./profile-cache";
 import { useSessionHint } from "@/features/auth/session-hint";
+import { DisplayName } from "@/components/display-name";
+import { PaintPicker } from "./paint-picker";
 import { PostCard } from "@/features/feed/post-card";
 import { useFeed } from "@/features/feed/use-feed";
 import { ShareButton } from "@/features/sharing/share-button";
@@ -101,6 +104,7 @@ export function ProfilePage({
   onAvatarSaved,
   onBannerSaved,
   onProfileSaved,
+  onPaintSaved,
 }: {
   handle: string;
   session: Session | null;
@@ -114,6 +118,7 @@ export function ProfilePage({
     bannerUrl: string | null,
     bannerCrop: BannerCrop | null,
   ) => void;
+  onPaintSaved: (userId: string, paint: Paint | null) => void;
 }) {
   const hint = useSessionHint(session);
   const [loadedProfile, setProfile] = useState<Profile | null>(() => {
@@ -326,6 +331,19 @@ export function ProfilePage({
                   onTabChange={setEditTab}
                   userId={profile.profile.id}
                   profile={profile.profile}
+                  paint={
+                    <PaintPicker
+                      user={profile.profile}
+                      onSaved={(paint) => {
+                        setProfile((current) =>
+                          current?.profile.id === profile.profile.id
+                            ? { ...current, profile: { ...current.profile, paint } }
+                            : current,
+                        );
+                        onPaintSaved(profile.profile.id, paint);
+                      }}
+                    />
+                  }
                   onGithubChange={(github) => {
                     setProfile((current) =>
                       current?.profile.id === profile.profile.id
@@ -586,7 +604,7 @@ export function ProfilePage({
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-x-1.5">
                 <h1 className="min-w-0 wrap-anywhere text-xl font-semibold">
-                  {profile.profile.displayName}
+                  <DisplayName user={profile.profile} />
                 </h1>
                 <TwitchLive handle={profile.profile.handle} />
                 {profile.profile.isOg && (

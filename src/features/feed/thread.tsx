@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { IconButton, IconLink } from "@/components/ui/icon-button";
+import { DisplayName } from "@/components/display-name";
 import { PostCard } from "./post-card";
 import { NewPostDialog } from "./feed-floaters";
 import { PostComposer } from "./post-composer";
@@ -489,9 +490,10 @@ function ReplyNode({
               {post.author.displayName.slice(0, 2)}
             </AvatarFallback>
           </Avatar>
-          <span className="shrink-0 font-medium text-foreground">
-            {post.author.displayName}
-          </span>
+          <DisplayName
+            user={post.author}
+            className="shrink-0 font-medium text-foreground"
+          />
           <span className="shrink-0">
             {hidden} {hidden === 1 ? "reply" : "replies"} hidden
           </span>

@@ -6,6 +6,7 @@ import {
   retryRequest,
   type Session,
   type BannerCrop,
+  type Paint,
 } from "@/lib/api";
 import type { NavigationItem } from "@/lib/navigation-items";
 import { showRetryToast } from "@/lib/retry-toast";
@@ -221,6 +222,16 @@ export function useAuth() {
         : current,
     );
   }
+  function updatePaint(userId: string, paint: Paint | null) {
+    sessionRevision.current++;
+    setSession((current) =>
+      current?.authenticated &&
+      !current.needsOnboarding &&
+      current.user.id === userId
+        ? { ...current, user: { ...current.user, paint } }
+        : current,
+    );
+  }
   const showApprovalWelcome =
     session?.authenticated === true && !session.needsOnboarding &&
     !session.pendingApproval && !session.ban && session.user.id === welcomeUserId;
@@ -230,6 +241,7 @@ export function useAuth() {
     updateProfile,
     updateBanner,
     updateAvatar,
+    updatePaint,
     session,
     error,
     busy,

@@ -2,6 +2,7 @@ import { timeAgo } from "@/lib/time-ago";
 import { ArrowUpRight, ListChecks } from "lucide-react";
 import { Link } from "react-router";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { DisplayName } from "@/components/display-name";
 import type { Post } from "@/lib/api";
 import type { PostLink } from "./post-links";
 import { PostImages } from "./post-images";
@@ -34,9 +35,10 @@ export function PostEmbed({
       </Avatar>
       <span className="min-w-0 flex-1 space-y-1">
         <span className="flex flex-wrap items-baseline gap-x-1.5">
-          <span className="max-w-full truncate font-semibold">
-            {post.author.displayName}
-          </span>
+          <DisplayName
+            user={post.author}
+            className="max-w-full truncate font-semibold"
+          />
           <span className="max-w-full truncate text-xs text-muted-foreground">
             @{post.author.handle}
           </span>

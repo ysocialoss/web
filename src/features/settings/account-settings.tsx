@@ -58,6 +58,7 @@ import {
   EditProfileDialog,
   type ProfileEditTab,
 } from "@/features/profile/profile-edit-dialog";
+import { PaintPicker } from "@/features/profile/paint-picker";
 import {
   peekProfile,
   profileCacheKey,
@@ -641,6 +642,18 @@ function SignedInSettings({
                 onTabChange={setEditTab}
                 userId={user.id}
                 profile={profile.profile}
+                paint={
+                  <PaintPicker
+                    user={profile.profile}
+                    onSaved={(paint) => {
+                      own.update((current) => ({
+                        ...current,
+                        profile: { ...current.profile, paint },
+                      }));
+                      auth.updatePaint(user.id, paint);
+                    }}
+                  />
+                }
                 onGithubChange={(github) =>
                   own.update((current) => ({
                     ...current,

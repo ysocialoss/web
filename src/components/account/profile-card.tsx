@@ -18,12 +18,14 @@ import {
   type Session,
 } from "@/lib/api";
 import { ProfileCardSkeleton } from "@/components/loading-skeletons";
+import { DisplayName } from "@/components/display-name";
 import { BannerImage } from "@/features/profile/banner-image";
 import { BannerEditor } from "@/features/profile/banner-editor";
 import { AvatarCropper } from "@/features/profile/avatar-cropper";
 import { RecentAvatars } from "@/features/profile/recent-avatars";
 import { ProfileForm } from "@/features/profile/profile-form";
 import { ProfileEditDialogContent } from "@/features/profile/profile-edit-dialog";
+import { PaintPicker } from "@/features/profile/paint-picker";
 import { updateAuthor } from "@/features/feed/optimistic-actions";
 import type { AuthState } from "@/features/auth/use-auth";
 
@@ -191,7 +193,7 @@ export function ProfileCard({
                   id="profile-heading"
                   className="block truncate text-sm font-semibold hover:underline"
                 >
-                  {user.displayName}
+                  <DisplayName user={user} />
                 </span>
                 <span className="block truncate text-xs text-muted-foreground hover:underline">
                   @{user.handle}
@@ -202,7 +204,15 @@ export function ProfileCard({
                   </bdi>
                 )}
               </DialogTrigger>
-              <ProfileEditDialogContent saving={saving}>
+              <ProfileEditDialogContent
+                saving={saving}
+                paint={
+                  <PaintPicker
+                    user={user}
+                    onSaved={(paint) => auth.updatePaint(user.id, paint)}
+                  />
+                }
+              >
                 {loadError ? (
                   <p role="alert" className="text-sm text-destructive">
                     {loadError}
@@ -230,7 +240,7 @@ export function ProfileCard({
           ) : (
             <>
               <h2 id="profile-heading" className="text-sm font-semibold">
-                {user.displayName}
+                <DisplayName user={user} />
               </h2>
               <Link
                 className="text-xs text-muted-foreground"

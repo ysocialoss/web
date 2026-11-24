@@ -23,6 +23,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
+import { DisplayName } from "@/components/display-name";
 import { useNotifications } from "./notifications-context";
 import { PushSettings } from "./push-settings";
 import { cn } from "@/lib/utils";
@@ -265,7 +266,7 @@ function NotificationsContent({
                       onClick={handleNavigation}
                       className="relative z-10 font-semibold hover:underline"
                     >
-                      {actorName}
+                      <DisplayName user={item.actor} name={actorName} />
                     </ProfileHoverLink>{" "}
                     {/* Stretch the action link across the row, below the profile links. */}
                     <Link

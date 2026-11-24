@@ -9,6 +9,7 @@ import { countFormat } from "@/lib/count-format";
 import { TwitchLive } from "./twitch-live";
 import { BannerImage } from "./banner-image";
 import { patchProfileCard, useProfileCard } from "./profile-card-cache";
+import { DisplayName } from "@/components/display-name";
 
 const counts = new Intl.NumberFormat("en", countFormat);
 
@@ -147,7 +148,7 @@ function UserCardBody({ card }: { card: ProfileCard }) {
               to={`/@${profile.handle}`}
               className="block truncate text-base leading-tight font-semibold outline-none hover:underline focus-visible:underline"
             >
-              {name}
+              <DisplayName user={profile} name={name} />
             </Link>
             <TwitchLive handle={profile.handle} />
           </div>

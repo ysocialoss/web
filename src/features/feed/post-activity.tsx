@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Chip } from "@/components/ui/chip";
 import { LoadingSkeleton } from "@/components/loading-skeletons";
 import { Skeleton } from "@/components/ui/skeleton";
+import { DisplayName } from "@/components/display-name";
 import {
   Dialog,
   DialogContent,
@@ -126,9 +127,12 @@ function ActivityList({
                 </AvatarFallback>
               </Avatar>
               <div className="min-w-0">
-                <p className="truncate font-semibold">
-                  {user.displayName || user.handle}
-                </p>
+                <DisplayName
+                  as="p"
+                  user={user}
+                  name={user.displayName || user.handle}
+                  className="truncate font-semibold"
+                />
                 <p className="truncate text-xs text-muted-foreground">
                   @{user.handle}
                 </p>
