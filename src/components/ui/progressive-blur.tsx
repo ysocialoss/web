@@ -1,8 +1,8 @@
 import { cn } from "@/lib/utils";
 
 /**
- * A blur that is strongest at the top edge and fades smoothly to nothing at
- * the bottom edge, after Magic UI's ProgressiveBlur: many stacked backdrop
+ * A blur that is strongest at the chosen edge and fades to nothing at the
+ * opposite edge, after Magic UI's ProgressiveBlur: many stacked backdrop
  * blurs of doubling strength, each masked to its own band.
  *
  * The layers render as siblings (a fragment) and are absolutely positioned
@@ -12,11 +12,15 @@ import { cn } from "@/lib/utils";
 export function ProgressiveBlur({
   height,
   blurLevels = [0.5, 1, 2, 4, 8, 14, 22, 32],
+  edge = "top",
+  enabled = true,
   className,
 }: {
   /** Any CSS length. The blur never extends past it. */
   height: string;
   blurLevels?: number[];
+  edge?: "top" | "bottom";
+  enabled?: boolean;
   className?: string;
 }) {
   const count = blurLevels.length;
@@ -24,25 +28,29 @@ export function ProgressiveBlur({
   return (
     <>
       {blurLevels.map((blur, index) => {
-        // 0% is the weak (bottom) edge, 100% the strong (top) edge.
+        // The mask runs from the weak edge to the strong edge.
         const from = index * step;
         const stops =
           index === count - 1
             ? `rgba(0,0,0,0) ${from}%, rgba(0,0,0,1) 100%`
             : `rgba(0,0,0,0) ${from}%, rgba(0,0,0,1) ${from + step}%, rgba(0,0,0,1) ${from + step * 2}%, rgba(0,0,0,0) ${from + step * 3}%`;
-        const mask = `linear-gradient(to top, ${stops})`;
+        const mask = `linear-gradient(to ${edge}, ${stops})`;
+        const filter = enabled ? `blur(${blur}px)` : "none";
         return (
           <div
             key={blur}
             aria-hidden="true"
+            data-slot="progressive-blur"
+            data-edge={edge}
             className={cn(
-              "pointer-events-none absolute inset-x-0 top-0 select-none",
+              "pointer-events-none absolute inset-x-0 select-none",
+              edge === "top" ? "top-0" : "bottom-0",
               className,
             )}
             style={{
               height,
-              backdropFilter: `blur(${blur}px)`,
-              WebkitBackdropFilter: `blur(${blur}px)`,
+              backdropFilter: filter,
+              WebkitBackdropFilter: filter,
               maskImage: mask,
               WebkitMaskImage: mask,
             }}
