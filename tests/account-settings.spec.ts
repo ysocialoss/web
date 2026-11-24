@@ -243,7 +243,15 @@ test("disabling name paints hides every paint and persists through the account A
   await page.goto(`/@${viewer.handle}`);
   const ownName = page.getByRole("heading", { name: viewer.displayName }).getByText(viewer.displayName, { exact: true });
   await expect(ownName).toHaveCSS("background-image", "none");
-  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  const editButton = page.getByRole("button", { name: "Edit profile", exact: true });
+  const menuButton = page.getByRole("button", { name: "Profile options" });
+  await editButton.hover();
+  await expect(page.locator("[data-slot=tooltip-content]", { hasText: "Edit profile" })).toBeVisible();
+  const editSize = await editButton.boundingBox();
+  const menuSize = await menuButton.boundingBox();
+  expect(editSize?.width).toBe(menuSize?.width);
+  expect(editSize?.height).toBe(menuSize?.height);
+  await editButton.click();
   const editProfile = page.getByRole("dialog", { name: "Edit profile" });
   const paintTab = editProfile.getByRole("tab", { name: "Paint", exact: true });
   await expect(paintTab).toBeVisible();
@@ -265,7 +273,7 @@ test("disabling name paints hides every paint and persists through the account A
   await expect(otherName).toHaveCSS("animation-name", "name-paint-sweep");
   await page.goto(`/@${viewer.handle}`);
   await expect(ownName).toHaveCSS("animation-name", "name-paint-sweep");
-  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await editButton.click();
   await expect(paintTab).toBeEnabled();
   await paintTab.click();
   const preview = editProfile.getByRole("radio", { name: /Sunset/ }).getByText(viewer.displayName, { exact: true });
