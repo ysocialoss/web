@@ -159,6 +159,10 @@
     background-size: var(--name-paint-stripe-width) 100%;
     animation: name-paint-stripes 4s linear infinite;
   }
+
+  .name-paint:not([data-paint-visible]) {
+    animation-play-state: paused;
+  }
 }
 
 @keyframes name-paint-stripes {

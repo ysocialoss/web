@@ -169,7 +169,25 @@ test("both display names in account settings animate the equipped paint", async 
   for (const name of await names.all()) {
     await expect(name).toBeVisible();
     await expect(name).toHaveCSS("animation-name", "name-paint-sweep");
+    await expect(name).toHaveCSS("animation-play-state", "running");
   }
+
+  const name = names.first();
+  await name.evaluate((element) => {
+    // Create a nested scrollport like the ones used by dialogs and feeds.
+    const scrollport = document.createElement("div");
+    scrollport.style.cssText = "height: 24px; overflow: auto; overflow-anchor: none";
+    const spacer = document.createElement("div");
+    spacer.style.height = "100px";
+    element.before(scrollport);
+    scrollport.append(element, spacer);
+    scrollport.scrollTop = 100;
+  });
+  await expect(name).toHaveCSS("animation-play-state", "paused");
+  await expect(name).toHaveCSS("background-image", /linear-gradient/);
+  await name.scrollIntoViewIfNeeded();
+  await expect(name).toHaveCSS("animation-play-state", "running");
+
   const handles = dialog.getByText(/^@viewer\b/);
   await expect(handles).toHaveCount(2);
   for (const handle of await handles.all()) {

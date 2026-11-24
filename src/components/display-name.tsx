@@ -1,5 +1,5 @@
 import { useContext, type ElementType } from "react";
-import { NamePaintsDisabledContext } from "@/features/profile/paint-visibility";
+import { NamePaintsDisabledContext, observeNamePaint } from "@/features/profile/paint-visibility";
 import type { Paint } from "@/lib/api";
 import { paintClassName, paintStyle } from "@/lib/paint";
 import { cn } from "@/lib/utils";
@@ -25,6 +25,7 @@ export function DisplayName({
   }
   return (
     <Component
+      ref={observeNamePaint}
       className={cn(className, paintClassName)}
       style={paintStyle(paint.definition)}
       data-paint-interpolation={paint.definition.kind === "linear" ? paint.definition.interpolation : undefined}
