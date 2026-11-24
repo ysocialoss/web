@@ -3,6 +3,7 @@ import {
   Suspense,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type MouseEvent,
@@ -47,7 +48,7 @@ import { cn } from "@/lib/utils";
 import { recallScroll, rememberScroll } from "@/lib/scroll-memory";
 import { useGoBack } from "@/hooks/use-go-back";
 import { NotificationsProvider } from "@/features/notifications/notifications-context";
-import { NamePaintsDisabledContext } from "@/features/profile/paint-visibility";
+import { NamePaintPreferencesContext } from "@/features/profile/paint-visibility";
 import { DmUnreadProvider } from "@/features/dms/dm-unread";
 import { ActivityPage, NotificationsPage } from "@/features/notifications/notifications";
 import {
@@ -83,6 +84,12 @@ function AppShell() {
     ? auth.session.user
     : null;
   const viewerId = viewer?.id ?? null;
+  const namePaintsDisabled = viewer?.namePaintsDisabled ?? false;
+  const namePaintAnimationsDisabled = viewer?.namePaintAnimationsDisabled ?? false;
+  const namePaintPreferences = useMemo(
+    () => ({ namePaintsDisabled, namePaintAnimationsDisabled }),
+    [namePaintsDisabled, namePaintAnimationsDisabled],
+  );
   useSearchShortcut();
   const awaitingApproval = auth.session?.authenticated && !auth.session.needsOnboarding
     && auth.session.pendingApproval && !auth.session.ban;
@@ -216,7 +223,7 @@ function AppShell() {
         !!auth.session?.authenticated && !auth.session.needsOnboarding && !auth.session.pendingApproval && !auth.session.ban
       }
      >
-      <NamePaintsDisabledContext.Provider value={viewer?.namePaintsDisabled ?? false}>
+      <NamePaintPreferencesContext.Provider value={namePaintPreferences}>
       <AccountSettingsContext.Provider value={(trigger) => setSettingsRequest({ navigationKey, trigger })}>
       <DynamicFavicon />
       {settingsOpen && (
@@ -354,7 +361,7 @@ function AppShell() {
         {!threadView && <MobileNavigation auth={auth} />}
       </div>
       </AccountSettingsContext.Provider>
-      </NamePaintsDisabledContext.Provider>
+      </NamePaintPreferencesContext.Provider>
      </DmUnreadProvider>
     </NotificationsProvider>
   );

@@ -73,7 +73,7 @@ import { PushSettings } from "@/features/notifications/push-settings";
 import { useNotifications } from "@/features/notifications/notifications-context";
 import { BlockedAccountsDialog } from "@/features/reports/blocked-accounts-dialog";
 import { SiteWordmark } from "@/components/layout/site-wordmark";
-import { api, errorMessage, type Profile, type Session } from "@/lib/api";
+import { api, errorMessage, type NamePaintPreference, type Profile, type Session } from "@/lib/api";
 import {
   useBranding,
   variations,
@@ -800,13 +800,18 @@ function HidePreviewsRow({ userId }: { userId: string }) {
   );
 }
 
+const namePaintOptions = [
+  { preference: "namePaintsDisabled", label: "Disable name paints" },
+  { preference: "namePaintAnimationsDisabled", label: "Disable name paint animations" },
+] satisfies { preference: NamePaintPreference; label: string }[];
+
 function NamePaintSettings({ user, auth }: { user: SignedInUser; auth: AuthState }) {
   const [error, setError] = useState("");
 
-  async function change(disabled: boolean) {
+  async function change(preference: NamePaintPreference, disabled: boolean) {
     setError("");
     try {
-      await auth.setNamePaintsDisabled(user.id, disabled);
+      await auth.setNamePaintPreference(user.id, preference, disabled);
     } catch (reason) {
       setError(errorMessage(reason));
     }
@@ -814,15 +819,17 @@ function NamePaintSettings({ user, auth }: { user: SignedInUser; auth: AuthState
 
   return (
     <SettingsGroup title="Name paints">
-      <div className="px-4 py-3 text-sm">
-        <label className="flex items-center justify-between gap-4">
-          <span className="font-medium">Disable name paints</span>
-          <Switch
-            checked={user.namePaintsDisabled}
-            disabled={auth.savingNamePaintsFor === user.id}
-            onCheckedChange={(disabled) => void change(disabled)}
-          />
-        </label>
+      <div className="space-y-3 px-4 py-3 text-sm">
+        {namePaintOptions.map(({ preference, label }) => (
+          <label key={preference} className="flex items-center justify-between gap-4">
+            <span className="font-medium">{label}</span>
+            <Switch
+              checked={user[preference]}
+              disabled={auth.savingNamePaintsFor === user.id}
+              onCheckedChange={(disabled) => void change(preference, disabled)}
+            />
+          </label>
+        ))}
         {error && <p role="alert" className="mt-2 text-destructive">{error}</p>}
       </div>
     </SettingsGroup>

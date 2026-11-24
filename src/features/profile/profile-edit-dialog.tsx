@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { api, Profile } from "@/lib/api";
-import { NamePaintsDisabledContext } from "./paint-visibility";
+import { NamePaintPreferencesContext } from "./paint-visibility";
 import { ProfileForm } from "./profile-form";
 
 export type ProfileEditTab = "profile" | "paint" | "connections";
@@ -31,7 +31,7 @@ export function ProfileEditDialogContent({
   onTabChange?: (tab: ProfileEditTab) => void;
   onGithubChange?: ComponentProps<typeof GithubSettings>["onGithubChange"];
 }) {
-  const paintsDisabled = useContext(NamePaintsDisabledContext);
+  const { namePaintsDisabled: paintsDisabled } = useContext(NamePaintPreferencesContext);
 
   return (
     <DialogContent

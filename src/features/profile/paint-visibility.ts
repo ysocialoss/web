@@ -1,6 +1,9 @@
 import { createContext } from "react";
 
-export const NamePaintsDisabledContext = createContext(false);
+export const NamePaintPreferencesContext = createContext({
+  namePaintsDisabled: false,
+  namePaintAnimationsDisabled: false,
+});
 
 let paintObserver: IntersectionObserver | undefined;
 
