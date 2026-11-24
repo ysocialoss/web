@@ -244,9 +244,17 @@ test("disabling name paints hides every paint and persists through the account A
   const ownName = page.getByRole("heading", { name: viewer.displayName }).getByText(viewer.displayName, { exact: true });
   await expect(ownName).toHaveCSS("background-image", "none");
   await page.getByRole("button", { name: "Edit", exact: true }).click();
-  await page.getByRole("tab", { name: "Paint", exact: true }).click();
-  const preview = page.getByRole("radio", { name: /Sunset/ }).getByText(viewer.displayName, { exact: true });
-  await expect(preview).toHaveCSS("background-image", "none");
+  const editProfile = page.getByRole("dialog", { name: "Edit profile" });
+  const paintTab = editProfile.getByRole("tab", { name: "Paint", exact: true });
+  await expect(paintTab).toBeVisible();
+  await expect(paintTab).toBeDisabled();
+  await expect(paintTab).toHaveCSS("opacity", "0.5");
+  const profileTab = editProfile.getByRole("tab", { name: "Profile", exact: true });
+  await profileTab.press("ArrowRight");
+  await expect(paintTab).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(profileTab).toHaveAttribute("aria-selected", "true");
+  await expect(editProfile.getByRole("radiogroup", { name: "Name paint" })).toHaveCount(0);
 
   await page.goto(`/@${other.handle}`);
   await openAppearance();
@@ -257,6 +265,11 @@ test("disabling name paints hides every paint and persists through the account A
   await expect(otherName).toHaveCSS("animation-name", "name-paint-sweep");
   await page.goto(`/@${viewer.handle}`);
   await expect(ownName).toHaveCSS("animation-name", "name-paint-sweep");
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await expect(paintTab).toBeEnabled();
+  await paintTab.click();
+  const preview = editProfile.getByRole("radio", { name: /Sunset/ }).getByText(viewer.displayName, { exact: true });
+  await expect(preview).toHaveCSS("animation-name", "name-paint-sweep");
 });
 
 test("the logo can be pinned to a variation and links to its occasion", async ({ page }) => {

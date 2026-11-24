@@ -2,12 +2,22 @@ import type { CSSProperties } from "react";
 import type { PaintDefinition } from "./api";
 
 export function paintGradient(definition: PaintDefinition) {
+  const stepped = definition.kind === "linear" && definition.interpolation === "step";
   const stops = definition.stops
-    .map((stop) => `${stop.color} ${Math.round(stop.at * 10000) / 100}%`)
+    .map((stop, index, allStops) => {
+      const start = stopPosition(stop.at);
+      return stepped
+        ? `color-mix(in oklab, ${stop.color}, var(--foreground) 40%) ${start} ${stopPosition(allStops[index + 1]?.at ?? 1)}`
+        : `${stop.color} ${start}`;
+    })
     .join(", ");
   return definition.kind === "linear"
     ? `linear-gradient(${definition.angle}deg, ${stops})`
     : `radial-gradient(${definition.shape}, ${stops})`;
+}
+
+function stopPosition(at: number) {
+  return `${Math.round(at * 10000) / 100}%`;
 }
 
 /**

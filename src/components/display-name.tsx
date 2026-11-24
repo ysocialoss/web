@@ -27,6 +27,7 @@ export function DisplayName({
     <Component
       className={cn(className, paintClassName)}
       style={paintStyle(paint.definition)}
+      data-paint-interpolation={paint.definition.kind === "linear" ? paint.definition.interpolation : undefined}
     >
       {name}
     </Component>
