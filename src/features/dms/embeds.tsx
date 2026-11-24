@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { timeAgo } from "@/lib/time-ago";
 import { ArrowUpRight, Globe, Heart, ListChecks, MessageCircle, Mic, Repeat2 } from "lucide-react";
 import { Link } from "react-router";
+import { DisplayName } from "@/components/display-name";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api, type Post } from "@/lib/api";
@@ -123,7 +124,9 @@ export function PostCard({ postId, href }: { postId: string; href: string }) {
           <AvatarFallback className="text-[0.65rem]">{(post.author.displayName || post.author.handle).slice(0, 2)}</AvatarFallback>
         </Avatar>
         <span className="min-w-0 flex-1 leading-tight">
-          <span className="block truncate font-semibold">{post.author.displayName || post.author.handle}</span>
+          <span className="block truncate font-semibold">
+            <DisplayName user={post.author} name={post.author.displayName || post.author.handle} />
+          </span>
           <span className="block truncate text-xs text-muted-foreground">
             @{post.author.handle} · <time dateTime={post.createdAt}>{timeAgo(post.createdAt)}</time>
           </span>
@@ -199,7 +202,9 @@ export function ProfileCard({ handle }: { handle: string }) {
             <AvatarFallback>{(name || handle).slice(0, 2)}</AvatarFallback>
           </Avatar>
           <span className="min-w-0 flex-1 leading-tight">
-            {name && <bdi className="block truncate font-semibold">{name}</bdi>}
+            {profile && name && (
+              <bdi className="block truncate font-semibold"><DisplayName user={profile} name={name} /></bdi>
+            )}
             <span className={cn("block truncate", name ? "text-xs text-muted-foreground" : "font-semibold")}>
               @{handle}
             </span>

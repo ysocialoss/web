@@ -153,6 +153,45 @@ test("account settings reuse the profile popups and keep the account menu entry"
   await expect(page.getByRole("button", { name: "Account menu" })).toBeFocused();
 });
 
+test("both display names in account settings animate the equipped paint", async ({ page }) => {
+  const paint = {
+    id: "sunset",
+    name: "Sunset",
+    definition: { kind: "linear", angle: 90, stops: [{ color: "#d04e0b", at: 0 }, { color: "#dd317d", at: 1 }] },
+  };
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.route("**/auth/me", (route) => route.fulfill({ json: {
+    authenticated: true,
+    needsOnboarding: false,
+    pendingApproval: false,
+    ban: null,
+    user: { ...viewer, paint },
+    avatarUrl: null,
+    suggestedHandle: viewer.handle,
+  } }));
+
+  await page.goto("/settings/account");
+  const dialog = page.getByRole("dialog", { name: "Account settings" });
+  const names = dialog.getByText(viewer.displayName, { exact: true });
+  await expect(names).toHaveCount(2);
+  for (const name of await names.all()) {
+    await expect(name).toBeVisible();
+    await expect(name).toHaveCSS("animation-name", "name-paint-sweep");
+  }
+  const handles = dialog.getByText(/^@viewer\b/);
+  await expect(handles).toHaveCount(2);
+  for (const handle of await handles.all()) {
+    await expect(handle).toHaveCSS("animation-name", "none");
+  }
+
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  for (const name of await names.all()) {
+    await expect(name).toHaveCSS("animation-name", "none");
+    await expect(name).toHaveCSS("background-image", /^linear-gradient/);
+  }
+});
+
 test("the logo can be pinned to a variation and links to its occasion", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto("/settings/account");

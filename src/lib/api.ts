@@ -34,7 +34,7 @@ export type PaintDefinition = z.infer<typeof paintDefinitionSchema>;
 export type Paint = z.infer<typeof paintSchema>;
 // A paint that fails to parse falls back to the plain name instead of breaking the list.
 const userPaintSchema = paintSchema.nullable().catch(null);
-const userSchema = z.object({
+export const userSchema = z.object({
   id: z.string(),
   handle: z.string(),
   displayName: z.string(),

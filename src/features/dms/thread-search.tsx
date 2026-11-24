@@ -1,5 +1,6 @@
-import { Fragment, useDeferredValue, useEffect, useId, useMemo, useRef, useState } from "react";
+import { Fragment, useDeferredValue, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { Search, SearchX, SlidersHorizontal, X } from "lucide-react";
+import { DisplayName } from "@/components/display-name";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle, DrawerTrigger } from "@/components/ui/drawer";
@@ -16,7 +17,7 @@ import { nameOf, PersonAvatar } from "./message-row";
 
 const dateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" });
 
-type FilterOption<Value extends string> = { value: Value; label: string };
+type FilterOption<Value extends string> = { value: Value; label: ReactNode };
 
 const contentOptions: FilterOption<SearchFilters["has"]>[] = [
   { value: "any", label: "Anything" },
@@ -82,8 +83,8 @@ export function ThreadSearch({ device, conversationId, peer, self, lastMessageAt
   const hits = useDeferredValue(useMemo(() => active ? search(query, filters) : [], [active, search, query, filters]));
   const senderOptions: FilterOption<SearchFilters["sender"]>[] = [
     { value: "anyone", label: "Anyone" },
-    { value: "me", label: `${nameOf(self)} (you)` },
-    { value: "them", label: nameOf(peer) },
+    { value: "me", label: <><DisplayName user={self} name={nameOf(self)} /> (you)</> },
+    { value: "them", label: <DisplayName user={peer} name={nameOf(peer)} /> },
   ];
   const setSender = (sender: SearchFilters["sender"]) => setFilters((current) => ({ ...current, sender }));
   const setContent = (has: SearchFilters["has"]) => setFilters((current) => ({ ...current, has }));
@@ -174,7 +175,7 @@ export function ThreadSearch({ device, conversationId, peer, self, lastMessageAt
           )}
           <ul>
             {hits.map((hit) => {
-              const mine = hit.senderId === self.id;
+              const author = hit.senderId === self.id ? self : peer;
               return (
                 <li key={hit.id}>
                   <button
@@ -182,10 +183,12 @@ export function ThreadSearch({ device, conversationId, peer, self, lastMessageAt
                     onClick={() => { onPick(hit.id); setShowing(false); }}
                     className={cn("flex w-full items-start gap-3 rounded-lg px-2.5 py-2 text-left outline-none transition-colors hover:bg-muted focus-visible:bg-muted focus-visible:ring-2 focus-visible:ring-ring")}
                   >
-                    <PersonAvatar user={mine ? self : peer} className="mt-0.5 size-8" />
+                    <PersonAvatar user={author} className="mt-0.5 size-8" />
                     <span className="min-w-0 flex-1">
                       <span className="flex items-baseline justify-between gap-2">
-                        <span className="truncate text-sm font-medium">{nameOf(mine ? self : peer)}</span>
+                        <span className="truncate text-sm font-medium">
+                          <DisplayName user={author} name={nameOf(author)} />
+                        </span>
                         <time dateTime={hit.createdAt} className="shrink-0 text-[0.65rem] text-muted-foreground">{dateFormat.format(new Date(hit.createdAt))}</time>
                       </span>
                       <span dir="auto" className="line-clamp-2 text-xs leading-relaxed text-muted-foreground wrap-anywhere"><Snippet hit={hit} query={query} /></span>

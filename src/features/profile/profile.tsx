@@ -677,8 +677,7 @@ export function ProfilePage({
           </div>
           <ConnectionsDialog
             key={profile.profile.handle}
-            handle={profile.profile.handle}
-            displayName={profile.profile.displayName}
+            profile={profile.profile}
             list={connections}
             onListChange={setConnections}
             onClose={() => setConnections(null)}

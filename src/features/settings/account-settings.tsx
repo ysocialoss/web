@@ -25,6 +25,7 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
+import { DisplayName } from "@/components/display-name";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
@@ -502,7 +503,7 @@ function SignedInSettings({
                       </div>
                       <div className="mt-3 min-w-0">
                         <p className="text-lg leading-tight font-semibold wrap-anywhere">
-                          {name}
+                          <DisplayName user={user} name={name} />
                         </p>
                         <p className="mt-0.5 text-sm wrap-anywhere text-muted-foreground">
                           @{user.handle}
@@ -714,7 +715,9 @@ function SignedInSettings({
             <AvatarFallback className="text-xs">{initials}</AvatarFallback>
           </Avatar>
           <div className="min-w-0 flex-1 leading-tight">
-            <p className="truncate text-sm font-medium">{name}</p>
+            <p className="truncate text-sm font-medium">
+              <DisplayName user={user} name={name} />
+            </p>
             <p className="truncate text-xs text-muted-foreground">
               @{user.handle}
             </p>

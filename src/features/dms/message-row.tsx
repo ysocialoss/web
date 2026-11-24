@@ -8,6 +8,7 @@ import { IconButton } from "@/components/ui/icon-button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { MentionTextarea } from "@/features/feed/mention-textarea";
 import { cn } from "@/lib/utils";
+import { DisplayName } from "@/components/display-name";
 import type { DmUser } from "./dm-api";
 import { messageByteLimit } from "./dm-crypto";
 import type { DisplayMessage } from "./dm-context";
@@ -84,6 +85,7 @@ export const MessageRow = memo(function MessageRow({
   const confirmed = "delivery" in message ? undefined : message;
   const selfId = self.id;
   const mine = sender.id === selfId;
+  const replyAuthor = replied?.senderId === selfId ? self : peer;
   const [reporting, setReporting] = useState<MessageContext[] | null>(null);
   const readable = message.text !== null;
   const time = timeFormat.format(new Date(message.createdAt));
@@ -231,7 +233,7 @@ export const MessageRow = memo(function MessageRow({
       )}
       {withHeader && (
         <div className="flex flex-wrap items-baseline gap-x-2">
-          <span className="text-sm font-semibold">{nameOf(sender)}</span>
+          <DisplayName user={sender} name={nameOf(sender)} className="text-sm font-semibold" />
           <Stamp iso={message.createdAt} className="text-xs text-muted-foreground">{time}</Stamp>
         </div>
       )}
@@ -246,7 +248,11 @@ export const MessageRow = memo(function MessageRow({
           <CornerUpLeft aria-hidden="true" className="size-3.5 shrink-0" />
           {replied ? (
             <>
-              <span className="shrink-0 font-medium text-foreground/80">{nameOf(replied.senderId === selfId ? self : peer)}</span>
+              <DisplayName
+                user={replyAuthor}
+                name={nameOf(replyAuthor)}
+                className="shrink-0 font-medium text-foreground/80"
+              />
               <span className="truncate">{replied.text?.replace(/\s+/g, " ").trim().slice(0, 140) ?? "Message unavailable"}</span>
             </>
           ) : <span className="italic">Original message unavailable</span>}

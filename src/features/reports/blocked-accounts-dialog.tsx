@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Ban } from "lucide-react";
 import { Link } from "react-router";
+import { DisplayName } from "@/components/display-name";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -76,7 +77,9 @@ function BlockedList({ onNavigate }: { onNavigate: () => void }) {
                 <AvatarFallback className="text-xs">{(user.displayName || user.handle).slice(0, 2)}</AvatarFallback>
               </Avatar>
               <span className="min-w-0">
-                <span className="block truncate text-sm font-semibold">{user.displayName || user.handle}</span>
+                <span className="block truncate text-sm font-semibold">
+                  <DisplayName user={user} name={user.displayName || user.handle} />
+                </span>
                 <span className="block truncate text-xs text-muted-foreground">@{user.handle}</span>
               </span>
             </Link>

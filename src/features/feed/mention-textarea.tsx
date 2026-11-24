@@ -6,6 +6,7 @@ import {
   useState,
   type ComponentProps,
 } from "react";
+import { DisplayName } from "@/components/display-name";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
@@ -383,7 +384,7 @@ export function MentionTextarea({
               <span className="flex min-w-0 items-baseline gap-1.5">
                 {user.displayName && (
                   <span className="truncate font-medium">
-                    {user.displayName}
+                    <DisplayName user={user} />
                   </span>
                 )}
                 <span

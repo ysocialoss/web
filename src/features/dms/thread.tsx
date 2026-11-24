@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type FormEvent, type ReactElement, type RefObject } from "react";
 import { ArrowDown, ArrowLeft, Ban, Search, CornerUpLeft, EyeOff, LockKeyhole, Mail, SendHorizontal, ShieldCheck, ShieldQuestion, X } from "lucide-react";
 import { Link, useSearchParams } from "react-router";
+import { DisplayName } from "@/components/display-name";
 import { ActionMenu } from "@/components/ui/action-menu";
 import { Button } from "@/components/ui/button";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
@@ -357,6 +358,7 @@ export function Thread({ id, device, drafts, outbox, updateOutbox, sendingLifeti
   const paused = !!context && (context.peerOptedOut || context.selfOptedOut);
   const canSend = (accepted || requestOpen) && !needsDevice && !paused && !context?.peerIdentity && !locked;
   const payload = encodePayload({ text: withEmoji(draft.trim()), reply: replyTo?.id });
+  const replyAuthor = context && replyTo ? (replyTo.senderId === device.userId ? context.self : context.peer) : null;
   const tooLong = new TextEncoder().encode(payload).length > messageByteLimit;
 
   const deliver = useCallback(async (message: OutgoingMessage) => {
@@ -533,7 +535,9 @@ export function Thread({ id, device, drafts, outbox, updateOutbox, sendingLifeti
           <Link to={`/@${peer.handle}`} className="group/profile flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-1 py-0.5 outline-none transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring">
             <PersonAvatar user={peer} />
             <span className="min-w-0 flex-1">
-              <h2 className="truncate text-sm font-semibold group-hover/profile:underline">{nameOf(peer)}</h2>
+              <h2 className="truncate text-sm font-semibold group-hover/profile:underline">
+                <DisplayName user={peer} name={nameOf(peer)} />
+              </h2>
               <span className="block truncate text-xs text-muted-foreground">@{peer.handle}</span>
             </span>
           </Link>
@@ -703,11 +707,11 @@ export function Thread({ id, device, drafts, outbox, updateOutbox, sendingLifeti
           ) : null}
           {tooLong && <p role="alert" className="px-1 pb-1 text-xs text-destructive">This message is too long.</p>}
           {!needsDevice && !paused && <div className="rounded-xl border border-input bg-muted/30 transition-colors focus-within:border-ring">
-            {replyTo && (
+            {replyTo && replyAuthor && (
               <div className="flex items-center gap-2 border-b border-border/70 px-3 py-1.5 text-xs text-muted-foreground">
                 <CornerUpLeft aria-hidden="true" className="size-3.5 shrink-0" />
                 <span className="min-w-0 flex-1 truncate">
-                  Replying to <span className="font-medium text-foreground">{nameOf(replyTo.senderId === device.userId ? context!.self : context!.peer)}</span>
+                  Replying to <DisplayName user={replyAuthor} name={nameOf(replyAuthor)} className="font-medium text-foreground" />
                   {snippet(replyTo.text) ? <> · {snippet(replyTo.text)}</> : null}
                 </span>
                 <IconButton label="Cancel reply" size="icon-xs" onClick={() => setReplyTo(null)}>
