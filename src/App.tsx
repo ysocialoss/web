@@ -47,6 +47,7 @@ import { cn } from "@/lib/utils";
 import { recallScroll, rememberScroll } from "@/lib/scroll-memory";
 import { useGoBack } from "@/hooks/use-go-back";
 import { NotificationsProvider } from "@/features/notifications/notifications-context";
+import { NamePaintsDisabledContext } from "@/features/profile/paint-visibility";
 import { DmUnreadProvider } from "@/features/dms/dm-unread";
 import { ActivityPage, NotificationsPage } from "@/features/notifications/notifications";
 import {
@@ -78,6 +79,10 @@ export function App() {
 
 function AppShell() {
   const auth = useAuth();
+  const viewer = auth.session?.authenticated && !auth.session.needsOnboarding
+    ? auth.session.user
+    : null;
+  const viewerId = viewer?.id ?? null;
   useSearchShortcut();
   const awaitingApproval = auth.session?.authenticated && !auth.session.needsOnboarding
     && auth.session.pendingApproval && !auth.session.ban;
@@ -198,31 +203,20 @@ function AppShell() {
   }, [scroller, pathname, navigationKey, navigationType]);
   return (
     <NotificationsProvider
-      key={
-        auth.session?.authenticated && !auth.session.needsOnboarding
-          ? auth.session.user.id
-          : "anonymous"
-      }
-      userId={
-        auth.session?.authenticated && !auth.session.needsOnboarding
-          ? auth.session.user.id
-          : null
-      }
+      key={viewerId ?? "anonymous"}
+      userId={viewerId}
       canWrite={
         !!auth.session?.authenticated && !auth.session.needsOnboarding && !auth.session.pendingApproval && !auth.session.ban
       }
       holdPrompt={auth.showApprovalWelcome}
     >
      <DmUnreadProvider
-      userId={
-        auth.session?.authenticated && !auth.session.needsOnboarding
-          ? auth.session.user.id
-          : null
-      }
+      userId={viewerId}
       enabled={
         !!auth.session?.authenticated && !auth.session.needsOnboarding && !auth.session.pendingApproval && !auth.session.ban
       }
      >
+      <NamePaintsDisabledContext.Provider value={viewer?.namePaintsDisabled ?? false}>
       <AccountSettingsContext.Provider value={(trigger) => setSettingsRequest({ navigationKey, trigger })}>
       <DynamicFavicon />
       {settingsOpen && (
@@ -360,6 +354,7 @@ function AppShell() {
         {!threadView && <MobileNavigation auth={auth} />}
       </div>
       </AccountSettingsContext.Provider>
+      </NamePaintsDisabledContext.Provider>
      </DmUnreadProvider>
     </NotificationsProvider>
   );

@@ -10,6 +10,20 @@ const viewer = {
   bannerCrop: null,
 };
 const now = "2026-01-01T00:00:00.000Z";
+const paint = {
+  id: "sunset",
+  name: "Sunset",
+  definition: { kind: "linear", angle: 90, stops: [{ color: "#d04e0b", at: 0 }, { color: "#dd317d", at: 1 }] },
+};
+const session = {
+  authenticated: true,
+  needsOnboarding: false,
+  pendingApproval: false,
+  ban: null,
+  user: viewer,
+  avatarUrl: null,
+  suggestedHandle: viewer.handle,
+};
 
 test.beforeEach(async ({ page }) => {
   await page.route("**/api/**", (route) => route.fulfill({ json: {} }));
@@ -17,17 +31,7 @@ test.beforeEach(async ({ page }) => {
     route.fulfill({ json: { domains: [], max: 10 } }),
   );
   await page.route("**/auth/me", (route) =>
-    route.fulfill({
-      json: {
-        authenticated: true,
-        needsOnboarding: false,
-        pendingApproval: false,
-        ban: null,
-        user: viewer,
-        avatarUrl: null,
-        suggestedHandle: viewer.handle,
-      },
-    }),
+    route.fulfill({ json: session }),
   );
   await page.route("**/api/profiles/viewer", (route) =>
     route.fulfill({
@@ -154,22 +158,9 @@ test("account settings reuse the profile popups and keep the account menu entry"
 });
 
 test("both display names in account settings animate the equipped paint", async ({ page }) => {
-  const paint = {
-    id: "sunset",
-    name: "Sunset",
-    definition: { kind: "linear", angle: 90, stops: [{ color: "#d04e0b", at: 0 }, { color: "#dd317d", at: 1 }] },
-  };
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.emulateMedia({ reducedMotion: "no-preference" });
-  await page.route("**/auth/me", (route) => route.fulfill({ json: {
-    authenticated: true,
-    needsOnboarding: false,
-    pendingApproval: false,
-    ban: null,
-    user: { ...viewer, paint },
-    avatarUrl: null,
-    suggestedHandle: viewer.handle,
-  } }));
+  await page.route("**/auth/me", (route) => route.fulfill({ json: { ...session, user: { ...viewer, paint } } }));
 
   await page.goto("/settings/account");
   const dialog = page.getByRole("dialog", { name: "Account settings" });
@@ -190,6 +181,82 @@ test("both display names in account settings animate the equipped paint", async 
     await expect(name).toHaveCSS("animation-name", "none");
     await expect(name).toHaveCSS("background-image", /^linear-gradient/);
   }
+});
+
+test("disabling name paints hides every paint and persists through the account API", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  let namePaintsDisabled = false;
+  let failSave = true;
+  await page.route("**/auth/me", (route) => route.fulfill({ json: { ...session, user: { ...viewer, paint, namePaintsDisabled } } }));
+  await page.route("**/auth/name-paints", (route) => {
+    expect(route.request().method()).toBe("PUT");
+    const { userId, disabled } = route.request().postDataJSON();
+    expect(userId).toBe(viewer.id);
+    expect(disabled).toBe(!namePaintsDisabled);
+    if (failSave) return route.fulfill({ status: 500, json: { error: "unavailable" } });
+    namePaintsDisabled = disabled;
+    return route.fulfill({ status: 204 });
+  });
+
+  const other = { ...viewer, id: "22222222-2222-4222-8222-222222222222", handle: "other", displayName: "Other Ollie" };
+  for (const user of [viewer, other]) {
+    await page.route(`**/api/profiles/${user.handle}`, (route) => route.fulfill({ json: {
+      profile: { ...user, paint, bio: "", createdAt: now, followerCount: 0, followingCount: 0, postCount: 0 },
+      isFollowing: false,
+      isFollowedBy: false,
+      posts: [],
+      replies: [],
+      reposts: [],
+      repostedBy: {},
+      serverNow: now,
+    } }));
+  }
+  await page.route("**/api/paints", (route) => route.fulfill({ json: { paints: [{ ...paint, isFree: true, owned: true }] } }));
+
+  const settings = page.getByRole("dialog", { name: "Account settings" });
+  const disablePaints = settings.getByRole("switch", { name: "Disable name paints" });
+  async function openAppearance() {
+    await page.getByRole("button", { name: "Account menu" }).click();
+    await page.getByRole("button", { name: "Account settings" }).click();
+    await settings.getByRole("button", { name: "Appearance" }).click();
+  }
+
+  await page.goto(`/@${other.handle}`);
+  const otherName = page.getByRole("heading", { name: other.displayName }).getByText(other.displayName, { exact: true });
+  await expect(otherName).toHaveCSS("animation-name", "name-paint-sweep");
+  await openAppearance();
+  await expect(disablePaints).not.toBeChecked();
+  await disablePaints.click();
+  await expect(settings.getByRole("alert")).toBeVisible();
+  await expect(disablePaints).not.toBeChecked();
+  failSave = false;
+  await disablePaints.click();
+  await expect(disablePaints).toBeChecked();
+  await expect(settings.getByText(viewer.displayName, { exact: true }).filter({ visible: true })).toHaveCSS("background-image", "none");
+  await settings.getByRole("button", { name: "Close account settings" }).click();
+  await expect(otherName).toHaveCSS("background-image", "none");
+  await expect(otherName).toHaveCSS("animation-name", "none");
+  await page.reload();
+  await expect(otherName).toHaveCSS("background-image", "none");
+
+  await page.goto(`/@${viewer.handle}`);
+  const ownName = page.getByRole("heading", { name: viewer.displayName }).getByText(viewer.displayName, { exact: true });
+  await expect(ownName).toHaveCSS("background-image", "none");
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.getByRole("tab", { name: "Paint", exact: true }).click();
+  const preview = page.getByRole("radio", { name: /Sunset/ }).getByText(viewer.displayName, { exact: true });
+  await expect(preview).toHaveCSS("background-image", "none");
+
+  await page.goto(`/@${other.handle}`);
+  await openAppearance();
+  await expect(disablePaints).toBeChecked();
+  await disablePaints.click();
+  await expect(disablePaints).not.toBeChecked();
+  await settings.getByRole("button", { name: "Close account settings" }).click();
+  await expect(otherName).toHaveCSS("animation-name", "name-paint-sweep");
+  await page.goto(`/@${viewer.handle}`);
+  await expect(ownName).toHaveCSS("animation-name", "name-paint-sweep");
 });
 
 test("the logo can be pinned to a variation and links to its occasion", async ({ page }) => {

@@ -1,4 +1,5 @@
-import type { ElementType } from "react";
+import { useContext, type ElementType } from "react";
+import { NamePaintsDisabledContext } from "@/features/profile/paint-visibility";
 import type { Paint } from "@/lib/api";
 import { paintClassName, paintStyle } from "@/lib/paint";
 import { cn } from "@/lib/utils";
@@ -17,8 +18,11 @@ export function DisplayName({
   className,
   as: Component = "span",
 }: DisplayNameProps) {
+  const paintsDisabled = useContext(NamePaintsDisabledContext);
   const paint = user.paint;
-  if (!paint) return <Component className={className}>{name}</Component>;
+  if (!paint || paintsDisabled) {
+    return <Component className={className}>{name}</Component>;
+  }
   return (
     <Component
       className={cn(className, paintClassName)}

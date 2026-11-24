@@ -584,6 +584,7 @@ function SignedInSettings({
               <SettingsGroup title="Theme" bare className="-mx-1">
                 <ThemeSwitch />
               </SettingsGroup>
+              <NamePaintSettings user={user} auth={auth} />
               <BrandingPicker />
               {active && (
                 <SettingsGroup title="Navigation">
@@ -796,6 +797,35 @@ function HidePreviewsRow({ userId }: { userId: string }) {
         </p>
       )}
     </div>
+  );
+}
+
+function NamePaintSettings({ user, auth }: { user: SignedInUser; auth: AuthState }) {
+  const [error, setError] = useState("");
+
+  async function change(disabled: boolean) {
+    setError("");
+    try {
+      await auth.setNamePaintsDisabled(user.id, disabled);
+    } catch (reason) {
+      setError(errorMessage(reason));
+    }
+  }
+
+  return (
+    <SettingsGroup title="Name paints">
+      <div className="px-4 py-3 text-sm">
+        <label className="flex items-center justify-between gap-4">
+          <span className="font-medium">Disable name paints</span>
+          <Switch
+            checked={user.namePaintsDisabled}
+            disabled={auth.savingNamePaintsFor === user.id}
+            onCheckedChange={(disabled) => void change(disabled)}
+          />
+        </label>
+        {error && <p role="alert" className="mt-2 text-destructive">{error}</p>}
+      </div>
+    </SettingsGroup>
   );
 }
 
