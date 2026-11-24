@@ -1,3 +1,4 @@
+import { AccountSettingsContext } from "@/features/settings/account-settings-context";
 import {
   Suspense,
   useEffect,
@@ -49,10 +50,11 @@ import { NotificationsProvider } from "@/features/notifications/notifications-co
 import { DmUnreadProvider } from "@/features/dms/dm-unread";
 import { ActivityPage, NotificationsPage } from "@/features/notifications/notifications";
 import {
-  AccountSettingsPage,
+  AccountSettingsModal,
   MessagesPage,
   ProfilePage,
   SearchPage,
+  SavedPage,
   SettingsPage,
   Thread,
   TopicPage,
@@ -86,6 +88,15 @@ function AppShell() {
   const logoClickCount = useRef(0);
   const navigate = useNavigate();
   const { pathname, key: navigationKey } = useLocation();
+  const [settingsRequest, setSettingsRequest] = useState<{
+    navigationKey: string;
+    trigger: HTMLButtonElement | null;
+  } | null>(null);
+  if (settingsRequest && settingsRequest.navigationKey !== navigationKey) {
+    setSettingsRequest(null);
+  }
+  const settingsLink = matchPath("/settings/account", pathname) !== null;
+  const settingsOpen = settingsLink || settingsRequest?.navigationKey === navigationKey;
   const profileHandle = matchPath("/:profileHandle", pathname)?.params
     .profileHandle;
   const messagesLayout = !!matchPath("/messages/*", pathname) &&
@@ -212,7 +223,20 @@ function AppShell() {
         !!auth.session?.authenticated && !auth.session.needsOnboarding && !auth.session.pendingApproval && !auth.session.ban
       }
      >
+      <AccountSettingsContext.Provider value={(trigger) => setSettingsRequest({ navigationKey, trigger })}>
       <DynamicFavicon />
+      {settingsOpen && (
+        <Suspense fallback={null}>
+          <AccountSettingsModal
+            auth={auth}
+            returnFocus={settingsRequest?.trigger ?? null}
+            onClose={() => {
+              setSettingsRequest(null);
+              if (settingsLink) void navigate("/", { replace: true });
+            }}
+          />
+        </Suspense>
+      )}
       <div
         className="relative flex h-dvh min-h-0 flex-col"
         data-settings-page={
@@ -280,7 +304,7 @@ function AppShell() {
               <Route path="/asettings" element={<SettingsPage auth={auth} />} />
               <Route
                 path="/settings/account"
-                element={<AccountSettingsPage auth={auth} />}
+                element={<HomeFeed session={auth.session} />}
               />
               <Route
                 path="/onboarding"
@@ -295,6 +319,10 @@ function AppShell() {
               <Route
                 path="/search"
                 element={<SearchPage session={auth.session} />}
+              />
+              <Route
+                path="/saved"
+                element={<SavedPage session={auth.session} />}
               />
               <Route path="/report" element={<ComingSoon title="Report" />} />
               <Route
@@ -331,6 +359,7 @@ function AppShell() {
         </main>
         {!threadView && <MobileNavigation auth={auth} />}
       </div>
+      </AccountSettingsContext.Provider>
      </DmUnreadProvider>
     </NotificationsProvider>
   );

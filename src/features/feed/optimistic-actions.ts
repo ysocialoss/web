@@ -14,6 +14,8 @@ import { extractTopics } from "@/lib/topics";
 
 type PostCommand =
   | { kind: "like"; value: boolean }
+  | { kind: "save"; value: boolean }
+  | { kind: "pin"; value: boolean }
   | { kind: "repost"; value: boolean; audience: RepostAudience }
   | { kind: "vote"; optionIndex: number }
   | { kind: "edit"; content: string; editedAt: string }
@@ -182,6 +184,10 @@ function applyPost(post: Post, command: PostCommand): Post {
           post.likes + Number(command.value) - Number(post.liked),
         ),
       };
+    case "save":
+      return { ...post, saved: command.value };
+    case "pin":
+      return { ...post, pinned: command.value };
     case "repost": {
       // Only public reposts count; a friends-only one changes just the viewer's own state.
       const audience = command.value ? command.audience : null;
@@ -315,6 +321,22 @@ export function mutatePost(
             case "like":
               patch = await api.like(post.id, command.value);
               break;
+            case "save":
+              patch = await api.save(post.id, command.value);
+              break;
+            case "pin": {
+              const result = await api.pin(post.id, command.value);
+              patch = { pinned: result.pinned };
+              const replaced = result.previousPinnedId
+                ? posts.get(keyFor(viewerId, result.previousPinnedId))
+                : undefined;
+              if (result.previousPinnedId && replaced)
+                posts.set(keyFor(viewerId, result.previousPinnedId), {
+                  value: { ...replaced.value, pinned: false },
+                  revision: revision + 1,
+                });
+              break;
+            }
             case "repost":
               patch = await api.repost(post.id, command.value, command.audience);
               break;
@@ -392,6 +414,8 @@ export function mutatePost(
       }
       const titles = {
         like: "Couldn't update like",
+        save: "Couldn't update saved posts",
+        pin: "Couldn't update pinned post",
         repost: "Couldn't update repost",
         edit: "Couldn't save changes",
         delete: "Couldn't delete post",
@@ -412,6 +436,7 @@ export function rememberProfile(
   rememberPosts(
     [
       ...profile.posts,
+      ...(profile.pinnedPost ? [profile.pinnedPost] : []),
       ...profile.reposts,
       ...profile.replies.flatMap((reply) => [...reply.thread, reply.post]),
     ],

@@ -167,14 +167,16 @@ export function PushSettings() {
           {state === "blocked"
             ? "Enable notifications in your browser settings."
             : state === "enabled"
-              ? "Mute Notifications?"
+              ? "Notifications are on"
               : state === "muted"
                 ? mutedUntil
                   ? `Notifications muted for ${durationLabel}`
                   : "Notifications muted forever"
-                : "Allow notifications"}
+                : state === "unsupported" || state === "unconfigured"
+                  ? "Not available in this browser"
+                  : "Allow notifications"}
         </p>
-        {state !== "blocked" && (
+        {!["blocked", "unsupported", "unconfigured"].includes(state) && (
           <Button
             variant="outline"
             size="sm"
@@ -195,7 +197,7 @@ export function PushSettings() {
             <DialogTitle>Mute notifications</DialogTitle>
             <DialogDescription>For how long?</DialogDescription>
           </DialogHeader>
-          <DialogFooter className="flex-col md:flex-row">
+          <DialogFooter className="min-w-0 flex-col md:flex-wrap md:justify-start">
             {muteOptions.map(({ value, label }) => (
               <Button
                 key={value}

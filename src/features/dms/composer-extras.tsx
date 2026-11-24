@@ -40,7 +40,7 @@ export function AttachMenu({ disabled, onVoice, onGif, onPoll }: {
         ]}
       />
       <Dialog open={gifs} onOpenChange={setGifs}>
-        {gifs && <GifPicker onSelect={(item: GifSearchItem) => {
+        {gifs && <GifPicker infiniteScroll onSelect={(item: GifSearchItem) => {
           setGifs(false);
           onGif({ url: item.url, previewUrl: item.previewUrl, title: item.title.slice(0, 200), width: item.width, height: item.height });
         }} />}
@@ -205,9 +205,9 @@ export function VoiceRecorderBar({ onCancel, onSend }: { onCancel: () => void; o
           </span>
         </>
       )}
-      <Button type="button" size="icon" className="shrink-0 rounded-lg" aria-label="Send voice message" disabled={!!error || seconds < 1} onClick={() => stop("send")}>
+      <IconButton type="button" size="icon" className="shrink-0 rounded-lg" label="Send voice message" disabled={!!error || seconds < 1} onClick={() => stop("send")}>
         <SendHorizontal aria-hidden="true" />
-      </Button>
+      </IconButton>
     </div>
   );
 }

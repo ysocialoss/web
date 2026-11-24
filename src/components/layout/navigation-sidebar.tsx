@@ -1,23 +1,31 @@
 import type { MouseEventHandler } from "react";
-import { Plus } from "lucide-react";
+import { Plus, UserRound } from "lucide-react";
 import { NavLink } from "react-router";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import { useNewPostTarget } from "@/features/feed/new-post-target";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { navigation } from "./navigation";
+import { defaultNavigation, hiddenNavigation, navigation } from "./navigation";
+import { HiddenNavigation } from "./hidden-navigation";
+import { useShowHiddenNavigation } from "@/lib/show-hidden-navigation";
 import { countLabel, useDmUnread } from "@/features/dms/dm-unread";
 import { LegalMenu } from "./legal-menu";
 import { AccountMenu } from "@/features/auth/account-menu";
+import { LoginDialogContent } from "@/features/auth/login-dialog-content";
 import type { AuthState } from "@/features/auth/use-auth";
 import { NotificationsBell } from "@/features/notifications/notifications";
 import { useNotifications } from "@/features/notifications/notifications-context";
 import { SiteLogoLink, SiteLogoMark, SiteWordmark } from "./site-wordmark";
 import { preloadRoute } from "@/routes";
 import { useSessionHint } from "@/features/auth/session-hint";
+
+const navItemClass =
+  "group/nav flex h-10 w-full items-center gap-3 rounded-lg px-3 outline-none transition-[background-color,color,transform] duration-200 hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97]";
+const inactiveNavItemClass = "font-medium text-muted-foreground hover:text-foreground";
 
 export function NavigationSidebar({
   showAccount = false,
@@ -31,8 +39,20 @@ export function NavigationSidebar({
   const newPost = useNewPostTarget();
   const { unread } = useDmUnread();
   const { unreadCount, signedIn: confirmedSignedIn } = useNotifications();
-  const hint = useSessionHint(auth?.session ?? null);
+  const session = auth?.session ?? null;
+  const hint = useSessionHint(session);
   const signedIn = confirmedSignedIn || !!hint;
+  const account = session?.authenticated && !session.needsOnboarding ? session : null;
+  const user = account?.user ?? hint;
+  const profilePath = user ? `/@${user.handle}` : session?.authenticated ? "/profile" : null;
+  const items = account?.user.navigation ?? defaultNavigation;
+  const showHidden = useShowHiddenNavigation();
+  const hidden = showHidden ? hiddenNavigation(items, signedIn) : [];
+  const entries = items
+    .filter((id) => id !== "profile" || profilePath !== null)
+    .map((id) => id === "profile" && profilePath
+      ? { ...navigation[id], to: profilePath }
+      : navigation[id]);
   return (
     <aside
       aria-label="Sidebar"
@@ -59,7 +79,7 @@ export function NavigationSidebar({
           aria-label="Main navigation"
           className="flex w-full flex-col gap-1"
         >
-          {navigation.filter((entry) => !entry.auth || signedIn).map(({ label, icon: Icon, to, disabled }) => (
+          {entries.filter((entry) => !entry.auth || signedIn).map(({ label, icon: Icon, to, disabled }) => (
             <Tooltip key={to}>
               <TooltipTrigger
                 render={
@@ -88,7 +108,7 @@ export function NavigationSidebar({
                       onFocus={() => preloadRoute(to)}
                       aria-label={(() => { const n = to === "/messages" ? unread : to === "/activity" ? unreadCount : 0; return n > 0 ? `${label}, ${n} unread` : label; })()}
                       className={({ isActive }) =>
-                        `group/nav flex h-10 w-full items-center gap-3 rounded-lg px-3 outline-none transition-[background-color,color,transform] duration-200 hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97] ${isActive ? "bg-muted font-semibold text-foreground" : "font-medium text-muted-foreground hover:text-foreground"}`
+                        `${navItemClass} ${isActive ? "bg-muted font-semibold text-foreground" : inactiveNavItemClass}`
                       }
                     >
                       {({ isActive }) => (
@@ -130,6 +150,34 @@ export function NavigationSidebar({
               </TooltipContent>
             </Tooltip>
           ))}
+          {!profilePath && (
+            <Dialog>
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <DialogTrigger
+                      aria-label="Profile"
+                      className={`${navItemClass} ${inactiveNavItemClass}`}
+                    >
+                      <UserRound
+                        aria-hidden="true"
+                        className="size-5 shrink-0 transition-transform duration-200 group-hover/nav:scale-110"
+                      />
+                      <span className="hidden lg:inline">Profile</span>
+                    </DialogTrigger>
+                  }
+                />
+                <TooltipContent side="right">Profile</TooltipContent>
+              </Tooltip>
+              <LoginDialogContent
+                title="Log in to view your profile"
+                description="Sign in with CNS to access your profile."
+              />
+            </Dialog>
+          )}
+          {hidden.length > 0 && profilePath && (
+            <HiddenNavigation items={hidden} profilePath={profilePath} />
+          )}
         </nav>
         {newPost && newPost.kind !== "reply" && (
           <Button

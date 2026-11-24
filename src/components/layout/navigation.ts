@@ -1,9 +1,48 @@
-import { Heart, House, Mail, Search, Users } from "lucide-react";
+import {
+  Bookmark,
+  Heart,
+  House,
+  Mail,
+  Search,
+  UserRound,
+  Users,
+  type LucideIcon,
+} from "lucide-react";
+import { navigationItemSchema, type NavigationItem } from "@/lib/navigation-items";
 
-export const navigation = [
-  { label: "Feed", icon: House, to: "/" },
-  { label: "Search", icon: Search, to: "/search" },
-  { label: "Messages", icon: Mail, to: "/messages" },
-  { label: "Activity", icon: Heart, to: "/activity", auth: true },
-  { label: "Communities", icon: Users, to: "/communities", disabled: true },
+type NavigationEntry = {
+  label: string;
+  icon: LucideIcon;
+  to: string;
+  auth?: boolean;
+  disabled?: boolean;
+};
+
+export const navigation: Record<NavigationItem, NavigationEntry> = {
+  feed: { label: "Feed", icon: House, to: "/" },
+  search: { label: "Search", icon: Search, to: "/search" },
+  messages: { label: "Messages", icon: Mail, to: "/messages" },
+  activity: { label: "Activity", icon: Heart, to: "/activity", auth: true },
+  communities: {
+    label: "Communities",
+    icon: Users,
+    to: "/communities",
+    disabled: true,
+  },
+  profile: { label: "Profile", icon: UserRound, to: "/profile" },
+  saved: { label: "Saved posts", icon: Bookmark, to: "/saved", auth: true },
+};
+
+export const defaultNavigation: readonly NavigationItem[] = [
+  "feed",
+  "search",
+  "messages",
+  "activity",
+  "profile",
 ];
+
+export function hiddenNavigation(visible: readonly NavigationItem[], signedIn: boolean) {
+  return navigationItemSchema.options.filter((id) =>
+    !visible.includes(id) && (signedIn || !navigation[id].auth),
+  );
+}

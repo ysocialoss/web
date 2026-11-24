@@ -1,5 +1,5 @@
 import { Fragment, useDeferredValue, useEffect, useId, useMemo, useRef, useState } from "react";
-import { LoaderCircle, Search, SearchX, SlidersHorizontal, X } from "lucide-react";
+import { Search, SearchX, SlidersHorizontal, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle, DrawerTrigger } from "@/components/ui/drawer";
@@ -75,10 +75,10 @@ export function ThreadSearch({ device, conversationId, peer, self, lastMessageAt
   const mobile = useIsMobile();
   const input = useRef<HTMLInputElement>(null);
   const searchable = useMemo(() => [{ id: conversationId, peer, lastMessageAt }], [conversationId, peer, lastMessageAt]);
-  const { search, progress, enable } = useMessageSearch(device, searchable);
-  useEffect(() => { enable(); input.current?.focus({ preventScroll: true }); }, [enable]);
+  useEffect(() => { input.current?.focus({ preventScroll: true }); }, []);
   const filtered = filters.sender !== "anyone" || filters.has !== "any";
   const active = !!query.trim() || filtered;
+  const { search, progress, failed, retry } = useMessageSearch(device, searchable, active);
   const hits = useDeferredValue(useMemo(() => active ? search(query, filters) : [], [active, search, query, filters]));
   const senderOptions: FilterOption<SearchFilters["sender"]>[] = [
     { value: "anyone", label: "Anyone" },
@@ -158,14 +158,16 @@ export function ThreadSearch({ device, conversationId, peer, self, lastMessageAt
         <IconButton label="Close search" className="shrink-0" onClick={onClose}><X aria-hidden="true" /></IconButton>
       </div>
 
-      {active && showing && (
-        <div role="region" aria-label="Search results" className="absolute inset-x-0 top-full z-20 max-h-80 overflow-y-auto overscroll-contain border-b border-border bg-background p-1.5 shadow-md">
-          {progress.total > 0 && (
-            <p role="status" className="flex items-center gap-2 px-2 py-1.5 text-xs text-muted-foreground">
-              <LoaderCircle aria-hidden="true" className="size-3.5 animate-spin motion-reduce:animate-none" /> Reading this conversation…
-            </p>
+      {active && showing && progress.total > 0 && <p role="status" className="sr-only">Reading this conversation…</p>}
+      {active && showing && (progress.total === 0 || hits.length > 0) && (
+        <div role="region" aria-label="Search results" aria-busy={progress.total > 0} className="absolute inset-x-0 top-full z-20 max-h-80 overflow-y-auto overscroll-contain border-b border-border bg-background p-1.5 shadow-md">
+          {failed && (
+            <div className="flex items-center justify-between gap-2 px-2 py-1 text-sm">
+              <p role="alert">Couldn’t search this conversation.</p>
+              <Button type="button" size="sm" variant="ghost" onClick={() => void retry()}>Retry search</Button>
+            </div>
           )}
-          {hits.length === 0 && progress.total === 0 && (
+          {!failed && hits.length === 0 && progress.total === 0 && (
             <p className="flex items-center justify-center gap-2 px-3 py-6 text-sm text-muted-foreground">
               <SearchX aria-hidden="true" className="size-4" /> No messages match.
             </p>

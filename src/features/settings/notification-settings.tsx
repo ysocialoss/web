@@ -80,18 +80,27 @@ export function NotificationSettings({ userId }: { userId: string }) {
       <PushSettings />
       <div className="flex items-center justify-between gap-4">
         <div>
-          <span id="notification-content-label" className="font-medium">Hide message content in notifications</span>
-          <p id="notification-content-description" className="text-muted-foreground">Hide previews in the app and in push alerts on all your devices.</p>
+          <span id="notification-content-label" className="font-medium">
+            Hide message content in notifications
+          </span>
+          <p
+            id="notification-content-description"
+            className="text-muted-foreground"
+          >
+            Hide previews in the app and in push alerts on all your devices.
+          </p>
         </div>
         <Switch
           aria-labelledby="notification-content-label"
           aria-describedby="notification-content-description"
           checked={hideContent}
           disabled={busy || !status}
-          onCheckedChange={(checked) => void act(async () => {
-            await api.setNotificationContentHidden(checked);
-            void refresh();
-          })}
+          onCheckedChange={(checked) =>
+            void act(async () => {
+              await api.setNotificationContentHidden(checked);
+              void refresh();
+            })
+          }
         />
       </div>
       {status ? (

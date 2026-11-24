@@ -3,7 +3,8 @@ import { PostImages } from "./post-images";
 import { useEffect, useId, useRef, useState, type MouseEvent } from "react";
 import { Link, useNavigate } from "react-router";
 import { timeAgo } from "@/lib/time-ago";
-import { Check, LoaderCircle, Pencil, Trash2, X } from "lucide-react";
+import { Bookmark, BookmarkOff, Check, Ellipsis, LoaderCircle, Pencil, Pin, PinOff, Trash2, X } from "lucide-react";
+import { ActionMenu } from "@/components/ui/action-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { IconButton } from "@/components/ui/icon-button";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
@@ -47,6 +48,8 @@ export function PostCard({
   focused = false,
   repost = null,
   replyContext = false,
+  pinnedLabel = false,
+  pinnable = false,
 }: {
   post: Post;
   feed: FeedState;
@@ -63,6 +66,8 @@ export function PostCard({
   repost?: RepostContext | null;
   /** Say who a reply answers, for replies shown outside their thread. */
   replyContext?: boolean;
+  pinnedLabel?: boolean;
+  pinnable?: boolean;
 }) {
   const navigate = useNavigate();
   const editorId = useId();
@@ -174,6 +179,12 @@ export function PostCard({
         />
       )}
       {repost && <RepostHeader repost={repost} viewerId={feed.viewerId} />}
+      {!repost && pinnedLabel && post.pinned && (
+        <p className="mb-1.5 ml-12 flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+          <Pin className="size-3.5 shrink-0" aria-hidden="true" />
+          Pinned
+        </p>
+      )}
       <div className="flex items-start gap-3">
         <div className="relative size-9 shrink-0">
           <div
@@ -267,27 +278,43 @@ export function PostCard({
                     </IconButton>
                   </>
                 ) : (
-                  <>
-                    {now < Date.parse(post.editExpiresAt) && (
-                      <IconButton
-                        label="Edit post"
-                        size="icon-sm"
-                        disabled={busy}
-                        onClick={startEditing}
-                      >
-                        <Pencil />
+                  <ActionMenu
+                    title="Post options"
+                    hideTitle
+                    trigger={
+                      <IconButton label="Post options" size="icon-sm" aria-haspopup="menu" disabled={busy || optimistic}>
+                        <Ellipsis />
                       </IconButton>
-                    )}
-                    <IconButton
-                      label="Delete post"
-                      size="icon-sm"
-                      disabled={busy}
-                      className="text-muted-foreground hover:text-destructive"
-                      onClick={() => setConfirmDelete(true)}
-                    >
-                      <Trash2 />
-                    </IconButton>
-                  </>
+                    }
+                    items={[
+                      ...(now < Date.parse(post.editExpiresAt)
+                        ? [{ kind: "action" as const, icon: Pencil, label: "Edit post", onClick: startEditing }]
+                        : []),
+                      ...(pinnable && !post.parentId
+                        ? [
+                            {
+                              kind: "action" as const,
+                              icon: post.pinned ? PinOff : Pin,
+                              label: post.pinned ? "Unpin from profile" : "Pin to profile",
+                              onClick: () => feed.togglePin(post),
+                            },
+                          ]
+                        : []),
+                      {
+                        kind: "action" as const,
+                        icon: post.saved ? BookmarkOff : Bookmark,
+                        label: post.saved ? "Unsave post" : "Save post",
+                        onClick: () => feed.toggleSave(post),
+                      },
+                      {
+                        kind: "action" as const,
+                        icon: Trash2,
+                        label: "Delete post",
+                        destructive: true,
+                        onClick: () => setConfirmDelete(true),
+                      },
+                    ]}
+                  />
                 )}
               </div>
             )}
@@ -295,7 +322,15 @@ export function PostCard({
               <ReportMenu
                 className="-my-1.5 shrink-0"
                 label="Post options"
-                actions={[copyLinkAction(`/posts/${post.id}`)]}
+                actions={[
+                  {
+                    label: post.saved ? "Unsave post" : "Save post",
+                    icon: post.saved ? BookmarkOff : Bookmark,
+                    immediate: true,
+                    onSelect: () => void feed.toggleSave(post),
+                  },
+                  copyLinkAction(`/posts/${post.id}`),
+                ]}
                 follow={{ handle: post.author.handle }}
                 block={{ id: post.author.id, handle: post.author.handle }}
                 subject={{

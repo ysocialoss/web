@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { beginConnectionRetry } from "./connection-status";
+import { navigationItemsSchema, type NavigationItem } from "./navigation-items";
 
 export const bannerCropSchema = z.object({
   x: z.number(),
@@ -136,6 +137,8 @@ const basePostSchema = z.object({
   author: userSchema,
   likes: z.number(),
   liked: z.boolean(),
+  saved: z.boolean().default(false),
+  pinned: z.boolean().default(false),
   replies: z.number(),
   reposts: z.number(),
   reposted: z.boolean(),
@@ -240,6 +243,7 @@ const sessionSchema = z.union([
       pronouns: z.string().default(""),
       bannerUrl: z.string().nullable(),
       bannerCrop: bannerCropSchema.nullable(),
+      navigation: navigationItemsSchema,
     }),
     avatarUrl: z.string().nullable(),
     suggestedHandle: z.string(),
@@ -251,18 +255,28 @@ const githubAccountSchema = z.object({
 });
 const githubSettingsSchema = z.object({
   configured: z.boolean(),
-  github: githubAccountSchema.nullable(),
+  github: githubAccountSchema.extend({ displayOnProfile: z.boolean().default(true) }).nullable(),
 });
+const connectionProviderSchema = z.enum(["discord", "twitch", "steam", "spotify", "apple_music"]);
+const linkedAccountSchema = z.object({
+  provider: connectionProviderSchema,
+  username: z.string(),
+  displayName: z.string(),
+  profileUrl: z.url(),
+  displayOnProfile: z.boolean().default(true),
+});
+export type ConnectionProviderName = z.infer<typeof connectionProviderSchema>;
 const profileSchema = z.object({
   profile: userSchema.extend({
     isOg: z.boolean().default(false),
     github: githubAccountSchema.nullable().default(null),
     connections: z.array(z.object({
-      provider: z.enum(["discord", "twitch"]),
+      provider: connectionProviderSchema,
       username: z.string(),
       displayName: z.string(),
       profileUrl: z.url(),
     })).default([]),
+    domains: z.array(z.string()).default([]),
     badges: z.array(z.object({
       id: z.uuid(),
       icon: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
@@ -286,12 +300,21 @@ const profileSchema = z.object({
   blocking: z.boolean().default(false),
   blockedBy: z.boolean().default(false),
   posts: z.array(postSchema),
+  pinnedPost: postSchema.nullable().default(null),
   // Plain reposts and the person's own quote posts, newest first.
   reposts: z.array(postSchema),
   repostedBy: repostedBySchema,
   replies: z.array(z.object({ post: postSchema, thread: z.array(postSchema) })),
   serverNow: z.string(),
 });
+const domainSchema = z.object({
+  id: z.string(),
+  domain: z.string(),
+  verified: z.boolean(),
+  displayOnProfile: z.boolean().default(true),
+  record: z.object({ type: z.literal("TXT"), host: z.string(), name: z.string(), value: z.string() }).nullable(),
+});
+export type OwnedDomain = z.infer<typeof domainSchema>;
 const profileCardSchema = z.object({
   profile: userSchema.extend({
     bio: z.string(),
@@ -317,9 +340,16 @@ export type TopicCount = z.infer<typeof topicCountSchema>;
 export type SearchUser = z.infer<typeof searchUserSchema>;
 export type Session = z.infer<typeof sessionSchema>;
 export type Profile = z.infer<typeof profileSchema>;
+const socialNotificationKind = z.enum([
+  "like", "repost", "friends_repost", "reply", "follow", "friend", "mention", "quote",
+]);
+const notificationPreferenceKind = z.enum([...socialNotificationKind.options, "dm_message", "dm_invite"]);
+const notificationPreferences = z.object({ mutedKinds: z.array(notificationPreferenceKind) });
+export type NotificationPreferenceKind = z.infer<typeof notificationPreferenceKind>;
+
 const notificationSchema = z.object({
   id: z.string(),
-  kind: z.enum(["like", "repost", "reply", "follow", "mention", "quote"]),
+  kind: socialNotificationKind,
   actor: userSchema,
   postId: z.string().nullable(),
   conversationId: z.uuid().nullish(),
@@ -435,6 +465,19 @@ const traceCodes: Record<string, number> = {
   own_content: 8002,
   report_rate_limited: 8003,
   blocked: 8004,
+  invalid_pin: 2013,
+  invalid_connection: 9101,
+  invalid_profile_link: 9102,
+  connection_already_connected: 9103,
+  invalid_domain: 9104,
+  domain_taken: 9105,
+  domain_exists: 9106,
+  domain_limit: 9107,
+  domain_record_missing: 9108,
+  domain_not_found: 9109,
+  domain_connect_unsupported: 9110,
+  domain_connect_unavailable: 9111,
+  domain_already_verified: 9112,
 };
 
 export class ApiError extends Error {
@@ -604,6 +647,25 @@ function friendlyMessage(error: unknown) {
       return "This picture is too large. Choose a smaller image.";
     if (error.message === "post_not_found")
       return "This post no longer exists.";
+    if (error.message === "invalid_pin")
+      return "Only your own top-level posts can be pinned. Replies can't.";
+    if (error.message === "invalid_profile_link")
+      return "That isn't a profile link we recognise. Paste the link to your profile page.";
+    if (error.message === "connection_already_connected")
+      return "This account is already connected. Disconnect it first to change it.";
+    if (error.message === "invalid_domain")
+      return "Enter a domain you own, such as example.com.";
+    if (error.message === "domain_taken")
+      return "Another account has already verified this domain.";
+    if (error.message === "domain_exists") return "You already added this domain.";
+    if (error.message === "domain_limit") return "You can connect up to 10 domains.";
+    if (error.message === "domain_not_found") return "This domain is no longer in your list.";
+    if (error.message === "domain_record_missing")
+      return "We couldn't find the TXT record yet. DNS changes can take a few minutes to appear.";
+    if (error.message === "domain_connect_unsupported")
+      return "Your DNS provider doesn't offer one-click setup for ysocial. Add the TXT record by hand instead.";
+    if (error.message === "domain_connect_unavailable")
+      return "Your DNS provider didn't answer. Try again, or add the TXT record by hand.";
     if (error.message === "invalid_poll_option")
       return "Choose an option from this poll.";
     if (error.message === "invalid_topic") return "This isn't a valid topic.";
@@ -735,6 +797,8 @@ function attemptSignal(ms: number, signal?: AbortSignal) {
 const postPath = (id: string) => `/api/posts/${encodeURIComponent(id)}`;
 export const postImageUrl = (id: string) => `/api/post-images/${encodeURIComponent(id)}`;
 export const api = {
+  setNavigationItems: (userId: string, items: NavigationItem[] | null) =>
+    request("/auth/navigation", z.undefined(), "PUT", { userId, items }, AbortSignal.timeout(10_000)),
   uploadPostImage: (file: File, signal: AbortSignal) =>
     sendRequest("/api/post-images", z.object({ id: z.uuid() }), "POST",
       file.slice(0, file.size, "application/octet-stream"), attemptSignal(45_000, signal), {
@@ -744,7 +808,7 @@ export const api = {
     sendRequest(postImageUrl(id), z.undefined(), "DELETE", undefined, AbortSignal.timeout(10_000)),
   githubSettings: (signal: AbortSignal) =>
     request("/api/github", githubSettingsSchema, "GET", undefined, signal),
-  connectGithub: (returnTo?: "profile") => request("/api/github/connect", z.object({
+  connectGithub: (returnTo?: "profile" | "settings") => request("/api/github/connect", z.object({
     url: z.url().refine((value) => {
       const url = new URL(value);
       return url.origin === "https://github.com" && url.pathname === "/login/oauth/authorize";
@@ -761,14 +825,9 @@ export const api = {
   linkedAccounts: (signal?: AbortSignal) =>
     request("/api/connections", z.object({
       providers: z.array(z.object({
-        provider: z.enum(["discord", "twitch"]),
+        provider: connectionProviderSchema,
         configured: z.boolean(),
-        connection: z.object({
-          provider: z.string(),
-          username: z.string(),
-          displayName: z.string(),
-          profileUrl: z.url(),
-        }).nullable(),
+        connection: linkedAccountSchema.nullable(),
       })),
     }), "GET", undefined, signal),
   connectProvider: (provider: string, returnTo: "profile" | "settings") =>
@@ -777,7 +836,30 @@ export const api = {
     }), "POST", { returnTo }),
   disconnectProvider: (provider: string) =>
     request(`/api/connections/${provider}`, z.undefined(), "DELETE"),
+  setProviderVisibility: (provider: ConnectionProviderName, displayOnProfile: boolean) =>
+    request(`/api/connections/${provider}`, z.object({ connection: linkedAccountSchema }), "PATCH", { displayOnProfile }),
+  linkProvider: (provider: string, url: string) =>
+    request(`/api/connections/${provider}/link`, z.object({
+      connection: linkedAccountSchema,
+    }), "POST", { url }),
+  domains: (signal?: AbortSignal) =>
+    request("/api/domains", z.object({ domains: z.array(domainSchema), max: z.number() }), "GET", undefined, signal),
+  addDomain: (domain: string) =>
+    request("/api/domains", z.object({ domain: domainSchema }), "POST", { domain }),
+  verifyDomain: (id: string) =>
+    request(`/api/domains/${encodeURIComponent(id)}/verify`, z.object({ domain: domainSchema }), "POST"),
+  removeDomain: (id: string) =>
+    request(`/api/domains/${encodeURIComponent(id)}`, z.undefined(), "DELETE"),
+  setDomainVisibility: (id: string, displayOnProfile: boolean) =>
+    request(`/api/domains/${encodeURIComponent(id)}`, z.object({ domain: domainSchema }), "PATCH", { displayOnProfile }),
+  domainConnect: (id: string) =>
+    request(`/api/domains/${encodeURIComponent(id)}/domain-connect`, z.object({
+      url: z.url().refine((value) => new URL(value).protocol === "https:"),
+      provider: z.string().nullable(),
+    }), "POST"),
   disconnectGithub: () => request("/api/github", z.undefined(), "DELETE"),
+  setGithubVisibility: (displayOnProfile: boolean) =>
+    request("/api/github", githubSettingsSchema.pick({ github: true }), "PATCH", { displayOnProfile }),
   pronounRecommendations: (signal: AbortSignal) =>
     request(
       "/api/profiles/pronouns/recommendations",
@@ -792,7 +874,7 @@ export const api = {
     ),
   notifications: (cursor?: string, unread = false, signal?: AbortSignal) =>
     request(
-      `/api/notifications?unread=${unread}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`,
+      `/api/notifications?unread=${unread}&extendedKinds=true${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`,
       notificationsSchema,
       "GET",
       undefined,
@@ -827,6 +909,10 @@ export const api = {
     request("/api/notifications/push/prompt-dismissal", z.undefined(), "PUT"),
   setNotificationContentHidden: (hideContent: boolean) =>
     request("/api/notifications/previews", z.undefined(), "PATCH", { hideContent }),
+  notificationPreferences: (signal: AbortSignal) =>
+    request("/api/notifications/preferences", notificationPreferences, "GET", undefined, signal),
+  setNotificationPreference: (kind: NotificationPreferenceKind, enabled: boolean) =>
+    request("/api/notifications/preferences", notificationPreferences, "PATCH", { kind, enabled }),
   mutePush: (endpoint: string, duration: MuteDuration) =>
     request(
       "/api/notifications/push/mute",
@@ -1211,6 +1297,22 @@ export const api = {
       }),
       reposted ? "PUT" : "DELETE",
       reposted ? { audience } : undefined,
+    ),
+  save: (id: string, saved: boolean) =>
+    request(`${postPath(id)}/save`, z.object({ saved: z.boolean() }), saved ? "PUT" : "DELETE"),
+  pin: (id: string, pinned: boolean) =>
+    request(
+      `${postPath(id)}/pin`,
+      z.object({ pinned: z.boolean(), previousPinnedId: z.string().nullable() }),
+      pinned ? "PUT" : "DELETE",
+    ),
+  savedPosts: (cursor?: string, signal?: AbortSignal) =>
+    request(
+      `/api/posts/saved${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`,
+      pageSchema,
+      "GET",
+      undefined,
+      signal,
     ),
   edit: (id: string, content: string) =>
     request(postPath(id), postResponseSchema, "PATCH", { content }),

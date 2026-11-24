@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type MouseEvent } from "react";
+import { IconButton } from "@/components/ui/icon-button";
 import {
   Bell,
   CheckCheck,
@@ -43,6 +44,12 @@ const kinds = {
     color:
       "bg-emerald-100 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400",
   },
+  friends_repost: {
+    icon: Repeat2,
+    text: "reposted your post to friends",
+    color:
+      "bg-emerald-100 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400",
+  },
   quote: {
     icon: Quote,
     text: "quoted your post",
@@ -62,6 +69,12 @@ const kinds = {
   follow: {
     icon: UserPlus,
     text: "followed you",
+    color:
+      "bg-violet-100 text-violet-600 dark:bg-violet-950 dark:text-violet-400",
+  },
+  friend: {
+    icon: UserPlus,
+    text: "is now your friend",
     color:
       "bg-violet-100 text-violet-600 dark:bg-violet-950 dark:text-violet-400",
   },
@@ -390,15 +403,15 @@ export function NotificationsBell({
   const { unreadCount, refresh, signedIn } = useNotifications();
   if (!signedIn)
     return reserveSpace ? (
-      <Button
+      <IconButton
         variant="ghost"
         size="icon"
         className={className}
-        aria-label="Notifications"
+        label="Notifications"
         disabled
       >
         <Bell aria-hidden="true" />
-      </Button>
+      </IconButton>
     ) : null;
   return (
     <Popover
@@ -410,11 +423,11 @@ export function NotificationsBell({
     >
       <PopoverTrigger
         render={
-          <Button
+          <IconButton
             variant="ghost"
             size="icon"
             className={cn("relative", className)}
-            aria-label={`Notifications${unreadCount ? `, ${unreadCount} unread` : ""}`}
+            label={`Notifications${unreadCount ? `, ${unreadCount} unread` : ""}`}
           />
         }
       >
@@ -444,14 +457,14 @@ export function NotificationsBell({
           </div>
           <div className="flex items-center gap-1">
             <MarkAllRead />
-            <Button
+            <IconButton
               size="icon"
               variant="ghost"
-              aria-label="Close notifications"
+              label="Close notifications"
               onClick={() => setOpen(false)}
             >
               <X />
-            </Button>
+            </IconButton>
           </div>
         </div>
         {open && (

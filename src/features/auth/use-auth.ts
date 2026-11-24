@@ -8,6 +8,7 @@ import {
   type BannerCrop,
   type Paint,
 } from "@/lib/api";
+import type { NavigationItem } from "@/lib/navigation-items";
 import { showRetryToast } from "@/lib/retry-toast";
 import { toast } from "@/components/ui/toast-manager";
 import { subscribeToLive } from "@/lib/live-events";
@@ -178,6 +179,14 @@ export function useAuth() {
         : current,
     );
   }
+  function updateNavigationItems(userId: string, items: NavigationItem[] | null) {
+    sessionRevision.current++;
+    setSession((current) =>
+      current?.authenticated && !current.needsOnboarding && current.user.id === userId
+        ? { ...current, user: { ...current.user, navigation: items } }
+        : current,
+    );
+  }
   function updateBanner(
     userId: string,
     bannerUrl: string | null,
@@ -228,6 +237,7 @@ export function useAuth() {
     !session.pendingApproval && !session.ban && session.user.id === welcomeUserId;
 
   return {
+    updateNavigationItems,
     updateProfile,
     updateBanner,
     updateAvatar,

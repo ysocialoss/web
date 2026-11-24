@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Slider } from "@base-ui/react/slider";
-import { LoaderCircle, Mic, Pause, Play } from "lucide-react";
+import { Mic, Pause, Play } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { dmApi } from "./dm-api";
 import { decryptFile } from "./dm-files";
@@ -48,34 +48,45 @@ async function seekableVoice(blob: Blob): Promise<Blob> {
   }
 }
 
-export function VoiceMessage({ voice, conversationId }: { voice: MessageVoice; conversationId: string }) {
+export function VoiceMessage({ voice, conversationId, onActiveChange }: {
+  voice: MessageVoice; conversationId: string; onActiveChange: (active: boolean) => void;
+}) {
   const audio = useRef<HTMLAudioElement>(null);
   const [url, setUrl] = useState<string>();
   const [state, setState] = useState<"idle" | "loading" | "ready" | "failed">("idle");
   const [playing, setPlaying] = useState(false);
+  const [starting, setStarting] = useState(false);
   const [playError, setPlayError] = useState(false);
   const [progress, setProgress] = useState(0);
   const wanted = useRef(false);
   const pendingSeek = useRef<number | null>(null);
   const scrubbing = useRef(false);
-  const loading = useRef(false);
+  const loading = useRef<AbortController | null>(null);
 
   useEffect(() => () => { if (url) URL.revokeObjectURL(url); }, [url]);
+  useEffect(() => () => loading.current?.abort(), []);
+  const active = playing || starting || state === "loading";
+  useEffect(() => { onActiveChange(active); }, [active, onActiveChange]);
 
   async function load() {
     if (loading.current) return;
-    loading.current = true;
+    const request = new AbortController();
+    loading.current = request;
     setState("loading");
     try {
-      const data = await dmApi.download(conversationId, voice.id, AbortSignal.timeout(30_000));
+      const data = await dmApi.download(conversationId, voice.id, AbortSignal.any([request.signal, AbortSignal.timeout(30_000)]));
       const blob = await decryptFile(data as Uint8Array<ArrayBuffer>, voice.key, voice.iv, voice.mime);
-      setUrl(URL.createObjectURL(await seekableVoice(blob)));
+      const seekable = await seekableVoice(blob);
+      if (request.signal.aborted) return;
+      setUrl(URL.createObjectURL(seekable));
       setState("ready");
     } catch {
+      if (request.signal.aborted) return;
       wanted.current = false;
+      setStarting(false);
       setState("failed");
     } finally {
-      loading.current = false;
+      loading.current = null;
     }
   }
 
@@ -84,12 +95,14 @@ export function VoiceMessage({ voice, conversationId }: { voice: MessageVoice; c
     if (!wanted.current || !player || pendingSeek.current !== null || player.seeking) return;
     wanted.current = false;
     void player.play().catch((error: unknown) => {
+      setStarting(false);
       if (!(error instanceof DOMException && error.name === "AbortError")) setPlayError(true);
     });
   }
 
   function toggle() {
     setPlayError(false);
+    setStarting(!audio.current || audio.current.paused);
     if (state === "idle" || state === "failed") {
       wanted.current = true;
       void load();
@@ -122,10 +135,10 @@ export function VoiceMessage({ voice, conversationId }: { voice: MessageVoice; c
         type="button"
         onClick={toggle}
         aria-label={state === "failed" ? "Retry voice message" : playing ? "Pause voice message" : "Play voice message"}
-        className="grid size-9 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground outline-none transition-transform focus-visible:ring-2 focus-visible:ring-ring active:scale-95"
+        aria-busy={state === "loading" || starting}
+        className="grid size-9 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground outline-none transition-[transform,opacity] focus-visible:ring-2 focus-visible:ring-ring active:scale-95 aria-busy:opacity-65"
       >
-        {state === "loading" ? <LoaderCircle aria-hidden="true" className="size-4 animate-spin motion-reduce:animate-none" />
-          : state === "failed" ? <Mic aria-hidden="true" className="size-4" />
+        {state === "failed" ? <Mic aria-hidden="true" className="size-4" />
           : playing ? <Pause aria-hidden="true" className="size-4 fill-current" /> : <Play aria-hidden="true" className="size-4 fill-current" />}
       </button>
       <div className="min-w-0 flex-1">
@@ -168,8 +181,14 @@ export function VoiceMessage({ voice, conversationId }: { voice: MessageVoice; c
           ref={audio}
           src={url}
           preload="auto"
-          onPlaying={() => setPlaying(true)}
-          onPause={() => setPlaying(false)}
+          onPlaying={() => { setPlaying(true); setStarting(false); }}
+          onPause={() => { setPlaying(false); setStarting(false); }}
+          onError={() => {
+            wanted.current = false;
+            setPlaying(false);
+            setStarting(false);
+            setState("failed");
+          }}
           onCanPlay={playWhenReady}
           onSeeked={playWhenReady}
           onLoadedMetadata={() => {

@@ -7,7 +7,8 @@ import {
 import { historicalSenderKeys, pinConversation, rememberRemovals, rootStatus, trustedRoot } from "./dm-storage";
 import { decodePayload, type MessagePayload } from "./message-payload";
 
-export type DisplayMessage = ReceivedMessage & Omit<MessagePayload, "text"> & { text: string | null; editedAt: string | null; reactions: WireReaction[]; votes: WireVote[] };
+export type DisplayMessage = Pick<ReceivedMessage, "id" | "senderId" | "sequence" | "createdAt">
+  & Omit<MessagePayload, "text"> & { text: string | null; editedAt: string | null; reactions: WireReaction[]; votes: WireVote[] };
 
 export type Context = Awaited<ReturnType<typeof readContext>>;
 
@@ -43,10 +44,11 @@ export async function readContext(id: string, device: LocalDevice, signal?: Abor
 export async function decryptPage(id: string, device: LocalDevice, context: Context, messages: WireMessage[]) {
   return Promise.all(messages.map(async (message): Promise<DisplayMessage> => {
     const sender = context.senderKeys.get(message.senderDeviceId);
-    const unreadable: DisplayMessage = { ...message, text: null, reply: undefined, gif: undefined, poll: undefined, voice: undefined };
+    const { id: messageId, senderId, sequence, createdAt, editedAt, reactions, votes } = message;
+    const unreadable = { id: messageId, senderId, sequence, createdAt, editedAt, reactions, votes, text: null };
     if (!sender) return unreadable;
     try {
-      return { ...message, ...decodePayload(await decryptMessage(id, device, sender, message)) };
+      return { ...unreadable, ...decodePayload(await decryptMessage(id, device, sender, message)) };
     } catch {
       return unreadable;
     }
@@ -54,7 +56,7 @@ export async function decryptPage(id: string, device: LocalDevice, context: Cont
 }
 
 
-export async function transmitMessage({ id, device, signal, peerId, messageId, payload, send, onContext, onStale }: {
+export async function transmitMessage({ id, device, signal, peerId, messageId, payload, send, onStale }: {
   id: string;
   device: LocalDevice;
   signal: AbortSignal;
@@ -62,7 +64,6 @@ export async function transmitMessage({ id, device, signal, peerId, messageId, p
   messageId: string;
   payload: string;
   send: (body: EncryptedMessage, signal: AbortSignal) => Promise<unknown>;
-  onContext?: (context: Context) => void;
   onStale?: () => void;
 }) {
   for (let attempt = 0; ; attempt++) {
@@ -76,7 +77,6 @@ export async function transmitMessage({ id, device, signal, peerId, messageId, p
     const body = await encryptMessage(id, messageId, device, [...next.own.active, ...next.theirs.active], payload);
     try {
       await send(body, signal);
-      onContext?.(next);
       return next;
     } catch (error) {
       if (attempt || !(error instanceof ApiError) || error.message !== "dm_device_roster_changed") throw error;

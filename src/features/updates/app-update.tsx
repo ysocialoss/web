@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { IconButton } from "@/components/ui/icon-button";
 import { RefreshCw, TriangleAlert, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -87,15 +88,15 @@ export function AppUpdatePrompt() {
             <RefreshCw aria-hidden="true" />
             Reload
           </Button>
-          <Button
+          <IconButton
             size="icon-sm"
             variant="ghost"
-            aria-label="Dismiss update"
+            label="Dismiss update"
             onClick={() => setDismissed(true)}
             className="text-amber-900/70 hover:bg-amber-500/15 hover:text-amber-950 dark:text-amber-100/70 dark:hover:text-amber-50"
           >
             <X aria-hidden="true" />
-          </Button>
+          </IconButton>
         </div>
       )}
     </div>

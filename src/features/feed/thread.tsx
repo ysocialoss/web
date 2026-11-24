@@ -110,9 +110,9 @@ export function Thread({
           viewerId,
           startedAt,
         );
-        acknowledgePosts(result.replies);
         threadCache.set(cacheKey, result);
         setData(result);
+        acknowledgePosts(result.replies);
         setError("");
       } catch (error) {
         if (!signal?.aborted) setError(errorMessage(error));
@@ -141,7 +141,10 @@ export function Thread({
       if (!data || live.parentId === null) return false;
       if (
         data.replies.some((reply) => reply.id === live.id) ||
-        feed.feedPosts.some((reply) => reply.id === live.id)
+        feed.feedPosts.some(
+          (reply) =>
+            reply.id === live.id && !feed.optimisticPostIds.includes(reply.id),
+        )
       )
         return false;
       const inThread =
@@ -163,9 +166,9 @@ export function Thread({
         startedAt,
       );
       await applyLive(signal, () => {
-        acknowledgePosts(result.replies);
         threadCache.set(cacheKey, result);
         setData(result);
+        acknowledgePosts(result.replies);
       });
     },
   });

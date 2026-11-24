@@ -1,5 +1,4 @@
 import {
-  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -11,6 +10,20 @@ import { GifPreview } from "./gif-preview";
 
 const gap = 8;
 const overscan = 200;
+
+type Tile = { item: GifSearchItem; index: number; top: number; left: number; width: number; height: number };
+
+function firstVisible(tiles: Tile[], top: number) {
+  let first = 0;
+  let end = tiles.length;
+  while (first < end) {
+    const middle = Math.floor((first + end) / 2);
+    const tile = tiles[middle];
+    if (tile.top + tile.height < top) first = middle + 1;
+    else end = middle;
+  }
+  return first;
+}
 
 export function GifGrid({
   items,
@@ -28,7 +41,7 @@ export function GifGrid({
   const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
   const pendingFocus = useRef<number | null>(null);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const root = scrollRoot.current;
     if (!root) return;
     let frame = 0;
@@ -54,7 +67,7 @@ export function GifGrid({
     const resize = new ResizeObserver(schedule);
     resize.observe(root);
     root.addEventListener("scroll", schedule, { passive: true });
-    schedule();
+    measure();
     return () => {
       cancelAnimationFrame(frame);
       resize.disconnect();
@@ -66,6 +79,7 @@ export function GifGrid({
   const layout = useMemo(() => {
     const width = Math.max(0, (viewport.width - gap * (columns - 1)) / columns);
     const heights = Array<number>(columns).fill(0);
+    const byColumn = Array.from({ length: columns }, (): Tile[] => []);
     const tiles = items.map((item, index) => {
       const column = heights.indexOf(Math.min(...heights));
       const top = heights[column];
@@ -73,10 +87,26 @@ export function GifGrid({
         (Math.max(0, width - 4) * (item.height ?? 165)) / (item.width ?? 220) +
         4;
       heights[column] += height + gap;
-      return { item, index, top, left: column * (width + gap), width, height };
+      const tile = { item, index, top, left: column * (width + gap), width, height };
+      byColumn[column].push(tile);
+      return tile;
     });
-    return { tiles, height: Math.max(0, ...heights) };
+    return { tiles, byColumn, height: Math.max(0, ...heights) };
   }, [items, viewport.width, columns]);
+  const visible = useMemo(() => {
+    const top = viewport.top - overscan;
+    const bottom = viewport.top + viewport.height + overscan;
+    const window = new Map<number, Tile>();
+    for (const column of layout.byColumn) {
+      for (let index = firstVisible(column, top); index < column.length && column[index].top <= bottom; index++) {
+        const tile = column[index];
+        window.set(tile.index, tile);
+      }
+    }
+    const focused = focusedIndex === null ? undefined : layout.tiles[focusedIndex];
+    if (focused) window.set(focused.index, focused);
+    return [...window.values()].sort((a, b) => a.index - b.index);
+  }, [focusedIndex, layout, viewport.height, viewport.top]);
 
   useLayoutEffect(() => {
     if (pendingFocus.current === null) return;
@@ -96,14 +126,7 @@ export function GifGrid({
       data-gif-count={items.length}
     >
       {viewport.width > 0 &&
-        layout.tiles
-          .filter(
-            (tile) =>
-              tile.index === focusedIndex ||
-              (tile.top + tile.height >= viewport.top - overscan &&
-                tile.top <= viewport.top + viewport.height + overscan),
-          )
-          .map(({ item, index, top, left, width, height }) => (
+        visible.map(({ item, index, top, left, width, height }) => (
             <button
               key={item.id}
               type="button"

@@ -173,7 +173,7 @@ export function useFeed(
       ((topic
         ? live.topics.includes(topic)
         : live.parentId === null || live.reposted) &&
-      !localIds.has(live.id) &&
+      (!localIds.has(live.id) || optimisticPostIds.includes(live.id)) &&
       !feedPosts.some((post) => post.id === live.id)) ||
       // The author's first reply lands under a post that is already listed.
       (live.parentId !== null &&
@@ -200,13 +200,26 @@ export function useFeed(
       const gained = feedPosts.filter(
         (post) => !post.selfReply && withReply.has(post.id),
       );
-      if (!fresh.length && !gained.length) return;
+      const acknowledged = page.posts.filter((post) =>
+        optimisticPostIds.includes(post.id),
+      );
+      if (!fresh.length && !gained.length && !acknowledged.length) return;
       const contiguous =
         known.size === 0 || !page.nextCursor || firstKnown !== -1;
       rememberPosts(page.posts, viewerId, startedAt);
       await applyLive(
         signal,
         (atTop) => {
+          if (acknowledged.length) {
+            setFeedPosts((current) => {
+              const existingIds = new Set(current.map((post) => post.id));
+              return [
+                ...acknowledged.filter((post) => !existingIds.has(post.id)),
+                ...current,
+              ];
+            });
+            acknowledgePosts(acknowledged);
+          }
           if (gained.length)
             setFeedPosts((current) =>
               current.map((post) =>
@@ -235,15 +248,16 @@ export function useFeed(
             if (atTop)
               setEnteringIds((current) => new Set([...current, ...freshIds]));
             else setUnread((current) => current + fresh.length);
+            acknowledgePosts(fresh);
           } else if (atTop) {
             setFeedPosts(page.posts);
             setRepostedBy(page.repostedBy);
             setNextCursor(page.nextCursor);
+            acknowledgePosts(page.posts);
           } else {
             pendingPage.current = page;
             setUnread((current) => Math.max(current, fresh.length));
           }
-          acknowledgePosts(page.posts);
         },
         { followTop: true },
       );
@@ -384,6 +398,14 @@ export function useFeed(
     toggleLike: (post: Post) =>
       canPost && viewerId
         ? mutatePost(post, viewerId, { kind: "like", value: !post.liked })
+        : false,
+    toggleSave: (post: Post) =>
+      canPost && viewerId
+        ? mutatePost(post, viewerId, { kind: "save", value: !post.saved })
+        : false,
+    togglePin: (post: Post) =>
+      canPost && viewerId && post.author.id === viewerId && !post.parentId
+        ? mutatePost(post, viewerId, { kind: "pin", value: !post.pinned })
         : false,
     /** Repost with an audience, or undo the repost with `null`. */
     setRepost: (post: Post, audience: RepostAudience | null) =>

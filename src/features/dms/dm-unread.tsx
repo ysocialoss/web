@@ -28,7 +28,7 @@ export function DmUnreadProvider({ userId, enabled, children }: { userId: string
     };
     soon();
     const unsubscribe = subscribeDm(userId, (event) => {
-      if (event.type === "ready" || event.type === "conversation") soon();
+      if (event.type === "ready" || event.type === "conversation" || event.type === "notifications") soon();
     });
     const poll = setInterval(() => { if (!document.hidden) refresh(); }, 45_000);
     const onVisible = () => { if (!document.hidden) soon(); };
