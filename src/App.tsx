@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
   type MouseEvent,
+  type ReactNode,
 } from "react";
 import {
   BrowserRouter,
@@ -19,9 +20,11 @@ import {
   useNavigate,
   useNavigationType,
   useParams,
+  useSearchParams,
 } from "react-router";
 import { ArrowLeft, SearchX } from "lucide-react";
 import { ComingSoonContent } from "@/components/coming-soon-content";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { NavigationSidebar } from "@/components/layout/navigation-sidebar";
 import { AccountSidebar } from "@/components/layout/account-sidebar";
 import {
@@ -35,6 +38,7 @@ import { Feed } from "@/features/feed/feed";
 import { TrendingTopicsStrip } from "@/components/account/trending-topics";
 import { Account, ApprovalBanner } from "@/features/auth/account";
 import { useAuth, type AuthState } from "@/features/auth/use-auth";
+import { setFeedTracking, setHomeSurface } from "@/features/feed/tracking/tracker";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { useSearchShortcut } from "@/features/search/use-search-shortcut";
 import { isTopicName, normalizeTopic } from "@/lib/topics";
@@ -93,6 +97,13 @@ function AppShell() {
     [namePaintsDisabled, namePaintAnimationsDisabled],
   );
   useSearchShortcut();
+  const tracking = Boolean(
+    viewer && auth.session?.authenticated && !auth.session.needsOnboarding &&
+      !auth.session.pendingApproval && !auth.session.ban && viewer.feedPersonalize,
+  );
+  useEffect(() => {
+    setFeedTracking(tracking);
+  }, [tracking]);
   const awaitingApproval = auth.session?.authenticated && !auth.session.needsOnboarding
     && auth.session.pendingApproval && !auth.session.ban;
   // State, not a ref: the section is recreated when the signed-in session
@@ -381,13 +392,58 @@ function RouteFallback() {
 
 function HomeFeed({ session }: { session: Session | null }) {
   usePageTitle("Feed");
-  const feed = useFeed(session);
+  const [params, setParams] = useSearchParams();
+  const signedIn = Boolean(session?.authenticated && !session.needsOnboarding);
+  const surface = signedIn && params.get("feed") === "following" ? "following" : "latest";
+  useEffect(() => {
+    setHomeSurface(surface);
+  }, [surface]);
+  const tabs = signedIn ? (
+    <Tabs
+      value={surface}
+      onValueChange={(next) =>
+        setParams(next === "following" ? { feed: "following" } : {}, { replace: true })
+      }
+      className="mx-auto mb-3 w-full max-w-xl"
+    >
+      <TabsList className="w-full">
+        <TabsTrigger value="latest">Latest</TabsTrigger>
+        <TabsTrigger value="following">Following</TabsTrigger>
+      </TabsList>
+    </Tabs>
+  ) : null;
+  return (
+    <HomeFeedList
+      key={surface}
+      session={session}
+      surface={surface}
+      header={
+        <>
+          {tabs}
+          <TrendingTopicsStrip />
+        </>
+      }
+    />
+  );
+}
+function HomeFeedList({
+  session,
+  surface,
+  header,
+}: {
+  session: Session | null;
+  surface: "latest" | "following";
+  header: ReactNode;
+}) {
+  const feed = useFeed(session, undefined, true, undefined, undefined, undefined, surface);
   const { key: navigationKey } = useLocation();
   return (
     <Feed
       feed={feed}
       refreshKey={navigationKey}
-      header={<TrendingTopicsStrip />}
+      header={header}
+      surface={surface}
+      emptyMessage={surface === "following" ? "No posts from people you follow yet." : undefined}
     />
   );
 }

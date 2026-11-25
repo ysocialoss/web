@@ -326,6 +326,7 @@ export function PostText({
           type="button"
           aria-controls={captionId}
           aria-expanded={expanded}
+          data-track="expand"
           className="mt-1 block cursor-pointer rounded-sm text-sm font-medium text-mention underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-ring"
           onClick={() => setExpanded(!expanded)}
         >
@@ -469,6 +470,7 @@ function Spoiler({ children }: { children: ReactNode }) {
       tabIndex={0}
       aria-label={shown ? undefined : "Hidden text, activate to reveal"}
       data-revealed={shown || undefined}
+      data-track="spoiler"
       onClick={(event) => {
         if (shown) return;
         event.stopPropagation();

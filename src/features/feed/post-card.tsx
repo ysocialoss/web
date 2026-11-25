@@ -37,6 +37,8 @@ import { watchPost } from "./live-states";
 import { ReportMenu, copyLinkAction } from "@/features/reports/report-menu";
 import { useNow } from "@/hooks/use-now";
 import { useBlockedUser } from "@/features/reports/blocked-users";
+import { linkDomain, observePost, surfaceForPath, trackFeedEvent, type TrackingContext } from "./tracking/tracker";
+import { usePostTracking } from "./tracking/tracking-context";
 
 export function PostCard({
   post,
@@ -83,6 +85,58 @@ export function PostCard({
   }, [post.id, feed.viewerId]);
   const authorBlocked = useBlockedUser(post.author.id);
   const optimistic = feed.optimisticPostIds.includes(post.id);
+  const tracking = usePostTracking();
+  const tracked = tracking?.track !== false && !optimistic;
+  const trackSurface = tracking?.surface;
+  const trackPosition = tracking?.position;
+  const trackRequest = tracking?.requestId;
+  const trackContext = useRef<TrackingContext | null>(null);
+  useEffect(() => {
+    trackContext.current = {
+      surface: trackSurface ?? surfaceForPath(window.location.pathname),
+      position: trackPosition,
+      requestId: trackRequest,
+    };
+  });
+  useEffect(() => {
+    const element = articleRef.current;
+    if (!element || !tracked) return;
+    return observePost(element, post.id, () =>
+      trackContext.current ?? { surface: surfaceForPath(window.location.pathname) });
+  }, [post.id, tracked]);
+  const listeningSince = useRef<number | null>(null);
+  function voiceStarted() {
+    listeningSince.current ??= performance.now();
+  }
+  function voiceStopped() {
+    if (listeningSince.current === null) return;
+    const listened = performance.now() - listeningSince.current;
+    listeningSince.current = null;
+    trackFeedEvent("voice_play", post.id, { value: listened });
+  }
+  function trackClick(event: MouseEvent<HTMLElement>) {
+    const target = event.target as HTMLElement;
+    if (!event.currentTarget.contains(target)) return;
+    const marked = target.closest<HTMLElement>("[data-track]");
+    if (marked && event.currentTarget.contains(marked)) {
+      const kind = marked.dataset.track;
+      if (kind === "expand" && marked.getAttribute("aria-expanded") === "false") trackFeedEvent("expand", post.id);
+      else if (kind === "spoiler" && marked.dataset.revealed === undefined) trackFeedEvent("spoiler", post.id);
+      else if (kind === "media") trackFeedEvent("media_open", post.id);
+      return;
+    }
+    const anchor = target.closest("a");
+    if (!anchor || !event.currentTarget.contains(anchor)) return;
+    const href = anchor.getAttribute("href") ?? "";
+    if (href === `/@${post.author.handle}`) trackFeedEvent("profile_open", post.id);
+    else if (href === `/posts/${post.id}`) trackFeedEvent("open", post.id);
+    else if (href.startsWith("/topics/"))
+      trackFeedEvent("topic_open", post.id, { detail: decodeURIComponent(href.slice("/topics/".length)) });
+    else if (/^https?:/i.test(href)) {
+      const domain = linkDomain(href);
+      if (domain) trackFeedEvent("link_open", post.id, { detail: domain });
+    }
+  }
   const mine = feed.canPost && post.author.id === feed.viewerId;
   const busy = feed.pending.includes(post.id);
   const emojiIndex = useEmojiIndex(editing);
@@ -109,6 +163,7 @@ export function PostCard({
     if (window.getSelection()?.toString()) return;
     const path = `/posts/${post.id}`;
     if (event.metaKey || event.ctrlKey) {
+      trackFeedEvent("open", post.id);
       window.open(path, "_blank");
       return;
     }
@@ -117,7 +172,9 @@ export function PostCard({
     if (event.detail > 1) return;
     const wait = target.closest("[data-selectable]") ? 220 : 0;
     openTimer.current = window.setTimeout(() => {
-      if (!window.getSelection()?.toString()) void navigate(path);
+      if (window.getSelection()?.toString()) return;
+      trackFeedEvent("open", post.id);
+      void navigate(path);
     }, wait);
   }
   function closeEditor() {
@@ -149,6 +206,10 @@ export function PostCard({
       ref={articleRef}
       id={`post-${post.id}`}
       onClick={openPost}
+      onClickCapture={trackClick}
+      onPlayingCapture={voiceStarted}
+      onPauseCapture={voiceStopped}
+      onEndedCapture={voiceStopped}
       className={cn(
         "relative animate-in fade-in-0 duration-300",
         compact ? "py-3" : "py-5",

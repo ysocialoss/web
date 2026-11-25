@@ -68,6 +68,7 @@ export function ShareButton({
   open: controlledOpen,
   onOpenChange,
   hiddenTrigger = false,
+  onShared,
 }: {
   target: ShareTarget;
   viewerId: string | null;
@@ -75,6 +76,7 @@ export function ShareButton({
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   hiddenTrigger?: boolean;
+  onShared?: () => void;
 }) {
   const [innerOpen, setInnerOpen] = useState(false);
   const open = controlledOpen ?? innerOpen;
@@ -132,6 +134,7 @@ export function ShareButton({
       return;
     }
     setCopied(true);
+    onShared?.();
     window.clearTimeout(timer.current);
     timer.current = window.setTimeout(() => setCopied(false), 1800);
   }
@@ -164,6 +167,7 @@ export function ShareButton({
     }
     setSelected(failed);
     setSending(false);
+    if (failed.length < selected.length) onShared?.();
     if (failed.length) setError(message);
     else {
       closing.current = window.setTimeout(() => setOpen(false), 900);

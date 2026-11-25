@@ -189,6 +189,14 @@ export function useAuth() {
         : current,
     );
   }
+  function updateFeedPersonalize(userId: string, feedPersonalize: boolean) {
+    sessionRevision.current++;
+    setSession((current) =>
+      current?.authenticated && !current.needsOnboarding && current.user.id === userId
+        ? { ...current, user: { ...current.user, feedPersonalize } }
+        : current,
+    );
+  }
   function updateBanner(
     userId: string,
     bannerUrl: string | null,
@@ -255,6 +263,7 @@ export function useAuth() {
 
   return {
     updateNavigationItems,
+    updateFeedPersonalize,
     updateProfile,
     updateBanner,
     updateAvatar,

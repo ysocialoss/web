@@ -53,6 +53,7 @@ import {
 import { ThemeSwitch } from "@/features/auth/account-menu";
 import { useSessionHint } from "@/features/auth/session-hint";
 import type { AuthState } from "@/features/auth/use-auth";
+import { FeedActivitySettings } from "./feed-activity-settings";
 import { BannerEditor } from "@/features/profile/banner-editor";
 import { BannerImage } from "@/features/profile/banner-image";
 import {
@@ -632,6 +633,11 @@ function SignedInSettings({
                       />
                     </Link>
                   </SettingsGroup>
+                  <FeedActivitySettings
+                    userId={user.id}
+                    personalize={user.feedPersonalize}
+                    onChange={auth.updateFeedPersonalize}
+                  />
                 </Section>
               </>
             )}

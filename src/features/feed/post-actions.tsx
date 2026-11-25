@@ -14,6 +14,7 @@ import { IconButton } from "@/components/ui/icon-button";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/lib/utils";
 import { ShareButton } from "@/features/sharing/share-button";
+import { trackFeedEvent } from "./tracking/tracker";
 import { countFormat } from "@/lib/count-format";
 import type { Post } from "@/lib/api";
 import { toast } from "@/components/ui/toast-manager";
@@ -153,6 +154,7 @@ export function PostActions({ post, feed }: { post: Post; feed: FeedState }) {
         target={{ kind: "post", id: post.id }}
         viewerId={feed.viewerId}
         disabled={optimistic}
+        onShared={() => trackFeedEvent("share", post.id)}
       />
       {quoting && (
         <QuoteDialog post={post} feed={feed} open={quoting} onOpenChange={setQuoting} />

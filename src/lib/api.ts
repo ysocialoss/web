@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { beginConnectionRetry } from "./connection-status";
 import { navigationItemsSchema, type NavigationItem } from "./navigation-items";
+import { feedContextHeader } from "@/features/feed/tracking/tracker";
 
 export const bannerCropSchema = z.object({
   x: z.number(),
@@ -181,6 +182,7 @@ const pageSchema = z.object({
   nextCursor: z.string().nullable(),
   serverNow: z.string(),
 });
+const feedPreferencesSchema = z.object({ personalize: z.boolean() });
 const postResponseSchema = z.object({
   post: postSchema,
   serverNow: z.string(),
@@ -245,6 +247,7 @@ const sessionSchema = z.union([
       bannerUrl: z.string().nullable(),
       bannerCrop: bannerCropSchema.nullable(),
       navigation: navigationItemsSchema,
+      feedPersonalize: z.boolean().default(true),
       namePaintsDisabled: z.boolean().default(false),
       namePaintAnimationsDisabled: z.boolean().default(false),
     }),
@@ -428,6 +431,8 @@ const traceCodes: Record<string, number> = {
   invalid_push_subscription: 4007,
   notification_not_found: 4008,
   push_subscription_not_found: 4009,
+  invalid_feed_events: 4010,
+  invalid_feed_preferences: 4011,
   // media
   invalid_avatar: 5001,
   avatar_png_required: 5002,
@@ -785,8 +790,9 @@ function request<T>(
   method = "GET",
   body?: unknown,
   signal?: AbortSignal,
+  headers?: Record<string, string>,
 ): Promise<T> {
-  const send = () => sendRequest(path, schema, method, body, signal);
+  const send = () => sendRequest(path, schema, method, body, signal, headers);
   // GIF search uses POST but is a read. Writes opt in at their owner, where
   // account checks and stable post IDs make replay safe.
   return method === "GET" || path === "/api/banners/gifs/search"
@@ -1069,6 +1075,20 @@ export const api = {
       signal,
     );
   },
+  following: (cursor?: string, signal?: AbortSignal) =>
+    request(
+      `/api/feed/following${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`,
+      pageSchema,
+      "GET",
+      undefined,
+      signal,
+    ),
+  feedPreferences: (signal?: AbortSignal) =>
+    request("/api/feed/preferences", feedPreferencesSchema, "GET", undefined, signal),
+  setFeedPreferences: (personalize: boolean) =>
+    request("/api/feed/preferences", feedPreferencesSchema, "PATCH", { personalize }, AbortSignal.timeout(10_000)),
+  clearFeedActivity: () =>
+    request("/api/feed/reset", z.object({ cleared: z.number() }), "POST", undefined, AbortSignal.timeout(15_000)),
   search: (query: string, signal?: AbortSignal) =>
     request(
       `/api/search?q=${encodeURIComponent(query)}`,
@@ -1233,7 +1253,7 @@ export const api = {
       attachmentIds,
       poll,
       quotedPostId,
-    }, voiceToken ? AbortSignal.timeout(15_000) : undefined),
+    }, voiceToken ? AbortSignal.timeout(15_000) : undefined, quotedPostId ? feedContextHeader(quotedPostId) : undefined),
   replies: (id: string, cursor?: string, signal?: AbortSignal) =>
     request(
       `${postPath(id)}/replies${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`,
@@ -1258,13 +1278,15 @@ export const api = {
       voiceToken,
       attachmentIds,
       poll,
-    }, voiceToken ? AbortSignal.timeout(15_000) : undefined),
+    }, voiceToken ? AbortSignal.timeout(15_000) : undefined, feedContextHeader(id)),
   vote: (id: string, optionIndex: number) =>
     request(
       `${postPath(id)}/poll/vote`,
       z.object({ poll: pollSchema }),
       "PUT",
       { optionIndex },
+      undefined,
+      feedContextHeader(id),
     ),
   postStates: (ids: string[], signal: AbortSignal) =>
     sendRequest(
@@ -1294,6 +1316,9 @@ export const api = {
       `${postPath(id)}/like`,
       z.object({ likes: z.number(), liked: z.boolean() }),
       liked ? "PUT" : "DELETE",
+      undefined,
+      undefined,
+      feedContextHeader(id),
     ),
   repost: (
     id: string,
@@ -1309,9 +1334,11 @@ export const api = {
       }),
       reposted ? "PUT" : "DELETE",
       reposted ? { audience } : undefined,
+      undefined,
+      feedContextHeader(id),
     ),
   save: (id: string, saved: boolean) =>
-    request(`${postPath(id)}/save`, z.object({ saved: z.boolean() }), saved ? "PUT" : "DELETE"),
+    request(`${postPath(id)}/save`, z.object({ saved: z.boolean() }), saved ? "PUT" : "DELETE", undefined, undefined, feedContextHeader(id)),
   pin: (id: string, pinned: boolean) =>
     request(
       `${postPath(id)}/pin`,
