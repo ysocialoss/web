@@ -241,15 +241,23 @@ function AppShell() {
         </Suspense>
       )}
       <div
-        className="relative flex h-dvh min-h-0 flex-col"
+        className="group/app relative flex h-dvh min-h-0 flex-col"
         data-settings-page={
           wordmarkReady && matchPath("/asettings", pathname) ? "" : undefined
         }
       >
         {!threadView && <MobileHeader auth={auth} onLogoClick={handleLogoClick} />}
         {awaitingApproval && <div aria-hidden="true" className="h-[calc(4rem+env(safe-area-inset-top))] shrink-0 md:hidden" />}
-        <ConnectionBanner />
-        <UpdateBanner signedIn={Boolean(viewer)} />
+        {/* The mobile header floats over the page, so a visible banner must start below it. */}
+        <div
+          className={cn(
+            "relative z-40 shrink-0",
+            !threadView && !awaitingApproval && "max-md:has-[[data-top-banner]]:mt-[calc(4rem+env(safe-area-inset-top))]",
+          )}
+        >
+          <ConnectionBanner />
+          <UpdateBanner signedIn={Boolean(viewer)} />
+        </div>
         <ChangelogDialog />
         {awaitingApproval && <ApprovalBanner />}
         <main
@@ -275,10 +283,10 @@ function AppShell() {
                     "flex min-h-0 min-w-0 flex-col overflow-hidden",
                     threadView
                       ? "max-md:pt-0 max-md:pb-0"
-                      : "max-md:pt-[calc(4rem+env(safe-area-inset-top))] max-md:pb-[calc(4.5rem+env(safe-area-inset-bottom))]",
+                      : "max-md:pt-[calc(4rem+env(safe-area-inset-top))] max-md:pb-[calc(4.5rem+env(safe-area-inset-bottom))] max-md:group-has-[[data-top-banner]]/app:pt-0!",
                   )
                 : "content-scroll min-h-0 min-w-0 overflow-x-hidden overflow-y-auto overscroll-y-contain px-4 pt-4 pb-[calc(6.5rem+env(safe-area-inset-bottom))] has-[[data-skeleton-scroll-lock]]:overflow-y-hidden sm:px-10 sm:pt-6 md:pb-6 lg:px-12",
-              !messagesLayout && (awaitingApproval ? "max-md:pt-3" : "max-md:pt-[calc(4.75rem+env(safe-area-inset-top))]"),
+              !messagesLayout && (awaitingApproval ? "max-md:pt-3" : "max-md:pt-[calc(4.75rem+env(safe-area-inset-top))] max-md:group-has-[[data-top-banner]]/app:pt-3!"),
             )}
           >
             <Account auth={auth} />
