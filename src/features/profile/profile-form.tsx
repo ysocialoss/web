@@ -18,6 +18,19 @@ import { invalidateProfileCard } from "./profile-card-cache";
 
 type ProfileFields = Awaited<ReturnType<typeof api.updateProfile>>;
 const bioLimit = 160;
+const blockCharLimit = 4;
+
+// letters and digits in any script, spaces, hyphens,
+// apostrophes, and at most four "█".
+function displayNameProblem(value: string) {
+  const name = value.trim();
+  if (!name) return "";
+  if (!/^[\p{L}\p{M}\p{N} '’\-█]+$/u.test(name))
+    return "Use only letters, numbers, spaces, hyphens, and apostrophes.";
+  if ((name.match(/█/g)?.length ?? 0) > blockCharLimit)
+    return `Use at most ${blockCharLimit} █ characters.`;
+  return "";
+}
 
 export function ProfileForm({
   userId,
@@ -49,6 +62,7 @@ export function ProfileForm({
   const [error, setError] = useState("");
   const changes = profileChanges(baseline, draft);
   const changed = Object.keys(changes).length > 0;
+  const nameProblem = displayNameProblem(draft.displayName);
   const availability = useHandleAvailability(draft.handle, baseline.handle);
   const handleBlocked =
     availability === "taken" ||
@@ -72,7 +86,8 @@ export function ProfileForm({
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (saving || handleBlocked || draft.bio.length > bioLimit) return;
+    if (saving || handleBlocked || nameProblem || draft.bio.length > bioLimit)
+      return;
     if (!changed) {
       if (dialog) onCancel?.();
       return;
@@ -123,11 +138,18 @@ export function ProfileForm({
           <Input
             id={`${id}-name`}
             required
-            maxLength={80}
+            maxLength={32}
             value={draft.displayName}
             onChange={(event) => change("displayName", event.target.value)}
             autoComplete="nickname"
+            aria-invalid={nameProblem ? true : undefined}
+            aria-describedby={nameProblem ? `${id}-name-error` : undefined}
           />
+          {nameProblem && (
+            <p id={`${id}-name-error`} className="text-xs text-destructive">
+              {nameProblem}
+            </p>
+          )}
         </div>
         <div className={fieldSpacing}>
           <label htmlFor={`${id}-handle`} className="text-sm font-medium">
@@ -237,6 +259,7 @@ export function ProfileForm({
             disabled={
               (!dialog && !changed) ||
               !draft.displayName.trim() ||
+              Boolean(nameProblem) ||
               draft.bio.length > bioLimit ||
               handleBlocked
             }
