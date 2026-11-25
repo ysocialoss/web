@@ -1,8 +1,8 @@
-import { z } from "zod";
+import { z } from "zod/mini";
 import { ApiError, errorMessage, sendRequest, userSchema } from "@/lib/api";
 import { deviceAccess, DeviceTrustError, type EncryptedMessage, type LocalDevice, type Registration } from "./dm-crypto";
 
-const user = userSchema.extend({ id: z.uuid() });
+const user = z.extend(userSchema, { id: z.uuid() });
 const directoryDevice = z.object({
   id: z.uuid(),
   userId: z.uuid(),
@@ -10,22 +10,22 @@ const directoryDevice = z.object({
   signingKey: z.string(),
   proof: z.string(),
   root: z.boolean(),
-  generation: z.number().int().positive().default(1),
-  approvedBy: z.uuid().nullable(),
-  approval: z.string().nullable(),
-  revokedAt: z.iso.datetime().nullable(),
-  revokedBy: z.uuid().nullable(),
-  revocation: z.string().nullable(),
+  generation: z._default(z.int().check(z.positive()), 1),
+  approvedBy: z.nullable(z.uuid()),
+  approval: z.nullable(z.string()),
+  revokedAt: z.nullable(z.iso.datetime()),
+  revokedBy: z.nullable(z.uuid()),
+  revocation: z.nullable(z.string()),
 });
-const ownDevice = directoryDevice.extend({ label: z.string(), createdAt: z.iso.datetime() });
-const invite = z.object({ invitedBy: z.uuid().nullable(), inviteStatus: z.enum(["pending", "accepted", "declined"]) });
-const conversation = invite.extend({
-  id: z.uuid(), peer: user, lastMessageAt: z.iso.datetime().nullable(),
-  unread: z.number().int().nonnegative().default(0), requestSent: z.number().int().nonnegative().default(0),
+const ownDevice = z.extend(directoryDevice, { label: z.string(), createdAt: z.iso.datetime() });
+const invite = z.object({ invitedBy: z.nullable(z.uuid()), inviteStatus: z.enum(["pending", "accepted", "declined"]) });
+const conversation = z.extend(invite, {
+  id: z.uuid(), peer: user, lastMessageAt: z.nullable(z.iso.datetime()),
+  unread: z._default(z.int().check(z.nonnegative()), 0), requestSent: z._default(z.int().check(z.nonnegative()), 0),
 });
-const context = invite.extend({
-  members: z.array(user), devices: z.array(directoryDevice), requestSent: z.number().int().nonnegative().default(0),
-  selfOptedOut: z.boolean().default(false), peerOptedOut: z.boolean().default(false),
+const context = z.extend(invite, {
+  members: z.array(user), devices: z.array(directoryDevice), requestSent: z._default(z.int().check(z.nonnegative()), 0),
+  selfOptedOut: z._default(z.boolean(), false), peerOptedOut: z._default(z.boolean(), false),
 });
 export type InviteResponse = Exclude<z.infer<typeof invite>["inviteStatus"], "pending">;
 const message = z.object({
@@ -37,16 +37,16 @@ const message = z.object({
   ciphertext: z.string(),
   signature: z.string(),
   envelope: z.string(),
-  sequence: z.string().regex(/^[1-9][0-9]{0,18}$/),
+  sequence: z.string().check(z.regex(/^[1-9][0-9]{0,18}$/)),
   createdAt: z.iso.datetime(),
-  editedAt: z.iso.datetime().nullable().default(null),
-  reactions: z.array(z.object({ userId: z.uuid(), emoji: z.string() })).default([]),
-  votes: z.array(z.object({ userId: z.uuid(), option: z.number().int() })).default([]),
+  editedAt: z._default(z.nullable(z.iso.datetime()), null),
+  reactions: z._default(z.array(z.object({ userId: z.uuid(), emoji: z.string() })), []),
+  votes: z._default(z.array(z.object({ userId: z.uuid(), option: z.int() })), []),
 });
 const linkPreview = z.object({
   previews: z.array(z.object({
-    kind: z.string().optional(), href: z.string(), title: z.string(), description: z.string().optional(),
-    siteName: z.string().optional(), imageKey: z.string().optional(), iconKey: z.string().optional(),
+    kind: z.optional(z.string()), href: z.string(), title: z.string(), description: z.optional(z.string()),
+    siteName: z.optional(z.string()), imageKey: z.optional(z.string()), iconKey: z.optional(z.string()),
   })),
 });
 
@@ -59,7 +59,7 @@ export type WireVote = WireMessage["votes"][number];
 export type LinkPreview = z.infer<typeof linkPreview>["previews"][number];
 export const requestLimit = 3;
 
-async function request<T>(path: string, schema: z.ZodType<T>, { method = "GET", body, signal, device, binding }: {
+async function request<T>(path: string, schema: z.ZodMiniType<T>, { method = "GET", body, signal, device, binding }: {
   method?: string;
   body?: unknown;
   signal?: AbortSignal;

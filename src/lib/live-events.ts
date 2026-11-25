@@ -1,11 +1,11 @@
-import { z } from "zod";
+import { z } from "zod/mini";
 
 const livePostSchema = z.object({
   id: z.string(),
-  parentId: z.string().nullable(),
+  parentId: z.nullable(z.string()),
   authorId: z.string(),
   topics: z.array(z.string()),
-  reposted: z.boolean().default(false),
+  reposted: z._default(z.boolean(), false),
 });
 const liveChangeSchema = z.object({ ids: z.array(z.string()) });
 export type LivePost = z.infer<typeof livePostSchema>;

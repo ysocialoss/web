@@ -1,6 +1,7 @@
 import { useId, useState } from "react";
 import { ChevronDown, Ellipsis } from "lucide-react";
-import { motion, useReducedMotion } from "motion/react";
+import * as m from "motion/react-m";
+import { useReducedMotion } from "motion/react";
 import { NavLink } from "react-router";
 import {
   Dialog,
@@ -44,7 +45,7 @@ export function HiddenNavigation({
   if (!mobile) {
     return (
       <div>
-        <motion.button
+        <m.button
           type="button"
           aria-expanded={open}
           aria-controls={panelId}
@@ -53,7 +54,7 @@ export function HiddenNavigation({
           transition={spring}
           className="group flex h-11 w-full cursor-pointer flex-col items-center justify-center gap-0.5 rounded-lg text-center text-[0.625rem] leading-tight font-medium text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring aria-expanded:bg-muted aria-expanded:text-foreground aria-expanded:shadow-[inset_0_1px_0_var(--color-background)] lg:h-10 lg:flex-row lg:justify-start lg:gap-3 lg:px-3 lg:text-sm"
         >
-          <motion.span
+          <m.span
             aria-hidden="true"
             initial={false}
             animate={{ rotate: open ? 180 : 0 }}
@@ -61,10 +62,10 @@ export function HiddenNavigation({
             className="shrink-0"
           >
             <ChevronDown className="size-4 lg:size-5" />
-          </motion.span>
+          </m.span>
           <span>{open ? "Show fewer" : "Show hidden"}</span>
-        </motion.button>
-        <motion.div
+        </m.button>
+        <m.div
           id={panelId}
           inert={!open}
           aria-hidden={!open}
@@ -82,7 +83,7 @@ export function HiddenNavigation({
             profilePath={profilePath}
             open={open}
           />
-        </motion.div>
+        </m.div>
       </div>
     );
   }
@@ -175,7 +176,7 @@ function HiddenShortcutList({
         );
 
         return (
-          <motion.li
+          <m.li
             key={id}
             initial={animateRows ? { opacity: 0, y: -6 } : false}
             animate={
@@ -226,7 +227,7 @@ function HiddenShortcutList({
                 {content}
               </NavLink>
             )}
-          </motion.li>
+          </m.li>
         );
       })}
     </ul>

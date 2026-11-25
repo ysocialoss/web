@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { z } from "zod";
+import { z } from "zod/mini";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -37,7 +37,7 @@ const releaseSchema = z.object({
 const pageSchema = z.object({
   upcoming: z.array(entrySchema),
   releases: z.array(releaseSchema),
-  nextCursor: z.string().nullable(),
+  nextCursor: z.nullable(z.string()),
 });
 type Entry = z.infer<typeof entrySchema>;
 type Release = z.infer<typeof releaseSchema>;
