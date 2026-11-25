@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "cn";
 import { updateAuthor } from "@/features/feed/optimistic-actions";
+import { limitBlankLines } from "@/features/feed/post-content";
 import { profileChanges } from "./profile-update";
 import { Check, LoaderCircle, X } from "lucide-react";
 import {
@@ -222,7 +223,15 @@ export function ProfileForm({
             aria-invalid={draft.bio.length > bioLimit || undefined}
             rows={dialog ? 3 : 4}
             value={draft.bio}
-            onChange={(event) => change("bio", event.target.value)}
+            onChange={(event) => {
+              const element = event.currentTarget;
+              const next = limitBlankLines(element.value, element.selectionStart);
+              if (next.value !== element.value) {
+                element.value = next.value;
+                element.setSelectionRange(next.caret, next.caret);
+              }
+              change("bio", next.value);
+            }}
             aria-describedby={`${id}-bio-count`}
           />
           <p
