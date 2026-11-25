@@ -20,14 +20,25 @@ import { invalidateProfileCard } from "./profile-card-cache";
 type ProfileFields = Awaited<ReturnType<typeof api.updateProfile>>;
 const bioLimit = 160;
 const blockCharLimit = 4;
+const displayNameLimit = 32;
 
-// letters and digits in any script, spaces, hyphens,
-// apostrophes, and at most four "█".
+// letters and digits in any script, spaces, hyphens, apostrophes,
+// and at most four "█"; must show a real letter or digit.
 function displayNameProblem(value: string) {
-  const name = value.trim();
-  if (!name) return "";
-  if (!/^[\p{L}\p{M}\p{N} '’\-█]+$/u.test(name))
+  if (!value) return "";
+  const name = value.normalize("NFC").trim().replace(/ {2,}/g, " ");
+  if (!name) return "Name can't be blank.";
+  if ([...name].length > displayNameLimit)
+    return `Use at most ${displayNameLimit} characters.`;
+  if (
+    !/^[\p{L}\p{M}\p{N} '’\-█]+$/u.test(name) ||
+    /\p{Default_Ignorable_Code_Point}/u.test(name)
+  )
     return "Use only letters, numbers, spaces, hyphens, and apostrophes.";
+  if (!/[\p{L}\p{N}]/u.test(name))
+    return "Include at least one letter or number.";
+  if (/^\p{M}/u.test(name) || /\p{M}{4,}/u.test(name))
+    return "Too many accent marks.";
   if ((name.match(/█/g)?.length ?? 0) > blockCharLimit)
     return `Use at most ${blockCharLimit} █ characters.`;
   return "";
