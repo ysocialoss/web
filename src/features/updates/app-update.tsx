@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { IconButton } from "@/components/ui/icon-button";
 import { RefreshCw, TriangleAlert, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -57,10 +57,27 @@ function useUpdateAvailable() {
   return available;
 }
 
+// Other banners (like "ysocial has updated!") stay hidden while this prompt is up.
+let promptShown = false;
+const promptListeners = new Set<() => void>();
+export const useUpdatePromptShown = () =>
+  useSyncExternalStore(
+    (listener) => {
+      promptListeners.add(listener);
+      return () => promptListeners.delete(listener);
+    },
+    () => promptShown,
+    () => false,
+  );
+
 export function AppUpdatePrompt() {
   const available = useUpdateAvailable();
   const [dismissed, setDismissed] = useState(false);
   const shown = available && !dismissed;
+  useEffect(() => {
+    promptShown = shown;
+    promptListeners.forEach((listener) => listener());
+  }, [shown]);
   return (
     <div
       role="status"
