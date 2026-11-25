@@ -51,6 +51,8 @@ import { NotificationsProvider } from "@/features/notifications/notifications-co
 import { NamePaintPreferencesContext } from "@/features/profile/paint-visibility";
 import { DmUnreadProvider } from "@/features/dms/dm-unread";
 import { ActivityPage, NotificationsPage } from "@/features/notifications/notifications";
+import { ChangelogDialog } from "@/features/changelog/changelog-dialog";
+import { UpdateBanner } from "@/features/changelog/update-banner";
 import {
   AccountSettingsModal,
   MessagesPage,
@@ -247,6 +249,8 @@ function AppShell() {
         {!threadView && <MobileHeader auth={auth} onLogoClick={handleLogoClick} />}
         {awaitingApproval && <div aria-hidden="true" className="h-[calc(4rem+env(safe-area-inset-top))] shrink-0 md:hidden" />}
         <ConnectionBanner />
+        <UpdateBanner signedIn={Boolean(viewer)} />
+        <ChangelogDialog />
         {awaitingApproval && <ApprovalBanner />}
         <main
           className={cn(
