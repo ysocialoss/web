@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef } from "react";
-import { z } from "zod";
+import { z } from "zod/mini";
 
 const eventSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("ready") }),
   z.object({ type: z.literal("devices") }),
-  z.object({ type: z.literal("conversation"), id: z.uuid(), roster: z.boolean(), message: z.uuid().optional(), read: z.literal(true).optional() }),
+  z.object({ type: z.literal("conversation"), id: z.uuid(), roster: z.boolean(), message: z.optional(z.uuid()), read: z.optional(z.literal(true)) }),
   z.object({ type: z.literal("typing"), id: z.uuid(), userId: z.uuid() }),
   z.object({ type: z.literal("notifications") }),
   z.object({ type: z.literal("previews"), hidden: z.boolean() }),

@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { z } from "zod";
+import { z } from "zod/mini";
 import { sendRequest } from "@/lib/api";
 
 type State = { open: boolean; unseen: boolean };
