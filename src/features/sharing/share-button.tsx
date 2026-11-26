@@ -243,7 +243,7 @@ export function ShareButton({
             {ready && people.map((person) => (
               <Tile key={person.id} caption={status[person.id] === "sent" ? "Sent" : <DisplayName user={person} name={name(person)} />}
                 selected={selected.some(({ id }) => id === person.id)} status={status[person.id]} onClick={() => toggle(person)}>
-                <Avatar className={circle}>
+                <Avatar userId={person.id} className={circle}>
                   {person.avatarUrl && <AvatarImage src={person.avatarUrl} alt="" referrerPolicy="no-referrer" />}
                   <AvatarFallback className="text-sm">{name(person).slice(0, 2)}</AvatarFallback>
                 </Avatar>

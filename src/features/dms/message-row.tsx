@@ -29,7 +29,7 @@ export const nameOf = (user: DmUser) => user.displayName.trim() || user.handle;
 
 export function PersonAvatar({ user, className }: { user: DmUser; className?: string }) {
   return (
-    <Avatar className={className}>
+    <Avatar userId={user.id} className={className}>
       {user.avatarUrl && <AvatarImage src={user.avatarUrl} alt="" referrerPolicy="no-referrer" />}
       <AvatarFallback>{nameOf(user).slice(0, 2)}</AvatarFallback>
     </Avatar>

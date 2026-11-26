@@ -21,7 +21,7 @@ export function PostEmbed({
     "block rounded-xl border bg-muted/20 px-3 py-2.5 text-sm transition-colors hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none";
   const content = post ? (
     <span className="flex items-start gap-2.5">
-      <Avatar className="size-7 shrink-0">
+      <Avatar userId={post.author.id} className="size-7 shrink-0">
         {post.author.avatarUrl && images.has(post.author.avatarUrl) && (
           <AvatarImage
             src={post.author.avatarUrl}

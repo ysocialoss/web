@@ -4,7 +4,8 @@ export type BrandingId =
   | "world-cancer-day"
   | "black-history-month"
   | "earth-day"
-  | "pride-month";
+  | "pride-month"
+  | "christmas-eve";
 
 type Artwork = { src: string; width: number; height: number };
 
@@ -67,6 +68,17 @@ export const variations: readonly Variation[] = [
     occasion: "June",
   },
 ];
+
+export const christmasEve: Variation = {
+  id: "christmas-eve",
+  name: "Merry Christmas",
+  href: "/",
+  wordmark: { src: "/branding/christmas-eve-wordmark.svg", width: 427, height: 193 },
+  logo: { src: "/favicon-christmas.png", width: 320, height: 320 },
+  when: (month, day) => month === 11 && day === 24,
+  priority: 3,
+  occasion: "December 24",
+};
 
 export const MAIN_WORDMARK: Artwork = { src: "/wordmark.svg", width: 427, height: 161 };
 export const MAIN_LOGO: Artwork = { src: "/favicon.png", width: 320, height: 320 };
@@ -165,19 +177,25 @@ function useToday() {
 export function useBranding() {
   const preference = useSyncExternalStore(subscribe, () => current, () => "auto" as const);
   const today = useToday();
+  const { active: christmasEveOn } = useSeasonal("wordmark");
   return {
     preference,
-    active: resolveBranding(preference, today),
+    active: christmasEveOn ? christmasEve : resolveBranding(preference, today),
     automatic: variationOn(today),
     setPreference: setBrandingPreference,
   };
 }
 
-export function isSantaSeason(date: Date) {
-  return date.getMonth() === 11 && date.getDate() >= 18 && date.getDate() <= 24;
+export function isChristmasSeason(date: Date) {
+  return date.getMonth() === 11 && date.getDate() <= 24;
 }
 
-export function useSantaHats() {
+export type SeasonalFeature = "hats" | "favicon" | "wordmark";
+
+export function useSeasonal(feature: SeasonalFeature) {
   const today = useToday();
-  return { active: isSantaSeason(today) };
+  const natural = feature === "wordmark" ? christmasEve.when(today.getMonth(), today.getDate()) : isChristmasSeason(today);
+  return { active: natural };
 }
+
+export const useSantaHats = () => useSeasonal("hats");

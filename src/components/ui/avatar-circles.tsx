@@ -42,6 +42,7 @@ export function AvatarCircles({
           className="rounded-full outline-none transition-transform duration-200 hover:z-10 hover:-translate-y-0.5 focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-ring"
         >
           <Avatar
+            userId={person.id}
             className={cn(
               size === "sm" ? "size-4" : "size-6",
               "rounded-full ring-2 ring-background after:rounded-full [corner-shape:round]",
