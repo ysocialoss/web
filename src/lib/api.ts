@@ -172,7 +172,7 @@ const pageSchema = z.object({
   nextCursor: z.nullable(z.string()),
   serverNow: z.string(),
 });
-const feedPreferencesSchema = z.object({ personalize: z.boolean(), chosen: z.boolean().default(true), cleared: z.number().optional() });
+const feedPreferencesSchema = z.object({ personalize: z.boolean(), chosen: z._default(z.boolean(), true), cleared: z.optional(z.number()) });
 const postResponseSchema = z.object({
   post: postSchema,
   serverNow: z.string(),
@@ -219,8 +219,8 @@ const sessionSchema = z.union([
     user: z.null(),
     avatarUrl: z.nullable(z.string()),
     suggestedHandle: z.string(),
-    suggestedDisplayName: z.string().default(""),
-    termsVersion: z.string().default(""),
+    suggestedDisplayName: z._default(z.string(), ""),
+    termsVersion: z._default(z.string(), ""),
   }),
   z.object({
     authenticated: z.literal(true),
@@ -243,9 +243,9 @@ const sessionSchema = z.union([
     }),
     avatarUrl: z.nullable(z.string()),
     suggestedHandle: z.string(),
-    termsCurrent: z.boolean().nullable().default(true),
-    termsVersion: z.string().default(""),
-    feedChoiceNeeded: z.boolean().default(false),
+    termsCurrent: z._default(z.nullable(z.boolean()), true),
+    termsVersion: z._default(z.string(), ""),
+    feedChoiceNeeded: z._default(z.boolean(), false),
   }),
 ]);
 const githubAccountSchema = z.object({
@@ -401,24 +401,24 @@ const operatorSchema = z.object({
   name: z.string(),
   address: z.array(z.string()),
   email: z.string(),
-  phone: z.string().nullable(),
-  contacts: z.object({ privacy: z.string().nullable(), abuse: z.string().nullable() }),
+  phone: z.nullable(z.string()),
+  contacts: z.object({ privacy: z.nullable(z.string()), abuse: z.nullable(z.string()) }),
 });
 export type Operator = z.infer<typeof operatorSchema>;
 const appealSchema = z.object({
   id: z.uuid(),
   text: z.string(),
   status: z.enum(["open", "upheld", "reversed"]),
-  staffNote: z.string().nullable(),
-  resolvedAt: z.string().nullable(),
+  staffNote: z.nullable(z.string()),
+  resolvedAt: z.nullable(z.string()),
   createdAt: z.string(),
-  seenAt: z.string().nullable().optional(),
+  seenAt: z.optional(z.nullable(z.string())),
 });
 const decisionSchema = z.object({
   id: z.uuid(),
   action: z.string(),
   targetType: z.enum(["post", "user", "message"]),
-  targetKey: z.string().nullable(),
+  targetKey: z.nullable(z.string()),
   excerpt: z.string(),
   groundType: z.enum(["illegal", "terms"]),
   groundRef: z.string(),
@@ -426,10 +426,10 @@ const decisionSchema = z.object({
   automatedDetection: z.boolean(),
   automatedDecision: z.boolean(),
   fromReport: z.boolean(),
-  seenAt: z.string().nullable(),
-  reversedAt: z.string().nullable(),
+  seenAt: z.nullable(z.string()),
+  reversedAt: z.nullable(z.string()),
   createdAt: z.string(),
-  appeal: appealSchema.nullable(),
+  appeal: z.nullable(appealSchema),
   appealDeadline: z.string(),
   canAppeal: z.boolean(),
 });
@@ -441,8 +441,8 @@ const reportUpdateSchema = z.object({
   reason: z.string(),
   status: z.enum(["open", "resolved", "dismissed"]),
   actionTaken: z.boolean(),
-  resolvedAt: z.string().nullable(),
-  seenAt: z.string().nullable(),
+  resolvedAt: z.nullable(z.string()),
+  seenAt: z.nullable(z.string()),
   createdAt: z.string(),
 });
 export type ReportUpdate = z.infer<typeof reportUpdateSchema>;
@@ -458,7 +458,7 @@ const reportStatusSchema = z.object({
   reason: z.string(),
   status: z.enum(["open", "resolved", "dismissed"]),
   actionTaken: z.boolean(),
-  resolvedAt: z.string().nullable(),
+  resolvedAt: z.nullable(z.string()),
   receivedAt: z.string(),
 });
 export type ReportStatus = z.infer<typeof reportStatusSchema>;
@@ -1538,7 +1538,7 @@ export const api = {
   report: (input: ReportInput) =>
     request(
       "/api/reports",
-      z.object({ status: z.enum(["reported", "already_reported"]), reference: z.string().nullable().optional() }),
+      z.object({ status: z.enum(["reported", "already_reported"]), reference: z.optional(z.nullable(z.string())) }),
       "POST",
       input,
     ),
