@@ -1,4 +1,5 @@
 import { AccountSettingsContext } from "@/features/settings/account-settings-context";
+import { ViewerIdContext } from "@/lib/viewer";
 import {
   Suspense,
   useEffect,
@@ -53,6 +54,8 @@ import { DmUnreadProvider } from "@/features/dms/dm-unread";
 import { ActivityPage, NotificationsPage } from "@/features/notifications/notifications";
 import { ChangelogDialog } from "@/features/changelog/changelog-dialog";
 import { UpdateBanner } from "@/features/changelog/update-banner";
+import { AdventCalendar } from "@/features/advent/advent-calendar";
+import { AdventGift } from "@/features/advent/advent-gift";
 import {
   AccountSettingsModal,
   MessagesPage,
@@ -225,6 +228,7 @@ function AppShell() {
         !!auth.session?.authenticated && !auth.session.needsOnboarding && !auth.session.pendingApproval && !auth.session.ban
       }
      >
+      <ViewerIdContext.Provider value={viewerId}>
       <NamePaintPreferencesContext.Provider value={namePaintPreferences}>
       <AccountSettingsContext.Provider value={(trigger) => setSettingsRequest({ navigationKey, trigger })}>
       <DynamicFavicon />
@@ -259,6 +263,12 @@ function AppShell() {
           <UpdateBanner signedIn={Boolean(viewer)} />
         </div>
         <ChangelogDialog />
+        <AdventCalendar
+          signedIn={
+            !!auth.session?.authenticated && !auth.session.needsOnboarding && !auth.session.pendingApproval && !auth.session.ban
+          }
+          viewer={viewer}
+        />
         {awaitingApproval && <ApprovalBanner />}
         <main
           className={cn(
@@ -374,6 +384,7 @@ function AppShell() {
       </div>
       </AccountSettingsContext.Provider>
       </NamePaintPreferencesContext.Provider>
+      </ViewerIdContext.Provider>
      </DmUnreadProvider>
     </NotificationsProvider>
   );
@@ -396,6 +407,7 @@ function HomeFeed({ session }: { session: Session | null }) {
       feed={feed}
       refreshKey={navigationKey}
       header={<TrendingTopicsStrip />}
+      floater={feed.canPost && <AdventGift />}
     />
   );
 }

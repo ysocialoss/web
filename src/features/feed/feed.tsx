@@ -29,6 +29,7 @@ export function Feed({
   header,
   showComposer = true,
   emptyMessage = "No posts yet.",
+  floater,
 }: {
   feed: FeedState;
   refreshKey?: string;
@@ -36,6 +37,7 @@ export function Feed({
   header?: ReactNode;
   showComposer?: boolean;
   emptyMessage?: string;
+  floater?: ReactNode;
 }) {
   const sentinel = useRef<HTMLDivElement>(null);
   const composerBox = useRef<HTMLDivElement>(null);
@@ -131,6 +133,7 @@ export function Feed({
       {feed.loadMore && (
         <div ref={sentinel} aria-hidden="true" className="h-px" />
       )}
+      {floater}
       {showComposer && feed.canPost && (
         <NewPostDialog feed={feed} show={composerHidden} anchor={anchor} />
       )}
