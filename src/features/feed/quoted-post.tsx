@@ -70,7 +70,7 @@ export function QuotedPostCard({
   const body = (
     <>
       <Header interactive={interactive} id={post.id} name={post.author.displayName}>
-        <Avatar className="size-5 shrink-0" aria-hidden="true">
+        <Avatar userId={post.author.id} className="size-5 shrink-0" aria-hidden="true">
           {post.author.avatarUrl && (
             <AvatarImage src={post.author.avatarUrl} alt="" referrerPolicy="no-referrer" />
           )}

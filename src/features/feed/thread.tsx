@@ -480,7 +480,7 @@ function ReplyNode({
           className="my-1 flex w-full min-w-0 items-center gap-2 rounded-lg px-1 py-2 text-left text-xs text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
         >
           <ChevronsUpDown className="size-4 shrink-0" aria-hidden="true" />
-          <Avatar className="size-5 shrink-0">
+          <Avatar userId={post.author.id} className="size-5 shrink-0">
             {post.author.avatarUrl && (
               <AvatarImage
                 src={post.author.avatarUrl}

@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "zod/mini";
 import { beginConnectionRetry } from "./connection-status";
 import { navigationItemsSchema, type NavigationItem } from "./navigation-items";
 import { feedContextHeader } from "@/features/feed/tracking/tracker";
@@ -11,20 +11,20 @@ export const bannerCropSchema = z.object({
 });
 export type BannerCrop = z.infer<typeof bannerCropSchema>;
 const paintStopSchema = z.object({
-  color: z.string().regex(/^#[0-9a-fA-F]{6}$/),
-  at: z.number().min(0).max(1),
+  color: z.string().check(z.regex(/^#[0-9a-fA-F]{6}$/)),
+  at: z.number().check(z.gte(0)).check(z.lte(1)),
 });
 export const paintDefinitionSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("linear"),
-    angle: z.number().min(0).max(360),
-    interpolation: z.literal("step").optional(),
-    stops: z.array(paintStopSchema).min(2).max(8),
+    angle: z.number().check(z.gte(0)).check(z.lte(360)),
+    interpolation: z.optional(z.literal("step")),
+    stops: z.array(paintStopSchema).check(z.minLength(2)).check(z.maxLength(8)),
   }),
   z.object({
     kind: z.literal("radial"),
     shape: z.enum(["circle", "ellipse"]),
-    stops: z.array(paintStopSchema).min(2).max(8),
+    stops: z.array(paintStopSchema).check(z.minLength(2)).check(z.maxLength(8)),
   }),
 ]);
 export const paintSchema = z.object({
@@ -35,46 +35,44 @@ export const paintSchema = z.object({
 export type PaintDefinition = z.infer<typeof paintDefinitionSchema>;
 export type Paint = z.infer<typeof paintSchema>;
 // A paint that fails to parse falls back to the plain name instead of breaking the list.
-const userPaintSchema = paintSchema.nullable().catch(null);
+const userPaintSchema = z.catch(z.nullable(paintSchema), null);
+const adventCosmeticsSchema = z._default(z.array(z.object({ year: z.number(), day: z.number() })), []);
 export const userSchema = z.object({
   id: z.string(),
   handle: z.string(),
   displayName: z.string(),
-  avatarUrl: z.string().nullable(),
+  avatarUrl: z.nullable(z.string()),
   paint: userPaintSchema,
 });
-const catalogPaintSchema = paintSchema.extend({
+const catalogPaintSchema = z.extend(paintSchema, {
   isFree: z.boolean(),
   owned: z.boolean(),
 });
 export type CatalogPaint = z.infer<typeof catalogPaintSchema>;
-const activityUserSchema = userSchema.extend({
-  optionLabel: z.string().optional(),
+const activityUserSchema = z.extend(userSchema, {
+  optionLabel: z.optional(z.string()),
   // Quote activity: the quote post this person wrote.
-  quoteId: z.string().optional(),
+  quoteId: z.optional(z.string()),
 });
 export const repostAudienceSchema = z.enum(["public", "friends"]);
 export type RepostAudience = z.infer<typeof repostAudienceSchema>;
-const postImageIdsSchema = z.array(z.uuid()).default([]);
+const postImageIdsSchema = z._default(z.array(z.uuid()), []);
 /** The post embedded in a quote, one level deep. */
 const quotedPostSchema = z.object({
   id: z.string(),
   content: z.string(),
   imageIds: postImageIdsSchema,
-  gif: z
-    .object({ url: z.string(), title: z.string() })
-    .nullable()
-    .default(null),
+  gif: z._default(z.nullable(z
+    .object({ url: z.string(), title: z.string() })), null),
   createdAt: z.string(),
-  editedAt: z.string().nullable(),
-  parentId: z.string().nullable(),
-  pollTitle: z.string().nullable(),
+  editedAt: z.nullable(z.string()),
+  parentId: z.nullable(z.string()),
+  pollTitle: z.nullable(z.string()),
   isQuote: z.boolean(),
-  mentions: z
+  mentions: z._default(z
     .array(
       z.object({ id: z.string(), handle: z.string(), username: z.string() }),
-    )
-    .default([]),
+    ), []),
   author: userSchema,
 });
 const quoteSchema = z.discriminatedUnion("state", [
@@ -87,99 +85,91 @@ export type PostQuote = z.infer<typeof quoteSchema>;
 const repostContextSchema = z.object({
   by: userSchema,
   audience: repostAudienceSchema,
-  others: z.number().int().nonnegative(),
+  others: z.int().check(z.nonnegative()),
 });
 export type RepostContext = z.infer<typeof repostContextSchema>;
-const repostedBySchema = z.record(z.string(), repostContextSchema).default({});
+const repostedBySchema = z._default(z.record(z.string(), repostContextSchema), {});
 const postGifSchema = z.object({ url: z.string(), title: z.string() });
 const voiceSchema = z.object({
-  url: z.string(), durationMs: z.number().int().min(2000).max(120000), bytes: z.number().int().positive(),
-  waveform: z.array(z.number().int().min(0).max(100)).length(48).optional(),
+  url: z.string(), durationMs: z.int().check(z.gte(2000)).check(z.lte(120000)), bytes: z.int().check(z.positive()),
+  waveform: z.optional(z.array(z.int().check(z.gte(0)).check(z.lte(100))).check(z.length(48))),
 });
-const voiceDraftSchema = voiceSchema.extend({ token: z.string() });
+const voiceDraftSchema = z.extend(voiceSchema, { token: z.string() });
 const voiceJobSchema = z.union([voiceDraftSchema, z.object({ pending: z.literal(true) })]);
 export type VoiceDraft = z.infer<typeof voiceDraftSchema>;
 export const pollDraftSchema = z.object({
-  title: z.string().trim().min(1).max(120),
+  title: z.string().check(z.trim()).check(z.minLength(1)).check(z.maxLength(120)),
   options: z
-    .array(z.string().trim().min(1).max(80))
-    .min(2)
-    .max(6)
-    .refine(
-      (options) =>
+    .array(z.string().check(z.trim()).check(z.minLength(1)).check(z.maxLength(80))).check(z.minLength(2)).check(z.maxLength(6)).check(z.refine((options) =>
         new Set(options.map((option) => option.toLowerCase())).size ===
-        options.length,
-    ),
+        options.length)),
   anonymous: z.boolean(),
 });
-const pollSchema = pollDraftSchema.extend({
+const pollSchema = z.extend(pollDraftSchema, {
   options: z.array(
-    z.object({ label: z.string(), votes: z.number().int().nonnegative() }),
+    z.object({ label: z.string(), votes: z.int().check(z.nonnegative()) }),
   ),
-  selectedOption: z.number().int().nonnegative().nullable(),
+  selectedOption: z.nullable(z.int().check(z.nonnegative())),
 });
 export type PollDraft = z.infer<typeof pollDraftSchema>;
 export type Poll = z.infer<typeof pollSchema>;
 const basePostSchema = z.object({
-  mentions: z
+  mentions: z._default(z
     .array(
       z.object({ id: z.string(), handle: z.string(), username: z.string() }),
-    )
-    .default([]),
+    ), []),
   id: z.string(),
-  parentId: z.string().nullable(),
+  parentId: z.nullable(z.string()),
   content: z.string(),
-  gif: postGifSchema.nullable().default(null),
+  gif: z._default(z.nullable(postGifSchema), null),
   imageIds: postImageIdsSchema,
-  voice: voiceSchema.nullable().default(null),
-  poll: pollSchema.nullable().default(null),
+  voice: z._default(z.nullable(voiceSchema), null),
+  poll: z._default(z.nullable(pollSchema), null),
   createdAt: z.string(),
-  editedAt: z.string().nullable(),
+  editedAt: z.nullable(z.string()),
   editExpiresAt: z.string(),
   author: userSchema,
   likes: z.number(),
   liked: z.boolean(),
-  saved: z.boolean().default(false),
-  pinned: z.boolean().default(false),
+  saved: z._default(z.boolean(), false),
+  pinned: z._default(z.boolean(), false),
   replies: z.number(),
   reposts: z.number(),
   reposted: z.boolean(),
   // How the viewer reposted it, if they did.
-  repostAudience: repostAudienceSchema.nullable().default(null),
-  quotes: z.number().default(0),
+  repostAudience: z._default(z.nullable(repostAudienceSchema), null),
+  quotes: z._default(z.number(), 0),
   // The embedded post when this post is a quote.
-  quote: quoteSchema.nullable().default(null),
+  quote: z._default(z.nullable(quoteSchema), null),
   // Who this post answers, for replies shown outside their thread.
-  replyTo: z
+  replyTo: z._default(z.nullable(z
     .object({
       id: z.string(),
       handle: z.string(),
       displayName: z.string(),
       paint: userPaintSchema,
-    })
-    .nullable()
-    .default(null),
+    })), null),
   // Mutual follows who liked this post: how many, and the first few.
-  friendLikes: z.number().default(0),
-  friendLikers: z.array(userSchema).default([]),
+  friendLikes: z._default(z.number(), 0),
+  friendLikers: z._default(z.array(userSchema), []),
   // Normalized topics (#name) in the post or reply.
-  topics: z.array(z.string()).default([]),
+  topics: z._default(z.array(z.string()), []),
 });
-const postSchema = basePostSchema.extend({
+const postSchema = z.extend(basePostSchema, {
   // Topic pages only: the posts above a reply, root first.
-  ancestors: z.array(basePostSchema).optional(),
+  ancestors: z.optional(z.array(basePostSchema)),
   // Home and topic lists: the author's own first reply to this post.
-  selfReply: basePostSchema.nullable().optional(),
+  selfReply: z.optional(z.nullable(basePostSchema)),
 });
 const topicCountSchema = z.object({ name: z.string(), count: z.number() });
-const searchUserSchema = userSchema.extend({
+const searchUserSchema = z.extend(userSchema, {
   bio: z.string(),
   followerCount: z.number(),
 });
 const pageSchema = z.object({
   posts: z.array(postSchema),
   repostedBy: repostedBySchema,
-  nextCursor: z.string().nullable(),
+  nextCursor: z.nullable(z.string()),
   serverNow: z.string(),
 });
 const feedPreferencesSchema = z.object({ personalize: z.boolean(), chosen: z.boolean().default(true), cleared: z.number().optional() });
@@ -190,29 +180,27 @@ const postResponseSchema = z.object({
 const websiteLinkSchema = z.object({
   href: z.string(),
   title: z.string(),
-  iconKey: z
-    .string()
-    .regex(/^[0-9a-f]{64}$/)
-    .optional(),
+  iconKey: z.optional(z
+    .string().check(z.regex(/^[0-9a-f]{64}$/))),
 });
-const imagePreviewKeySchema = z.string().regex(/^[0-9a-f]{64}$/);
-const pagePreviewSchema = websiteLinkSchema.extend({
-  kind: z.literal("website").default("website"),
-  description: z.string().optional(),
+const imagePreviewKeySchema = z.string().check(z.regex(/^[0-9a-f]{64}$/));
+const pagePreviewSchema = z.extend(websiteLinkSchema, {
+  kind: z._default(z.literal("website"), "website"),
+  description: z.optional(z.string()),
   siteName: z.string(),
-  imageKey: imagePreviewKeySchema.optional(),
+  imageKey: z.optional(imagePreviewKeySchema),
 });
 const websitePreviewSchema = z.union([
   pagePreviewSchema,
-  websiteLinkSchema.extend({
+  z.extend(websiteLinkSchema, {
     kind: z.literal("image"),
     imageKey: imagePreviewKeySchema,
   }),
 ]);
 const websitePreviewsSchema = z.object({
-  links: z.array(websiteLinkSchema).default([]),
+  links: z._default(z.array(websiteLinkSchema), []),
   previews: z.array(websitePreviewSchema),
-  nextOffset: z.number().int().nonnegative().optional(),
+  nextOffset: z.optional(z.int().check(z.nonnegative())),
 });
 export type WebsitePreview = z.infer<typeof websitePreviewSchema>;
 export type WebsiteLink = z.infer<typeof websiteLinkSchema>;
@@ -229,7 +217,7 @@ const sessionSchema = z.union([
     authenticated: z.literal(true),
     needsOnboarding: z.literal(true),
     user: z.null(),
-    avatarUrl: z.string().nullable(),
+    avatarUrl: z.nullable(z.string()),
     suggestedHandle: z.string(),
     suggestedDisplayName: z.string().default(""),
     termsVersion: z.string().default(""),
@@ -237,23 +225,23 @@ const sessionSchema = z.union([
   z.object({
     authenticated: z.literal(true),
     needsOnboarding: z.literal(false),
-    pendingApproval: z.boolean().default(false),
-    ban: z.object({
+    pendingApproval: z._default(z.boolean(), false),
+    ban: z._default(z.nullable(z.object({
       at: z.iso.datetime(),
-      reason: z.string().nullable(),
-      by: z.string().nullable(),
-      byProfileHandle: z.string().nullable().default(null),
-    }).nullable().default(null),
-    user: userSchema.extend({
-      pronouns: z.string().default(""),
-      bannerUrl: z.string().nullable(),
-      bannerCrop: bannerCropSchema.nullable(),
+      reason: z.nullable(z.string()),
+      by: z.nullable(z.string()),
+      byProfileHandle: z._default(z.nullable(z.string()), null),
+    })), null),
+    user: z.extend(userSchema, {
+      pronouns: z._default(z.string(), ""),
+      bannerUrl: z.nullable(z.string()),
+      bannerCrop: z.nullable(bannerCropSchema),
       navigation: navigationItemsSchema,
-      feedPersonalize: z.boolean().default(true),
-      namePaintsDisabled: z.boolean().default(false),
-      namePaintAnimationsDisabled: z.boolean().default(false),
+      feedPersonalize: z._default(z.boolean(), true),
+      namePaintsDisabled: z._default(z.boolean(), false),
+      namePaintAnimationsDisabled: z._default(z.boolean(), false),
     }),
-    avatarUrl: z.string().nullable(),
+    avatarUrl: z.nullable(z.string()),
     suggestedHandle: z.string(),
     termsCurrent: z.boolean().nullable().default(true),
     termsVersion: z.string().default(""),
@@ -261,12 +249,12 @@ const sessionSchema = z.union([
   }),
 ]);
 const githubAccountSchema = z.object({
-  login: z.string().regex(/^[a-z\d][a-z\d_-]{0,99}$/i),
-  contributionCount: z.number().int().nonnegative().nullable(),
+  login: z.string().check(z.regex(/^[a-z\d][a-z\d_-]{0,99}$/i)),
+  contributionCount: z.nullable(z.int().check(z.nonnegative())),
 });
 const githubSettingsSchema = z.object({
   configured: z.boolean(),
-  github: githubAccountSchema.extend({ displayOnProfile: z.boolean().default(true) }).nullable(),
+  github: z.nullable(z.extend(githubAccountSchema, { displayOnProfile: z._default(z.boolean(), true) })),
 });
 const connectionProviderSchema = z.enum(["discord", "twitch", "steam", "spotify", "apple_music"]);
 const linkedAccountSchema = z.object({
@@ -274,44 +262,45 @@ const linkedAccountSchema = z.object({
   username: z.string(),
   displayName: z.string(),
   profileUrl: z.url(),
-  displayOnProfile: z.boolean().default(true),
+  displayOnProfile: z._default(z.boolean(), true),
 });
 export type ConnectionProviderName = z.infer<typeof connectionProviderSchema>;
 const profileSchema = z.object({
-  profile: userSchema.extend({
-    isOg: z.boolean().default(false),
-    github: githubAccountSchema.nullable().default(null),
-    connections: z.array(z.object({
+  profile: z.extend(userSchema, {
+    isOg: z._default(z.boolean(), false),
+    github: z._default(z.nullable(githubAccountSchema), null),
+    connections: z._default(z.array(z.object({
       provider: connectionProviderSchema,
       username: z.string(),
       displayName: z.string(),
       profileUrl: z.url(),
-    })).default([]),
-    domains: z.array(z.string()).default([]),
-    badges: z.array(z.object({
+    })), []),
+    domains: z._default(z.array(z.string()), []),
+    badges: z._default(z.array(z.object({
       id: z.uuid(),
-      icon: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+      icon: z.string().check(z.regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)),
       tooltip: z.string(),
-    })).default([]),
+    })), []),
+    cosmetics: adventCosmeticsSchema,
     bio: z.string(),
-    pronouns: z.string().default(""),
-    bannerUrl: z.string().nullable(),
-    bannerCrop: bannerCropSchema.nullable(),
+    pronouns: z._default(z.string(), ""),
+    bannerUrl: z.nullable(z.string()),
+    bannerCrop: z.nullable(bannerCropSchema),
     createdAt: z.string(),
-    banReason: z.string().nullable().default(null),
-    bannedAt: z.iso.datetime().nullable().default(null),
-    bannedBy: z.string().nullable().default(null),
-    bannedByProfileHandle: z.string().nullable().default(null),
-    followerCount: z.number().int().nonnegative(),
-    followingCount: z.number().int().nonnegative(),
-    postCount: z.number().int().nonnegative().optional(),
+    banReason: z._default(z.nullable(z.string()), null),
+    bannedAt: z._default(z.nullable(z.iso.datetime()), null),
+    bannedBy: z._default(z.nullable(z.string()), null),
+    bannedByProfileHandle: z._default(z.nullable(z.string()), null),
+    followerCount: z.int().check(z.nonnegative()),
+    followingCount: z.int().check(z.nonnegative()),
+    postCount: z.optional(z.int().check(z.nonnegative())),
   }),
   isFollowing: z.boolean(),
   isFollowedBy: z.boolean(),
-  blocking: z.boolean().default(false),
-  blockedBy: z.boolean().default(false),
+  blocking: z._default(z.boolean(), false),
+  blockedBy: z._default(z.boolean(), false),
   posts: z.array(postSchema),
-  pinnedPost: postSchema.nullable().default(null),
+  pinnedPost: z._default(z.nullable(postSchema), null),
   // Plain reposts and the person's own quote posts, newest first.
   reposts: z.array(postSchema),
   repostedBy: repostedBySchema,
@@ -322,20 +311,21 @@ const domainSchema = z.object({
   id: z.string(),
   domain: z.string(),
   verified: z.boolean(),
-  displayOnProfile: z.boolean().default(true),
-  record: z.object({ type: z.literal("TXT"), host: z.string(), name: z.string(), value: z.string() }).nullable(),
+  displayOnProfile: z._default(z.boolean(), true),
+  record: z.nullable(z.object({ type: z.literal("TXT"), host: z.string(), name: z.string(), value: z.string() })),
 });
 export type OwnedDomain = z.infer<typeof domainSchema>;
 const profileCardSchema = z.object({
-  profile: userSchema.extend({
+  profile: z.extend(userSchema, {
+    cosmetics: adventCosmeticsSchema,
     bio: z.string(),
-    pronouns: z.string().default(""),
-    bannerUrl: z.string().nullable(),
-    bannerCrop: bannerCropSchema.nullable(),
+    pronouns: z._default(z.string(), ""),
+    bannerUrl: z.nullable(z.string()),
+    bannerCrop: z.nullable(bannerCropSchema),
     createdAt: z.string(),
-    followerCount: z.number().int().nonnegative(),
-    followingCount: z.number().int().nonnegative(),
-    postCount: z.number().int().nonnegative(),
+    followerCount: z.int().check(z.nonnegative()),
+    followingCount: z.int().check(z.nonnegative()),
+    postCount: z.int().check(z.nonnegative()),
   }),
   isFollowing: z.boolean(),
   isFollowedBy: z.boolean(),
@@ -362,16 +352,16 @@ const notificationSchema = z.object({
   id: z.string(),
   kind: socialNotificationKind,
   actor: userSchema,
-  postId: z.string().nullable(),
-  conversationId: z.uuid().nullish(),
-  preview: z.string().nullable(),
-  chatPreview: z.boolean().optional(),
-  imageIds: z.array(z.string()).default([]),
+  postId: z.nullable(z.string()),
+  conversationId: z.nullish(z.uuid()),
+  preview: z.nullable(z.string()),
+  chatPreview: z.optional(z.boolean()),
+  imageIds: z._default(z.array(z.string()), []),
   createdAt: z.string(),
-  readAt: z.string().nullable(),
+  readAt: z.nullable(z.string()),
 });
 export type SocialNotification = z.infer<typeof notificationSchema>;
-const connectionUserSchema = userSchema.extend({
+const connectionUserSchema = z.extend(userSchema, {
   bio: z.string(),
   isSelf: z.boolean(),
   isFollowing: z.boolean(),
@@ -499,9 +489,9 @@ export async function downloadDataExport() {
 }
 const notificationsSchema = z.object({
   notifications: z.array(notificationSchema),
-  hideContent: z.boolean().optional(),
+  hideContent: z.optional(z.boolean()),
   unreadCount: z.number(),
-  nextCursor: z.string().nullable(),
+  nextCursor: z.nullable(z.string()),
 });
 
 export type MuteDuration = "1h" | "8h" | "24h" | "1w" | "forever" | "off";
@@ -537,6 +527,9 @@ const traceCodes: Record<string, number> = {
   invalid_paint: 3005,
   paint_not_found: 3006,
   paint_not_owned: 3007,
+  invalid_advent_door: 3008,
+  advent_door_closed: 3009,
+  advent_reward_not_found: 3010,
   // paging/inbox/push
   invalid_cursor: 4001,
   invalid_activity_query: 4002,
@@ -844,7 +837,7 @@ function friendlyMessage(error: unknown) {
       return "Something went wrong on our side. Please try again in a moment.";
     return "Something went wrong. Please try again.";
   }
-  if (error instanceof z.ZodError)
+  if (error instanceof z.core.$ZodError)
     return "We got an unexpected answer from the server. Please try again.";
   return "Something went wrong. Please try again.";
 }
@@ -854,14 +847,14 @@ export function errorMessage(error: unknown) {
   const code =
     error instanceof ApiError
       ? error.traceCode
-      : error instanceof z.ZodError
+      : error instanceof z.core.$ZodError
         ? "YS-0002"
         : "YS-0003";
   return `${message} (${code})`;
 }
 export async function sendRequest<T>(
   path: string,
-  schema: z.ZodType<T>,
+  schema: z.ZodMiniType<T>,
   method = "GET",
   body?: unknown,
   signal?: AbortSignal,
@@ -920,7 +913,7 @@ export async function sendRequest<T>(
 }
 function request<T>(
   path: string,
-  schema: z.ZodType<T>,
+  schema: z.ZodMiniType<T>,
   method = "GET",
   body?: unknown,
   signal?: AbortSignal,
@@ -961,10 +954,10 @@ export const api = {
   githubSettings: (signal: AbortSignal) =>
     request("/api/github", githubSettingsSchema, "GET", undefined, signal),
   connectGithub: (returnTo?: "profile" | "settings") => request("/api/github/connect", z.object({
-    url: z.url().refine((value) => {
+    url: z.url().check(z.refine((value) => {
       const url = new URL(value);
       return url.origin === "https://github.com" && url.pathname === "/login/oauth/authorize";
-    }),
+    })),
   }), "POST", returnTo ? { returnTo } : undefined),
   twitchLive: (handles: string[], signal?: AbortSignal) =>
     request(
@@ -979,12 +972,12 @@ export const api = {
       providers: z.array(z.object({
         provider: connectionProviderSchema,
         configured: z.boolean(),
-        connection: linkedAccountSchema.nullable(),
+        connection: z.nullable(linkedAccountSchema),
       })),
     }), "GET", undefined, signal),
   connectProvider: (provider: string, returnTo: "profile" | "settings") =>
     request(`/api/connections/${provider}/connect`, z.object({
-      url: z.url().refine((value) => new URL(value).protocol === "https:"),
+      url: z.url().check(z.refine((value) => new URL(value).protocol === "https:")),
     }), "POST", { returnTo }),
   disconnectProvider: (provider: string) =>
     request(`/api/connections/${provider}`, z.undefined(), "DELETE"),
@@ -1006,19 +999,19 @@ export const api = {
     request(`/api/domains/${encodeURIComponent(id)}`, z.object({ domain: domainSchema }), "PATCH", { displayOnProfile }),
   domainConnect: (id: string) =>
     request(`/api/domains/${encodeURIComponent(id)}/domain-connect`, z.object({
-      url: z.url().refine((value) => new URL(value).protocol === "https:"),
-      provider: z.string().nullable(),
+      url: z.url().check(z.refine((value) => new URL(value).protocol === "https:")),
+      provider: z.nullable(z.string()),
     }), "POST"),
   disconnectGithub: () => request("/api/github", z.undefined(), "DELETE"),
   setGithubVisibility: (displayOnProfile: boolean) =>
-    request("/api/github", githubSettingsSchema.pick({ github: true }), "PATCH", { displayOnProfile }),
+    request("/api/github", z.pick(githubSettingsSchema, { github: true }), "PATCH", { displayOnProfile }),
   pronounRecommendations: (signal: AbortSignal) =>
     request(
       "/api/profiles/pronouns/recommendations",
       z.object({
         languages: z.record(z.string(), z.array(z.string())),
         general: z.array(z.string()),
-        maxLength: z.number().int().positive(),
+        maxLength: z.int().check(z.positive()),
       }),
       "GET",
       undefined,
@@ -1044,11 +1037,11 @@ export const api = {
     request(
       `/api/notifications/push${endpoint ? `?endpoint=${encodeURIComponent(endpoint)}` : ""}`,
       z.object({
-        publicKey: z.string().nullable(),
+        publicKey: z.nullable(z.string()),
         subscribed: z.boolean(),
         promptDismissed: z.boolean(),
-        hideContent: z.boolean().default(false),
-        mutedUntil: z.string().nullable(),
+        hideContent: z._default(z.boolean(), false),
+        mutedUntil: z.nullable(z.string()),
         mutedForever: z.boolean(),
       }),
       "GET",
@@ -1069,7 +1062,7 @@ export const api = {
     request(
       "/api/notifications/push/mute",
       z.object({
-        mutedUntil: z.string().nullable(),
+        mutedUntil: z.nullable(z.string()),
         mutedForever: z.boolean(),
       }),
       "PATCH",
@@ -1097,7 +1090,7 @@ export const api = {
         handle: z.string(),
         displayName: z.string(),
         bio: z.string(),
-        pronouns: z.string().default(""),
+        pronouns: z._default(z.string(), ""),
       }),
       "PATCH",
       profile,
@@ -1140,8 +1133,8 @@ export const api = {
             id: z.string(),
             title: z.string(),
             previewUrl: z.string(),
-            width: z.number().optional(),
-            height: z.number().optional(),
+            width: z.optional(z.number()),
+            height: z.optional(z.number()),
             url: z.string(),
             token: z.string(),
           }),
@@ -1257,7 +1250,7 @@ export const api = {
       `/api/search?type=users&q=${encodeURIComponent(query)}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`,
       z.object({
         users: z.array(searchUserSchema),
-        nextCursor: z.string().nullable(),
+        nextCursor: z.nullable(z.string()),
       }),
       "GET",
       undefined,
@@ -1268,7 +1261,7 @@ export const api = {
       `/api/search?type=topics&q=${encodeURIComponent(query)}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`,
       z.object({
         topics: z.array(topicCountSchema),
-        nextCursor: z.string().nullable(),
+        nextCursor: z.nullable(z.string()),
       }),
       "GET",
       undefined,
@@ -1352,7 +1345,7 @@ export const api = {
       `${postPath(id)}/${path}${params.size ? `?${params}` : ""}`,
       z.object({
         users: z.array(activityUserSchema),
-        nextCursor: z.string().nullable(),
+        nextCursor: z.nullable(z.string()),
       }),
       "GET",
       undefined,
@@ -1362,7 +1355,7 @@ export const api = {
   mentionSuggestions: (query: string, signal?: AbortSignal) =>
     request(
       `/api/profiles/suggestions?q=${encodeURIComponent(query)}`,
-      z.object({ users: z.array(userSchema).max(3) }),
+      z.object({ users: z.array(userSchema).check(z.maxLength(3)) }),
       "GET",
       undefined,
       signal,
@@ -1442,9 +1435,9 @@ export const api = {
     sendRequest(
       `/api/posts/states?ids=${encodeURIComponent(ids.join(","))}`,
       z.object({
-        viewerId: z.string().nullable(),
+        viewerId: z.nullable(z.string()),
         posts: z.array(postSchema),
-        hiddenIds: z.array(z.string()).default([]),
+        hiddenIds: z._default(z.array(z.string()), []),
       }),
       "GET",
       undefined,
@@ -1454,7 +1447,7 @@ export const api = {
     sendRequest(
       `/api/posts/poll-results?ids=${encodeURIComponent(ids.join(","))}`,
       z.object({
-        viewerId: z.string().nullable(),
+        viewerId: z.nullable(z.string()),
         results: z.array(z.object({ id: z.string(), poll: pollSchema })),
       }),
       "GET",
@@ -1480,7 +1473,7 @@ export const api = {
       z.object({
         reposts: z.number(),
         reposted: z.boolean(),
-        repostAudience: repostAudienceSchema.nullable(),
+        repostAudience: z.nullable(repostAudienceSchema),
       }),
       reposted ? "PUT" : "DELETE",
       reposted ? { audience } : undefined,
@@ -1492,7 +1485,7 @@ export const api = {
   pin: (id: string, pinned: boolean) =>
     request(
       `${postPath(id)}/pin`,
-      z.object({ pinned: z.boolean(), previousPinnedId: z.string().nullable() }),
+      z.object({ pinned: z.boolean(), previousPinnedId: z.nullable(z.string()) }),
       pinned ? "PUT" : "DELETE",
     ),
   savedPosts: (cursor?: string, signal?: AbortSignal) =>
@@ -1512,7 +1505,7 @@ export const api = {
       z.object({
         isFollowing: z.boolean(),
         isFollowedBy: z.boolean(),
-        followerCount: z.number().int().nonnegative(),
+        followerCount: z.int().check(z.nonnegative()),
       }),
       following ? "PUT" : "DELETE",
     ),
@@ -1523,7 +1516,7 @@ export const api = {
   ) =>
     request(
       `/api/profiles/${encodeURIComponent(handle)}/${list}${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`,
-      z.object({ users: z.array(connectionUserSchema), nextCursor: z.string().nullable() }),
+      z.object({ users: z.array(connectionUserSchema), nextCursor: z.nullable(z.string()) }),
       "GET",
       undefined,
       signal,
@@ -1531,7 +1524,7 @@ export const api = {
   blocks: (signal?: AbortSignal) =>
     request(
       "/api/blocks",
-      z.object({ users: z.array(userSchema.extend({ blockedAt: z.string() })) }),
+      z.object({ users: z.array(z.extend(userSchema, { blockedAt: z.string() })) }),
       "GET",
       undefined,
       signal,
@@ -1569,14 +1562,12 @@ export const api = {
     request(
       "/api/paints",
       z.object({
-        paints: z
-          .array(z.unknown())
-          .transform((items) =>
+        paints: z.pipe(z
+          .array(z.unknown()), z.transform((items) =>
             items.flatMap((item) => {
               const parsed = catalogPaintSchema.safeParse(item);
               return parsed.success ? [parsed.data] : [];
-            }),
-          ),
+            }))),
       }),
       "GET",
       undefined,
@@ -1585,7 +1576,7 @@ export const api = {
   setPaint: (paintId: string | null, signal?: AbortSignal) =>
     request(
       "/api/paints/me",
-      z.object({ paintId: z.string().nullable() }),
+      z.object({ paintId: z.nullable(z.string()) }),
       "PUT",
       { paintId },
       signal,

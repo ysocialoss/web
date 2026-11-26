@@ -107,7 +107,7 @@ export function UserResult({
       onClick={onOpen}
       className="flex items-start gap-3 rounded-lg px-2 py-3 outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
     >
-      <Avatar className="size-10 shrink-0" aria-hidden="true">
+      <Avatar userId={user.id} className="size-10 shrink-0" aria-hidden="true">
         {user.avatarUrl && (
           <AvatarImage
             src={user.avatarUrl}

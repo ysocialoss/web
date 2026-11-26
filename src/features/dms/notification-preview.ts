@@ -1,17 +1,17 @@
-import { z } from "zod";
+import { z } from "zod/mini";
 import { decryptMessage, deviceAccess, matchDevice, verifyDirectory } from "./dm-crypto.ts";
 import { decodePayload, notificationLabel } from "./message-payload.ts";
 import { pinConversation, readLocalDevice, rememberRemovals, trustedRoot } from "./dm-storage.ts";
 
 const device = z.object({
   id: z.uuid(), userId: z.uuid(), encryptionKey: z.string(), signingKey: z.string(), proof: z.string(),
-  root: z.boolean(), generation: z.number().int().positive().default(1), approvedBy: z.uuid().nullable(), approval: z.string().nullable(),
-  revokedAt: z.iso.datetime().nullable(), revokedBy: z.uuid().nullable(), revocation: z.string().nullable(),
+  root: z.boolean(), generation: z._default(z.int().check(z.positive()), 1), approvedBy: z.nullable(z.uuid()), approval: z.nullable(z.string()),
+  revokedAt: z.nullable(z.iso.datetime()), revokedBy: z.nullable(z.uuid()), revocation: z.nullable(z.string()),
 });
 const responseSchema = z.object({
   conversationId: z.uuid(),
-  author: z.object({ displayName: z.string(), handle: z.string() }).optional(),
-  devices: z.array(device).max(256),
+  author: z.optional(z.object({ displayName: z.string(), handle: z.string() })),
+  devices: z.array(device).check(z.maxLength(256)),
   message: z.object({
     id: z.uuid(), senderId: z.uuid(), senderDeviceId: z.uuid(), version: z.literal(1), iv: z.string(),
     ciphertext: z.string(), signature: z.string(), envelope: z.string(), sequence: z.string(), createdAt: z.iso.datetime(),

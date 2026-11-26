@@ -42,6 +42,7 @@ import { Link, useLocation, useNavigate, useSearchParams } from "react-router";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { TwitchLive } from "./twitch-live";
 import { BannerImage } from "./banner-image";
+import { BannerFrame, ChristmasBadgeArt, ProfileSnow, useCosmetics } from "@/features/advent/cosmetics";
 import { BannerEditor } from "./banner-editor";
 import { EditProfileDialog, type ProfileEditTab } from "./profile-edit-dialog";
 import { ProfilePictureDialog, verifyAccount } from "./profile-picture-dialog";
@@ -146,6 +147,7 @@ export function ProfilePage({
   const ownProfile = loadedProfile?.profile.id === viewerId;
   const canEditProfile = ownProfile && feed.canPost;
   const rawRepostIds = new Set(loadedProfile?.reposts.map((post) => post.id));
+  const cosmetics = useCosmetics(loadedProfile?.profile.id, loadedProfile?.profile.cosmetics);
   const loadedPosts = loadedProfile
     ? [
         ...(loadedProfile.pinnedPost ? [loadedProfile.pinnedPost] : []),
@@ -516,7 +518,9 @@ export function ProfilePage({
         <ProfileSkeleton />
       ) : (
         <>
-          <div className="relative mb-12 aspect-3/1 rounded-xl bg-linear-to-br from-muted to-muted/40">
+          <div className="relative">
+          {cosmetics.snow && <ProfileSnow className="-top-14 [mask-image:linear-gradient(to_bottom,black_85%,transparent)]" />}
+          <div className={cn("relative mb-12 aspect-3/1 rounded-xl bg-linear-to-br from-muted to-muted/40", cosmetics.frame && "mt-8 max-sm:mx-7")}>
             {profile.profile.bannerUrl && (
               <BannerImage
                 src={gifMediaUrl(profile.profile.bannerUrl)}
@@ -524,6 +528,7 @@ export function ProfilePage({
                 alt={`${profile.profile.displayName}'s banner`}
               />
             )}
+            {cosmetics.frame && <BannerFrame />}
             {canEditProfile && (
               <BannerEditor
                 bannerUrl={profile.profile.bannerUrl}
@@ -618,6 +623,11 @@ export function ProfilePage({
                       className="block size-4 bg-current mask-contain mask-center mask-no-repeat"
                       style={{ maskImage: `url("/api/profiles/badge-icons/${badge.icon}")` }}
                     />
+                  </ProfileBadge>
+                ))}
+                {cosmetics.badgeYears.map((year) => (
+                  <ProfileBadge key={`christmas-${year}`} label={`Christmas ${year}`} tooltip={`Christmas ${year}`}>
+                    <ChristmasBadgeArt className="size-5" />
                   </ProfileBadge>
                 ))}
                 {contributionCount > 0 && (
@@ -741,6 +751,7 @@ export function ProfilePage({
               year: "numeric",
             })}
           </p>
+          </div>
           <div
             role="tablist"
             aria-label="Profile sections"

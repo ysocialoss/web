@@ -369,7 +369,7 @@ export function MentionTextarea({
               }}
               onPointerMove={() => setActive(index)}
             >
-              <Avatar className="size-6" aria-hidden="true">
+              <Avatar userId={user.id} className="size-6" aria-hidden="true">
                 {user.avatarUrl && (
                   <AvatarImage
                     src={user.avatarUrl}

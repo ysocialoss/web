@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { Check, Link2, LoaderCircle, Plus, SendHorizontal } from "lucide-react";
 import { Link } from "react-router";
 import { DisplayName } from "@/components/display-name";
@@ -10,10 +10,15 @@ import { toast } from "@/components/ui/toast-manager";
 import { dmError, type DmUser } from "@/features/dms/dm-api";
 import { type LocalDevice } from "@/features/dms/dm-crypto";
 import { recentContacts, sendTextTo, type Recent } from "@/features/dms/dm-send";
-import { NewMessageDialog } from "@/features/dms/new-message-dialog";
 import { errorMessage } from "@/lib/api";
 import { writeClipboard } from "@/lib/clipboard";
+import { lazyRoute } from "@/lib/lazy-route";
 import { cn } from "@/lib/utils";
+
+// Only needed once someone opens the picker; keep it out of the feed bundle.
+const NewMessageDialog = lazyRoute<
+  React.ComponentProps<typeof import("@/features/dms/new-message-dialog").NewMessageDialog>
+>(() => import("@/features/dms/new-message-dialog").then((m) => ({ default: m.NewMessageDialog })));
 
 const LONG_PRESS_MS = 520;
 const name = (user: DmUser) => user.displayName.trim() || user.handle;
@@ -92,6 +97,8 @@ export function ShareButton({
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const [picking, setPicking] = useState(false);
+  const [pickerLoaded, setPickerLoaded] = useState(false);
+  if (picking && !pickerLoaded) setPickerLoaded(true);
   const press = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const held = useRef(false);
   const timer = useRef<number | undefined>(undefined);
@@ -240,7 +247,7 @@ export function ShareButton({
             {ready && people.map((person) => (
               <Tile key={person.id} caption={status[person.id] === "sent" ? "Sent" : <DisplayName user={person} name={name(person)} />}
                 selected={selected.some(({ id }) => id === person.id)} status={status[person.id]} onClick={() => toggle(person)}>
-                <Avatar className={circle}>
+                <Avatar userId={person.id} className={circle}>
                   {person.avatarUrl && <AvatarImage src={person.avatarUrl} alt="" referrerPolicy="no-referrer" />}
                   <AvatarFallback className="text-sm">{name(person).slice(0, 2)}</AvatarFallback>
                 </Avatar>
@@ -277,7 +284,8 @@ export function ShareButton({
           )}
         </PopoverContent>
       </Popover>
-      {ready && (
+      {ready && (picking || pickerLoaded) && (
+        <Suspense fallback={null}>
         <NewMessageDialog
           open={picking}
           onOpenChange={setPicking}
@@ -291,6 +299,7 @@ export function ShareButton({
             setSelected((current) => current.some(({ id }) => id === user.id) ? current : [...current, user]);
           }}
         />
+        </Suspense>
       )}
     </>
   );

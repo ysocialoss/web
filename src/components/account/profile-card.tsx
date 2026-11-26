@@ -42,6 +42,8 @@ async function verifyAccount(userId: string, signal?: AbortSignal) {
     throw new ApiError(403, "retry_account_changed");
 }
 
+import { BannerFrame, FRAME_SPACE, useCosmetics } from "@/features/advent/cosmetics";
+
 export function ProfileCard({
   session,
   auth,
@@ -60,6 +62,7 @@ export function ProfileCard({
   const user =
     session?.authenticated && !session.needsOnboarding ? session.user : null;
   const handle = user?.handle;
+  const cosmetics = useCosmetics(user?.id);
   useEffect(() => {
     if (!editOpen || !handle) return;
     const controller = new AbortController();
@@ -88,7 +91,7 @@ export function ProfileCard({
     !session.ban;
   return (
     <section aria-labelledby="profile-heading">
-      <div className="relative aspect-[3/1] rounded-xl bg-linear-to-br from-muted to-muted/40">
+      <div className="relative aspect-[3/1] rounded-xl bg-linear-to-br from-muted to-muted/40" style={cosmetics.frame ? { marginTop: FRAME_SPACE.top, marginInline: "calc(9.83% - 9.6px)" } : undefined}>
         {user?.bannerUrl && (
           <BannerImage
             src={gifMediaUrl(user.bannerUrl)}
@@ -96,6 +99,7 @@ export function ProfileCard({
             alt={`${user.displayName}'s banner`}
           />
         )}
+        {cosmetics.frame && <BannerFrame />}
         {editable && (
           <BannerEditor
             bannerUrl={user.bannerUrl}

@@ -17,6 +17,7 @@ import { MessageBody } from "./message-body";
 import { MessageReactions } from "./message-reactions";
 import { PollMessage } from "./poll-message";
 import { VoiceMessage } from "./voice-message";
+import { FileMessage } from "./file-message";
 import type { MessagePayload } from "./message-payload";
 import { gifMediaUrl } from "@/lib/api";
 
@@ -29,7 +30,7 @@ export const nameOf = (user: DmUser) => user.displayName.trim() || user.handle;
 
 export function PersonAvatar({ user, className }: { user: DmUser; className?: string }) {
   return (
-    <Avatar className={className}>
+    <Avatar userId={user.id} className={className}>
       {user.avatarUrl && <AvatarImage src={user.avatarUrl} alt="" referrerPolicy="no-referrer" />}
       <AvatarFallback>{nameOf(user).slice(0, 2)}</AvatarFallback>
     </Avatar>
@@ -288,6 +289,7 @@ export const MessageRow = memo(function MessageRow({
                 }} />
               )}
               {message.voice && (confirmed ? <VoiceMessage voice={message.voice} conversationId={conversationId} onActiveChange={setVoiceActive} /> : <p className="text-sm">Voice message</p>)}
+              {message.file && (confirmed ? <FileMessage file={message.file} conversationId={conversationId} /> : <p className="text-sm">{message.file.name}</p>)}
               {confirmed?.editedAt && (
                 <Stamp iso={confirmed.editedAt} className="block w-fit text-[0.65rem] text-muted-foreground">(edited)</Stamp>
               )}
@@ -477,5 +479,6 @@ export function reportText(message: DisplayMessage) {
     message.gif && "[GIF]",
     message.poll && `[Poll: ${message.poll.title}]`,
     message.voice && "[Voice message]",
+    message.file && `[File: ${message.file.name}]`,
   ].filter(Boolean).join("\n");
 }

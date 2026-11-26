@@ -25,7 +25,7 @@ export function UpdateBanner({ signedIn }: { signedIn: boolean }) {
   // Wait until the reload is done, so the banner points at changes this tab actually has.
   if (!signedIn || !unseen || updatePromptShown) return null;
   return (
-    <div className="relative z-40 flex shrink-0 items-center justify-center gap-2 border-b border-primary/20 bg-primary/10 px-10 py-2 text-center text-sm">
+    <div data-top-banner="" className="relative z-40 flex shrink-0 items-center justify-center gap-2 border-b border-primary/20 bg-primary/10 px-10 py-2 text-center text-sm">
       <p>
         ysocial has updated!{" "}
         <button type="button" onClick={openChangelog} className="font-medium underline underline-offset-2 hover:text-primary">

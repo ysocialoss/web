@@ -124,7 +124,7 @@ function ConnectionPanel({
               onClick={onNavigate}
               className="flex min-w-0 flex-1 items-center gap-3 rounded-lg px-2 py-3 outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
             >
-              <Avatar className="size-9 shrink-0" aria-hidden="true">
+              <Avatar userId={user.id} className="size-9 shrink-0" aria-hidden="true">
                 {user.avatarUrl && <AvatarImage src={user.avatarUrl} alt="" referrerPolicy="no-referrer" />}
                 <AvatarFallback className="text-xs">{(user.displayName || user.handle).slice(0, 2)}</AvatarFallback>
               </Avatar>

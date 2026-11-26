@@ -1,3 +1,5 @@
+import { BADGE_DAY, BannerFrame, FRAME_DAY, FRAME_SPACE, SNOW_DAY, useCosmetics } from "@/features/advent/cosmetics";
+import { setRewardEnabled, useRewards, type Reward } from "@/features/advent/advent-store";
 import {
   createContext,
   useContext,
@@ -351,6 +353,7 @@ function SignedInSettings({
   active: boolean;
 }) {
   const own = useOwnProfile(user);
+  const cosmetics = useCosmetics(user.id);
   const [params] = useSearchParams();
   const [selected, setSelected] = useState<SettingsSection>(() => {
     if (!active) return "Appearance";
@@ -425,7 +428,7 @@ function SignedInSettings({
               <>
                 <Section title="Account">
                   <div className="overflow-hidden rounded-lg border bg-card text-card-foreground">
-                    <div className="relative aspect-3/1 bg-linear-to-br from-muted to-muted/40">
+                    <div className={`relative aspect-3/1 bg-linear-to-br from-muted to-muted/40${cosmetics.frame ? " rounded-xl" : ""}`} style={cosmetics.frame ? { marginInline: FRAME_SPACE.side, marginTop: FRAME_SPACE.top } : undefined}>
                       {user.bannerUrl && (
                         <BannerImage
                           src={gifMediaUrl(user.bannerUrl)}
@@ -433,6 +436,7 @@ function SignedInSettings({
                           alt=""
                         />
                       )}
+                      {cosmetics.frame && <BannerFrame />}
                       <BannerEditor
                         bannerUrl={user.bannerUrl}
                         verifyAccount={(signal) =>
@@ -588,6 +592,7 @@ function SignedInSettings({
                 <ThemeSwitch />
               </SettingsGroup>
               <NamePaintSettings user={user} auth={auth} />
+              <AdventSettings />
               <BrandingPicker />
               {active && (
                 <SettingsGroup title="Navigation">
@@ -714,7 +719,7 @@ function SignedInSettings({
           </div>
         </div>
         <div className="hidden items-center gap-2.5 border-t border-r bg-muted/40 p-3 sm:flex">
-          <Avatar className="size-8">
+          <Avatar hat className="size-8">
             {avatarUrl && (
               <AvatarImage
                 src={avatarUrl}
@@ -842,6 +847,52 @@ function NamePaintSettings({ user, auth }: { user: SignedInUser; auth: AuthState
         {error && <p role="alert" className="mt-2 text-destructive">{error}</p>}
       </div>
     </SettingsGroup>
+  );
+}
+
+function AdventSettings() {
+  const rewards = useRewards();
+  const [error, setError] = useState("");
+  if (!rewards) return null;
+
+  async function change(reward: Reward, enabled: boolean) {
+    setError("");
+    try {
+      await setRewardEnabled(reward.year, reward.day, enabled);
+    } catch (reason) {
+      setError(errorMessage(reason));
+    }
+  }
+  const row = (reward: Reward, label: string) => (
+    <label key={`${reward.year}-${reward.day}`} className="flex items-center justify-between gap-4">
+      <span className="min-w-0">
+        <span className="block font-medium">{label}</span>
+        <span className="block text-xs text-muted-foreground">Christmas {reward.year}</span>
+      </span>
+      <Switch checked={reward.enabled} onCheckedChange={(enabled) => void change(reward, enabled)} />
+    </label>
+  );
+  const badges = rewards.filter((reward) => reward.day === BADGE_DAY);
+  const effects = rewards.filter((reward) => reward.day === FRAME_DAY || reward.day === SNOW_DAY);
+  if (badges.length === 0 && effects.length === 0) return null;
+  return (
+    <>
+      {badges.length > 0 && (
+        <SettingsGroup title="Badges">
+          <div className="space-y-3 px-4 py-3 text-sm">{badges.map((reward) => row(reward, "Show your Christmas badge"))}</div>
+        </SettingsGroup>
+      )}
+      {effects.length > 0 && (
+        <SettingsGroup title="Profile effects">
+          <div className="space-y-3 px-4 py-3 text-sm">
+            {effects.map((reward) =>
+              row(reward, reward.day === FRAME_DAY ? "Show your Christmas frame" : "Let it snow on your profile"),
+            )}
+          </div>
+        </SettingsGroup>
+      )}
+      {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+    </>
   );
 }
 

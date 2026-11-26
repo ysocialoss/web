@@ -12,13 +12,13 @@ import React, {
 } from 'react';
 import {
   animate,
-  motion,
   motionValue,
   useReducedMotion,
   useTransform,
   type HTMLMotionProps,
   type MotionValue
 } from 'motion/react';
+import * as m from 'motion/react-m';
 
 export type JellyRadioItem = string | { value: string; label: ReactNode; icon?: ReactNode; disabled?: boolean };
 
@@ -81,9 +81,9 @@ const spring = (k: number, m: number, bounce: number) => ({
 const Chip = forwardRef<HTMLButtonElement, ChipProps>(function Chip({ mv, children, ...rest }, ref) {
   const transform = useTransform(() => `translateX(${mv.x.get()}px) scale(${mv.sx.get()}, ${mv.sy.get()})`);
   return (
-    <motion.button ref={ref} style={{ transform }} {...rest}>
+    <m.button ref={ref} style={{ transform }} {...rest}>
       {children}
-    </motion.button>
+    </m.button>
   );
 });
 
