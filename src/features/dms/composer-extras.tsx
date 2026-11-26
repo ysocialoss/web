@@ -13,16 +13,23 @@ import { pollLimits } from "./message-payload";
 
 export type Recorded = { blob: Blob; seconds: number; wave: number[]; mime: string };
 
-export function AttachMenu({ disabled, onVoice, onGif, onPoll }: {
+export function AttachMenu({ disabled, onVoice, onGif, onPoll, onFile }: {
   disabled: boolean;
   onVoice: () => void;
   onGif: (gif: MessageGif) => void;
   onPoll: (poll: MessagePoll) => void;
+  onFile: (file: File) => void;
 }) {
   const [gifs, setGifs] = useState(false);
   const [poll, setPoll] = useState(false);
+  const picker = useRef<HTMLInputElement>(null);
   return (
     <>
+      <input ref={picker} type="file" hidden aria-hidden="true" tabIndex={-1} onChange={(event) => {
+        const file = event.target.files?.[0];
+        event.target.value = "";
+        if (file) onFile(file);
+      }} />
       <ActionMenu
         title="Add to message"
         hideTitle
@@ -36,7 +43,7 @@ export function AttachMenu({ disabled, onVoice, onGif, onPoll }: {
           { kind: "action", icon: Mic, label: "Voice message", onClick: onVoice },
           { kind: "action", icon: ImageIcon, label: "GIF", onClick: () => setGifs(true) },
           { kind: "action", icon: ListChecks, label: "Poll", onClick: () => setPoll(true) },
-          { kind: "action", icon: Paperclip, label: "Upload a file (coming soon)", onClick: () => {}, disabled: true },
+          { kind: "action", icon: Paperclip, label: "Upload a file", onClick: () => picker.current?.click() },
         ]}
       />
       <Dialog open={gifs} onOpenChange={setGifs}>

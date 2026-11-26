@@ -25,6 +25,7 @@ const contentOptions: FilterOption<SearchFilters["has"]>[] = [
   { value: "poll", label: "Polls" },
   { value: "voice", label: "Voice messages" },
   { value: "gif", label: "GIFs" },
+  { value: "file", label: "Files" },
 ];
 
 function DrawerFilterGroup<Value extends string>({ label, options, value, onChange }: {

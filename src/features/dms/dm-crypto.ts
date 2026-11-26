@@ -1,3 +1,5 @@
+import { fromBase64 as decode, toBase64 as encode } from "./base64.ts";
+
 const encoder = new TextEncoder();
 const decoder = new TextDecoder("utf-8", { fatal: true });
 const signingAlgorithm = { name: "ECDSA", hash: "SHA-256" };
@@ -42,15 +44,6 @@ export type ReceivedMessage = Message & {
   sequence: string;
   createdAt: string;
 };
-
-function encode(value: ArrayBuffer | Uint8Array) {
-  const bytes = value instanceof Uint8Array ? value : new Uint8Array(value);
-  return btoa(String.fromCharCode(...bytes));
-}
-
-function decode(value: string) {
-  return Uint8Array.from(atob(value), (char) => char.charCodeAt(0));
-}
 
 function transcript(...fields: (number | string)[]) {
   return encoder.encode(JSON.stringify(fields));
