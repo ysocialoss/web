@@ -577,3 +577,96 @@ test("long conversations mount a window and preserve position when a row above i
     await otherPage.close();
   }
 });
+
+test("files are encrypted before upload and the recipient decrypts, previews and downloads them", async ({ page, browser }) => {
+  const recipientContext = await browser.newContext({ acceptDownloads: true });
+  try {
+    const recipientPage = await recipientContext.newPage();
+    const [sendingDevice, receivingDevice] = (await Promise.all([
+      setupBrowser(page, sender),
+      setupBrowser(recipientPage, recipient),
+    ])).map(rootDevice);
+    const invite = { inviteStatus: "accepted", invitedBy: null };
+    const sent: (EncryptedMessage & { attachmentId?: string })[] = [];
+    const uploads = new Map<string, Buffer>();
+
+    for (const [client, device, peer] of [
+      [page, sendingDevice, recipient],
+      [recipientPage, receivingDevice, sender],
+    ] as const) {
+      await client.route("**/api/dms/devices", (route) => route.fulfill({ json: { devices: [device] } }));
+      await client.route("**/api/dms/preferences", (route) => route.fulfill({ json: { enabled: true } }));
+      await client.route("**/api/dms/unread", (route) => route.fulfill({ json: { unread: 0, requests: 0 } }));
+      await client.route("**/api/dms/conversations?*", (route) => route.fulfill({
+        json: { conversations: [{ ...invite, id: conversationId, peer, lastMessageAt: null }] },
+      }));
+      await client.route(`**/api/dms/conversations/${conversationId}?*`, (route) => route.fulfill({
+        json: { ...invite, members: [sender, recipient], devices: [sendingDevice, receivingDevice] },
+      }));
+      await client.route(`**/api/dms/conversations/${conversationId}/read`, (route) => route.fulfill({ status: 204 }));
+      await client.route(`**/api/dms/conversations/${conversationId}/messages?*`, (route) => {
+        const messages = sent.map((message, index) => ({
+          ...message, senderId: sender.id, envelope: message.envelopes[device.id], sequence: String(index + 1),
+          createdAt: profile.createdAt, editedAt: null, reactions: [], votes: [],
+        }));
+        const latest = !new URL(route.request().url()).searchParams.has("after");
+        return route.fulfill({ json: { messages: latest ? messages : [], more: false } });
+      });
+      await client.route(`**/api/dms/conversations/${conversationId}/attachments/*`, (route) => {
+        const id = new URL(route.request().url()).pathname.split("/").pop()!;
+        const body = uploads.get(id);
+        return body ? route.fulfill({ contentType: "application/octet-stream", body }) : route.fulfill({ status: 404, json: { error: "dm_attachment_not_found" } });
+      });
+    }
+    await page.route(`**/api/dms/conversations/${conversationId}/attachments?*`, async (route) => {
+      const request = route.request();
+      expect(request.url()).toContain(`device=${sendingDevice.id}`);
+      expect(await request.headerValue("x-dm-signature")).toBeTruthy();
+      const id = (await request.headerValue("x-dm-attachment-id"))!;
+      uploads.set(id, request.postDataBuffer()!);
+      return route.fulfill({ status: 201, json: { id } });
+    });
+    await page.route(`**/api/dms/conversations/${conversationId}/messages`, (route) => {
+      sent.push(route.request().postDataJSON());
+      return route.fulfill({ status: 204 });
+    });
+
+    const pdf = Buffer.from("%PDF-1.4\nsecret contract\n%%EOF\n");
+    const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==", "base64");
+    await page.goto(`/messages/${conversationId}`);
+    const composer = page.getByRole("textbox", { name: "Message" });
+    await expect(composer).toBeEnabled();
+    for (const [name, mimeType, buffer, caption] of [
+      ["contract.pdf", "application/pdf", pdf, "the contract"],
+      ["dot.png", "image/png", png, ""],
+    ] as const) {
+      await page.getByRole("button", { name: "Add to message" }).click();
+      const chooser = page.waitForEvent("filechooser");
+      await page.getByRole("menuitem", { name: "Upload a file" }).click();
+      await (await chooser).setFiles({ name, mimeType, buffer });
+      await expect(page.getByText(`end-to-end encrypted`)).toBeVisible();
+      // Photos are re-encoded to WebP before encryption.
+      await expect(page.getByText(name === "dot.png" ? "dot.webp" : name)).toBeVisible();
+      if (caption) await composer.fill(caption);
+      await page.getByRole("button", { name: "Send message" }).click();
+      await expect.poll(() => sent.length).toBe(name === "contract.pdf" ? 1 : 2);
+    }
+    expect(sent.map(({ attachmentId }) => attachmentId)).toEqual([...uploads.keys()]);
+    for (const body of uploads.values()) expect(body.includes(Buffer.from("secret contract"))).toBe(false);
+
+    await recipientPage.goto(`/messages/${conversationId}`);
+    await expect(recipientPage.getByText("the contract")).toBeVisible();
+    const downloading = recipientPage.waitForEvent("download");
+    await recipientPage.getByRole("button", { name: "Download contract.pdf" }).click();
+    const download = await downloading;
+    expect(download.suggestedFilename()).toBe("contract.pdf");
+    const { readFile } = await import("node:fs/promises");
+    expect((await readFile((await download.path())!)).equals(pdf)).toBe(true);
+
+    await recipientPage.getByRole("button", { name: "Show dot.webp" }).click();
+    await recipientPage.getByRole("button", { name: "Open dot.webp" }).click();
+    await expect(recipientPage.getByRole("dialog").getByRole("img", { name: "dot.webp" }).first()).toBeVisible();
+  } finally {
+    await recipientContext.close();
+  }
+});

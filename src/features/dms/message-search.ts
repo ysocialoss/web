@@ -13,11 +13,11 @@ export type IndexedMessage = {
   createdAt: string;
   text: string;
   folded: string;
-  has: "link" | "poll" | "voice" | "gif" | "text";
+  has: "link" | "poll" | "voice" | "gif" | "file" | "text";
 };
 
 export type SearchHit = IndexedMessage & { at: number; length: number };
-export type SearchFilters = { sender: "anyone" | "me" | "them"; has: "any" | "link" | "poll" | "voice" | "gif" };
+export type SearchFilters = { sender: "anyone" | "me" | "them"; has: "any" | "link" | "poll" | "voice" | "gif" | "file" };
 export const noFilters: SearchFilters = { sender: "anyone", has: "any" };
 export type Searchable = { id: string; peer: DmUser; lastMessageAt: string | null };
 
@@ -76,7 +76,7 @@ export function useMessageSearch(device: LocalDevice, conversations: Searchable[
                     messages.push({
                       id: message.id, conversationId: conversation.id, peer: conversation.peer, senderId: message.senderId,
                       createdAt: message.createdAt, text, folded: fold(text),
-                      has: message.poll ? "poll" : message.voice ? "voice" : message.gif ? "gif" : /https?:\/\//i.test(body) ? "link" : "text",
+                      has: message.poll ? "poll" : message.voice ? "voice" : message.file ? "file" : message.gif ? "gif" : /https?:\/\//i.test(body) ? "link" : "text",
                     });
                   }
                 }

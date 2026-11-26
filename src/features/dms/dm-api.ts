@@ -128,17 +128,45 @@ export const dmApi = {
     (await request(`/link-preview?${new URLSearchParams({ url })}`, linkPreview, { signal })).previews[0],
   linkPreviewAsset: (kind: "image" | "icon", url: string, key: string) =>
     `/api/dms/link-preview-${kind}?${new URLSearchParams({ url, key })}`,
-  async upload(id: string, data: Uint8Array<ArrayBuffer>, signal?: AbortSignal) {
-    const attachmentId = crypto.randomUUID();
-    const response = await fetch(`/api/dms${conversationPath(id)}/attachments`, {
-      method: "POST", body: data, signal, credentials: "same-origin",
-      headers: { "Content-Type": "application/octet-stream", "X-DM-Attachment-Id": attachmentId },
+  /** Uploads ciphertext with a device-signed request; XHR so the composer can show progress. */
+  async upload(id: string, device: LocalDevice, attachmentId: string, data: Uint8Array<ArrayBuffer>, { signal, onProgress }: {
+    signal?: AbortSignal;
+    onProgress?: (fraction: number) => void;
+  } = {}) {
+    const url = `/api/dms${conversationPath(id)}/attachments?${new URLSearchParams({ device: device.id })}`;
+    const headers = await deviceAccess(device, "POST", url, attachmentId);
+    signal?.throwIfAborted();
+    await new Promise<void>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", url);
+      xhr.withCredentials = true;
+      xhr.setRequestHeader("Content-Type", "application/octet-stream");
+      xhr.setRequestHeader("X-DM-Attachment-Id", attachmentId);
+      for (const [name, value] of Object.entries(headers)) xhr.setRequestHeader(name, value);
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) onProgress?.(event.loaded / event.total);
+      };
+      const abort = () => xhr.abort();
+      signal?.addEventListener("abort", abort, { once: true });
+      const done = (error?: unknown) => {
+        signal?.removeEventListener("abort", abort);
+        if (error) reject(error);
+        else resolve();
+      };
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) return done();
+        if (xhr.status === 413) return done(new ApiError(413, "dm_attachment_too_large"));
+        let code = "network_unavailable";
+        try {
+          const body: unknown = JSON.parse(xhr.responseText);
+          if (body && typeof body === "object" && "error" in body && typeof body.error === "string") code = body.error;
+        } catch { /* not JSON */ }
+        done(new ApiError(xhr.status, code));
+      };
+      xhr.onerror = () => done(new ApiError(0, "network_unavailable"));
+      xhr.onabort = () => done(signal?.reason ?? new DOMException("Aborted", "AbortError"));
+      xhr.send(data);
     });
-    if (!response.ok) {
-      const body: unknown = await response.json().catch(() => undefined);
-      const code = body && typeof body === "object" && "error" in body && typeof body.error === "string" ? body.error : "network_unavailable";
-      throw new ApiError(response.status, code);
-    }
     return attachmentId;
   },
   async download(id: string, attachmentId: string, signal?: AbortSignal) {
@@ -172,7 +200,10 @@ const messages: Record<string, string> = {
   dm_blocked: "Messages between you and this person are turned off.",
   dm_block_owner_required: "Only the person who declined can unblock.",
   dm_attachment_limit: "Too many files are waiting to be sent. Try again in a moment.",
-  dm_attachment_unavailable: "That file is no longer available. Record it again.",
+  dm_attachment_unavailable: "That file is no longer available. Attach it again.",
+  dm_attachment_too_large: "Files can be up to 25 MB.",
+  avatar_storage_unavailable: "File storage is unavailable right now. Try again in a moment.",
+  avatar_storage_not_configured: "File sharing isn’t available on this server.",
   dm_attachment_not_found: "This file is no longer available.",
   dm_message_not_found: "That message no longer exists.",
   dm_message_owner_required: "You can only change your own messages.",

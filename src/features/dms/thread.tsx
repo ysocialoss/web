@@ -20,6 +20,7 @@ import { confirmRoot } from "./dm-storage";
 import { encryptFile } from "./dm-files";
 import { encodePayload, type MessagePayload } from "./message-payload";
 import { AttachMenu, VoiceRecorderBar, type Recorded } from "./composer-extras";
+import { FileDraftChip, useFileDraft } from "./file-message";
 import { TypingBubble } from "./typing-bubble";
 import { Collapse } from "@/components/ui/collapse";
 import { ThreadSearch } from "./thread-search";
@@ -61,6 +62,8 @@ export function Thread({ id, device, drafts, outbox, updateOutbox, sendingLifeti
   const [locked, setLocked] = useState(false);
   const [draft, setDraftValue] = useState(() => drafts.current.get(id) ?? "");
   const [uploading, setUploading] = useState(false);
+  const fileDraft = useFileDraft(id, device);
+  const [dragging, setDragging] = useState(false);
   const sending = uploading || outbox.some(({ delivery }) => delivery === "sending");
   const [newMessages, setNewMessages] = useState(0);
   const [responding, setResponding] = useState(false);
@@ -371,7 +374,7 @@ export function Thread({ id, device, drafts, outbox, updateOutbox, sendingLifeti
       : [...current, { ...message, delivery: "sending" }]);
     try {
       await transmit(message.id, encodePayload(message), (encrypted, signal) =>
-        dmApi.send(id, message.voice ? { ...encrypted, attachmentId: message.voice.id } : encrypted, signal), signal);
+        dmApi.send(id, message.voice || message.file ? { ...encrypted, attachmentId: (message.voice ?? message.file)!.id } : encrypted, signal), signal);
       if (signal.aborted) return;
       setOutbox((current) => current.map((entry) => entry.id === message.id ? { ...entry, delivery: "sent" } : entry));
       onChange();
@@ -392,7 +395,7 @@ export function Thread({ id, device, drafts, outbox, updateOutbox, sendingLifeti
       ...parts, text, reply: replyTo?.id, id: crypto.randomUUID(), senderId: device.userId,
       createdAt: new Date().toISOString(), delivery: "sending",
     } satisfies OutgoingMessage;
-    if (sendBusy.current || sending || !canSend || (!text && !parts.gif && !parts.poll && !parts.voice)
+    if (sendBusy.current || sending || !canSend || (!text && !parts.gif && !parts.poll && !parts.voice && !parts.file)
       || new TextEncoder().encode(encodePayload(message)).length > messageByteLimit) return false;
     setReplyTo(null);
     typingSent.current = 0;
@@ -404,8 +407,24 @@ export function Thread({ id, device, drafts, outbox, updateOutbox, sendingLifeti
 
   function submit(event?: FormEvent) {
     event?.preventDefault();
-    if (!draft.trim() || tooLong) return;
+    if (tooLong) return;
+    const attached = fileDraft.draft;
+    if (attached) {
+      if (attached.state !== "done" || !attached.file) return;
+      if (sendParts({ file: attached.file, text: draft.trim() })) {
+        setDraft("");
+        fileDraft.clear();
+      }
+      return;
+    }
+    if (!draft.trim()) return;
     if (sendParts({ text: draft.trim() })) setDraft("");
+  }
+
+  function attachFile(file: File) {
+    if (!canSend || sending) return;
+    void fileDraft.attach(file);
+    requestAnimationFrame(() => composer.current?.focus());
   }
 
   async function sendVoice({ blob, seconds, wave, mime }: Recorded) {
@@ -417,7 +436,7 @@ export function Thread({ id, device, drafts, outbox, updateOutbox, sendingLifeti
     setActionError("");
     try {
       const { data, key, iv } = await encryptFile(blob);
-      const attachmentId = await dmApi.upload(id, data as Uint8Array<ArrayBuffer>, signal);
+      const attachmentId = await dmApi.upload(id, device, crypto.randomUUID(), data as Uint8Array<ArrayBuffer>, { signal });
       if (signal.aborted) return;
       sendBusy.current = false;
       setUploading(false);
@@ -452,7 +471,7 @@ export function Thread({ id, device, drafts, outbox, updateOutbox, sendingLifeti
     },
     async edit(message, text) {
       try {
-        await transmit(message.id, encodePayload({ text: withEmoji(text), reply: message.reply, gif: message.gif, poll: message.poll, voice: message.voice }), (body, signal) => dmApi.edit(id, body, signal));
+        await transmit(message.id, encodePayload({ text: withEmoji(text), reply: message.reply, gif: message.gif, poll: message.poll, voice: message.voice, file: message.file }), (body, signal) => dmApi.edit(id, body, signal));
       } catch (error) {
         throw new Error(dmError(error), { cause: error });
       }
@@ -694,7 +713,26 @@ export function Thread({ id, device, drafts, outbox, updateOutbox, sendingLifeti
         </div>
       )}
       {(accepted || asked) && (
-        <form onSubmit={submit} className="shrink-0 px-3 pt-1 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+        <form onSubmit={submit} className="shrink-0 px-3 pt-1 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+          onDragOver={(event) => {
+            if (!canSend || !event.dataTransfer.types.includes("Files")) return;
+            event.preventDefault();
+            setDragging(true);
+          }}
+          onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragging(false); }}
+          onDrop={(event) => {
+            setDragging(false);
+            const file = event.dataTransfer.files[0];
+            if (!file) return;
+            event.preventDefault();
+            attachFile(file);
+          }}
+          onPaste={(event) => {
+            const file = event.clipboardData.files[0];
+            if (!file) return;
+            event.preventDefault();
+            attachFile(file);
+          }}>
           {needsDevice || paused ? (
             <p role="status" className="mx-auto flex w-fit max-w-full items-center gap-2 rounded-full border border-border bg-muted/50 px-4 py-2 text-center text-sm text-muted-foreground">
               <ShieldQuestion aria-hidden="true" className="size-4 shrink-0" />
@@ -706,7 +744,8 @@ export function Thread({ id, device, drafts, outbox, updateOutbox, sendingLifeti
             </p>
           ) : null}
           {tooLong && <p role="alert" className="px-1 pb-1 text-xs text-destructive">This message is too long.</p>}
-          {!needsDevice && !paused && <div className="rounded-xl border border-input bg-muted/30 transition-colors focus-within:border-ring">
+          {!needsDevice && !paused && <div className={`rounded-xl border bg-muted/30 transition-colors focus-within:border-ring ${dragging ? "border-ring border-dashed" : "border-input"}`}>
+            {fileDraft.draft && !recording && <FileDraftChip draft={fileDraft.draft} onRemove={fileDraft.clear} onRetry={fileDraft.retry} />}
             {replyTo && replyAuthor && (
               <div className="flex items-center gap-2 border-b border-border/70 px-3 py-1.5 text-xs text-muted-foreground">
                 <CornerUpLeft aria-hidden="true" className="size-3.5 shrink-0" />
@@ -729,6 +768,7 @@ export function Thread({ id, device, drafts, outbox, updateOutbox, sendingLifeti
                     onVoice={() => setRecording(true)}
                     onGif={(gif) => void sendParts({ gif })}
                     onPoll={(poll) => void sendParts({ poll })}
+                    onFile={attachFile}
                   />
                   <MentionTextarea
                     ref={composer}
@@ -752,7 +792,7 @@ export function Thread({ id, device, drafts, outbox, updateOutbox, sendingLifeti
                       }
                     }}
                   />
-                  <Button type="submit" size="icon" className="shrink-0 rounded-lg" aria-label="Send message" disabled={!canSend || sending || tooLong || !draft.trim()}
+                  <Button type="submit" size="icon" className="shrink-0 rounded-lg" aria-label="Send message" disabled={!canSend || sending || tooLong || (fileDraft.draft ? fileDraft.draft.state !== "done" : !draft.trim())}
                     onMouseDown={(event) => { if (document.activeElement === composer.current) event.preventDefault(); }}>
                     <SendHorizontal aria-hidden="true" />
                   </Button>
@@ -817,7 +857,7 @@ const MessageRows = memo(function MessageRows({
         || date.getTime() - Date.parse(previous.createdAt) > 5 * 60_000 || !!message.reply;
       const estimatedHeight = (withHeader ? 55 : 28) + (newDay ? 38 : 0) + (message.reply ? 18 : 0)
         + (message.text ? Math.floor(message.text.length / 55) * 20 : 0)
-        + (message.gif ? 180 : message.voice ? 66 : message.poll ? 110 : 0);
+        + (message.gif ? 180 : message.voice ? 66 : message.poll ? 110 : message.file ? 64 : 0);
       return { id: message.id, estimatedHeight, message, day, newDay, withHeader, sender: message.senderId === self.id ? self : peer };
     });
   }, [messages, outbox, self, peer]);
