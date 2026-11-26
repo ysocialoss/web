@@ -100,7 +100,7 @@ export function FileDraftChip({ draft, onRemove, onRetry }: { draft: FileDraft; 
           <AttachmentDescription role={draft.state === "error" ? "alert" : undefined}>
             {draft.state === "error" ? draft.error
               : draft.state === "uploading" ? `Encrypting and uploading · ${Math.round(draft.progress * 100)}%`
-              : `${formatBytes(draft.size)} · end-to-end encrypted`}
+              : `${formatBytes(draft.size)}`}
           </AttachmentDescription>
           {draft.state === "uploading" && <Progress value={Math.round(draft.progress * 100)} aria-label="Upload progress" className="mt-1" />}
         </AttachmentContent>
