@@ -205,7 +205,7 @@ export function PostCard({
             tabIndex={optimistic ? -1 : undefined}
             className={`absolute inset-0 rounded-[30%] [corner-shape:squircle] outline-none transition-opacity duration-300 ease-in-out starting:opacity-0 focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none ${optimistic ? "pointer-events-none opacity-0" : "opacity-100"}`}
           >
-            <Avatar className="size-9">
+            <Avatar userId={post.author.id} className="size-9">
               {post.author.avatarUrl && (
                 <AvatarImage
                   src={post.author.avatarUrl}

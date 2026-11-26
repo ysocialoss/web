@@ -35,6 +35,7 @@ export type PaintDefinition = z.infer<typeof paintDefinitionSchema>;
 export type Paint = z.infer<typeof paintSchema>;
 // A paint that fails to parse falls back to the plain name instead of breaking the list.
 const userPaintSchema = z.catch(z.nullable(paintSchema), null);
+const adventCosmeticsSchema = z._default(z.array(z.object({ year: z.number(), day: z.number() })), []);
 export const userSchema = z.object({
   id: z.string(),
   handle: z.string(),
@@ -272,6 +273,7 @@ const profileSchema = z.object({
       icon: z.string().check(z.regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)),
       tooltip: z.string(),
     })), []),
+    cosmetics: adventCosmeticsSchema,
     bio: z.string(),
     pronouns: z._default(z.string(), ""),
     bannerUrl: z.nullable(z.string()),
@@ -307,6 +309,7 @@ const domainSchema = z.object({
 export type OwnedDomain = z.infer<typeof domainSchema>;
 const profileCardSchema = z.object({
   profile: z.extend(userSchema, {
+    cosmetics: adventCosmeticsSchema,
     bio: z.string(),
     pronouns: z._default(z.string(), ""),
     bannerUrl: z.nullable(z.string()),
@@ -405,6 +408,9 @@ const traceCodes: Record<string, number> = {
   invalid_paint: 3005,
   paint_not_found: 3006,
   paint_not_owned: 3007,
+  invalid_advent_door: 3008,
+  advent_door_closed: 3009,
+  advent_reward_not_found: 3010,
   // paging/inbox/push
   invalid_cursor: 4001,
   invalid_activity_query: 4002,

@@ -118,7 +118,7 @@ export function MobileNavigation({ auth }: { auth: AuthState }) {
       : (hint?.avatarUrl ?? null);
   const profilePath = user ? `/@${user.handle}` : "/profile";
   const profileIcon = user ? (
-    <Avatar className="size-7">
+    <Avatar hat className="size-7">
       {avatarUrl && (
         <AvatarImage src={avatarUrl} alt="" referrerPolicy="no-referrer" />
       )}

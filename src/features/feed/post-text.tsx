@@ -420,7 +420,7 @@ function PostChipLabel({
     "Post";
   return (
     <>
-      <Avatar className="size-4">
+      <Avatar userId={post.author.id} className="size-4">
         {showAvatar && post.author.avatarUrl && (
           <AvatarImage
             src={post.author.avatarUrl}

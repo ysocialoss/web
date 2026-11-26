@@ -119,7 +119,7 @@ export function PostCard({ postId, href }: { postId: string; href: string }) {
   const body = post ? (
     <span className="block space-y-2 px-3.5 py-3">
       <span className="flex items-center gap-2.5">
-        <Avatar className="size-8 shrink-0">
+        <Avatar userId={post.author.id} className="size-8 shrink-0">
           {post.author.avatarUrl && <AvatarImage src={post.author.avatarUrl} alt="" referrerPolicy="no-referrer" />}
           <AvatarFallback className="text-[0.65rem]">{(post.author.displayName || post.author.handle).slice(0, 2)}</AvatarFallback>
         </Avatar>
@@ -195,7 +195,7 @@ export function ProfileCard({ handle }: { handle: string }) {
         className="block w-full max-w-md space-y-2 overflow-hidden rounded-xl border bg-card px-3.5 py-3 text-sm text-card-foreground outline-none transition-colors hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring"
       >
         <span className="flex min-w-0 items-center gap-2.5">
-          <Avatar className="size-10 shrink-0">
+          <Avatar userId={profile?.id} className="size-10 shrink-0">
             {profile?.avatarUrl && (
               <AvatarImage src={profile.avatarUrl} alt="" referrerPolicy="no-referrer" />
             )}

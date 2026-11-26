@@ -1,4 +1,5 @@
 import * as React from "react";
+import { ViewerIdContext } from "@/lib/viewer";
 import { Avatar as AvatarPrimitive } from "@base-ui/react/avatar";
 import { cn } from "cn";
 import { SantaHat } from "./santa-hat";
@@ -8,11 +9,15 @@ function Avatar({
   size = "default",
   children,
   hat = false,
+  userId,
   ...props
 }: AvatarPrimitive.Root.Props & {
   size?: "default" | "sm" | "lg";
   hat?: boolean | string;
+  userId?: string | null;
 }) {
+  const viewerId = React.useContext(ViewerIdContext);
+  const hatted = hat || (!!userId && userId === viewerId);
   return (
     <AvatarPrimitive.Root
       data-slot="avatar"
@@ -23,7 +28,7 @@ function Avatar({
       )}
       {...props}
     >
-      {hat && <SantaHat className={typeof hat === "string" ? hat : undefined} />}
+      {hatted && <SantaHat className={typeof hat === "string" ? hat : undefined} />}
       {children}
     </AvatarPrimitive.Root>
   );

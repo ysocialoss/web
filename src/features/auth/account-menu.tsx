@@ -8,6 +8,7 @@ import {
   LogIn,
   Ban,
   Bookmark,
+  Gift,
   LogOut,
   Mail,
   RefreshCw,
@@ -37,6 +38,14 @@ import { preloadRoute } from "@/routes";
 import { countLabel, useDmUnread } from "@/features/dms/dm-unread";
 import type { AuthState } from "./use-auth";
 import { useSessionHint } from "./session-hint";
+import {
+  ADVENT_DOORS,
+  adventDay,
+  isAdventSeason,
+  openAdventCalendar,
+  useAdventNow,
+  useAdventState,
+} from "@/features/advent/advent-store";
 
 const rowClass =
   "flex h-10 w-full items-center gap-3 rounded-lg px-3 text-left text-sm font-medium outline-none transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 max-md:h-12 max-md:text-base [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-muted-foreground";
@@ -147,6 +156,13 @@ export function AccountMenu({ auth }: { auth: AuthState }) {
     !session.pendingApproval && !session.ban &&
     session.user.navigation?.includes("messages") === false;
   const showMessageBadge = showMessages && unread > 0;
+  const adventNow = useAdventNow();
+  const advent = useAdventState();
+  const adventToday = adventDay(adventNow);
+  const showAdvent = session?.authenticated && !session.needsOnboarding &&
+    !session.pendingApproval && !session.ban && isAdventSeason(adventNow);
+  const adventWaiting = showAdvent && advent.year === adventToday.year && adventToday.month === 11 &&
+    adventToday.day <= ADVENT_DOORS && !advent.opened.has(adventToday.day);
   const unreadMessageLabel = `${unread} unread ${unread === 1 ? "message" : "messages"}`;
   const avatarUrl = session?.authenticated ? session.avatarUrl : (hint?.avatarUrl ?? null);
   const shownUser = user ?? hint;
@@ -239,6 +255,27 @@ export function AccountMenu({ auth }: { auth: AuthState }) {
           {isStandaloneApp() && (
             <MenuRow icon={RefreshCw} onClick={reloadApp}>
               Reload app
+            </MenuRow>
+          )}
+          {showAdvent && (
+            <MenuRow
+              icon={Gift}
+              aria-haspopup="dialog"
+              aria-label={adventWaiting ? `Advent calendar, door ${adventToday.day} is waiting` : undefined}
+              onClick={() => {
+                close();
+                openAdventCalendar();
+              }}
+            >
+              <span className="flex-1">Advent calendar</span>
+              {adventWaiting && (
+                <span
+                  aria-hidden="true"
+                  className="grid h-5 min-w-5 place-items-center rounded-full bg-amber-400 px-1.5 text-[0.7rem] font-bold text-amber-950"
+                >
+                  {adventToday.day}
+                </span>
+              )}
             </MenuRow>
           )}
           {showMessages && (

@@ -85,10 +85,10 @@ export function SiteLogoLink({
   children: (variation: Variation | null) => ReactNode;
 }) {
   const { active } = useBranding();
-  if (!active)
+  if (!active || active.id === "christmas-eve")
     return (
       <Link to="/" aria-label="ysocial home" onClick={onHomeClick} className={className}>
-        {children(null)}
+        {children(active)}
       </Link>
     );
   return (

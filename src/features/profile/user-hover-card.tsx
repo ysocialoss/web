@@ -1,3 +1,4 @@
+import { BannerFrame, FRAME_SPACE, useCosmetics } from "@/features/advent/cosmetics";
 import { useState } from "react";
 import { Link } from "react-router";
 import { format } from "date-fns";
@@ -50,6 +51,7 @@ function UserCardSkeleton() {
 
 function UserCardBody({ card }: { card: ProfileCard }) {
   const { profile } = card;
+  const cosmetics = useCosmetics(profile.id, profile.cosmetics);
   const [relation, setRelation] = useState({
     following: card.isFollowing,
     followers: profile.followerCount,
@@ -83,7 +85,8 @@ function UserCardBody({ card }: { card: ProfileCard }) {
 
   return (
     <div className="relative">
-      <div className="relative aspect-[3.4/1] overflow-hidden bg-linear-to-br from-mention/40 via-mention-surface to-muted">
+      <div className="relative" style={cosmetics.frame ? { margin: `${FRAME_SPACE.top} ${FRAME_SPACE.side} 0` } : undefined}>
+      <div className={`relative aspect-[3.4/1] overflow-hidden bg-linear-to-br from-mention/40 via-mention-surface to-muted${cosmetics.frame ? " rounded-xl" : ""}`}>
         {profile.bannerUrl ? (
           <BannerImage
             src={profile.bannerUrl}
@@ -101,7 +104,9 @@ function UserCardBody({ card }: { card: ProfileCard }) {
           className="absolute inset-x-0 bottom-0 h-8 bg-linear-to-t from-popover/70 to-transparent"
         />
       </div>
-      <div className="px-4 pb-4">
+      {cosmetics.frame && <BannerFrame />}
+      </div>
+      <div className="relative z-10 px-4 pb-4">
         <div className="flex items-end justify-between gap-3">
           <Link
             to={`/@${profile.handle}`}

@@ -130,6 +130,53 @@
   70% { transform: scale(0.92); }
   100% { transform: scale(1); }
 }
+@keyframes advent-float {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-4px) rotate(-1.5deg); }
+}
+@keyframes advent-twinkle {
+  0%, 100% { transform: scale(0.6); opacity: 0.4; }
+  50% { transform: scale(1.15); opacity: 1; }
+}
+@keyframes advent-shake {
+  0%, 100% { transform: translateX(0) rotate(0); }
+  20% { transform: translateX(-3px) rotate(-2deg); }
+  40% { transform: translateX(3px) rotate(2deg); }
+  60% { transform: translateX(-2px) rotate(-1deg); }
+  80% { transform: translateX(2px) rotate(1deg); }
+}
+@keyframes advent-nudge {
+  0%, 82%, 100% { transform: rotate(0) scale(1); }
+  86% { transform: rotate(-3deg) scale(1.03); }
+  90% { transform: rotate(3deg) scale(1.03); }
+  94% { transform: rotate(-1.5deg) scale(1.01); }
+}
+.advent-float {
+  animation: advent-float 3.2s ease-in-out infinite;
+}
+.advent-float:hover,
+.advent-float:focus-visible {
+  animation-play-state: paused;
+}
+.advent-twinkle {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: advent-twinkle 1.2s ease-in-out infinite;
+}
+.advent-shake {
+  animation: advent-shake 0.4s ease-in-out;
+}
+.advent-nudge {
+  animation: advent-nudge 4s ease-in-out 1.2s infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .advent-float,
+  .advent-twinkle,
+  .advent-shake,
+  .advent-nudge {
+    animation: none;
+  }
+}
 @keyframes quote-rotate {
   0%, 18% { transform: translateX(0); }
   82%, 100% { transform: translateX(var(--quote-shift)); }
