@@ -52,7 +52,7 @@ export function FeedActivitySettings({
   return (
     <SettingsGroup
       title="Feed activity"
-      description="ysocial is learning to suggest posts. It uses what you view and how you interact on ysocial, and nothing else."
+      description={<>ysocial is learning to suggest posts. It uses what you view and how you interact on ysocial, and nothing else. <a href="/legal/feed" className="underline underline-offset-4">How the feed works</a></>}
     >
       <div className="px-4 py-3.5">
         <div className="flex items-center justify-between gap-4">
@@ -61,7 +61,7 @@ export function FeedActivitySettings({
               Use my activity to improve my feed
             </p>
             <p id="feed-personalize-description" className="mt-0.5 text-sm text-muted-foreground">
-              Records which posts you see, open and react to. Turning this off stops recording right away.
+              Records which posts you see, open and react to. Turning this off stops recording and deletes what was recorded.
             </p>
           </div>
           <Switch

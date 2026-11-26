@@ -66,7 +66,7 @@ test.describe("mobile onboarding", () => {
       ratio: 1,
     });
     await expect(
-      page.getByRole("button", { name: "Create profile" }),
+      page.getByRole("button", { name: "Continue", exact: true }),
     ).toBeInViewport({ ratio: 1 });
   });
 });
@@ -119,6 +119,9 @@ test("onboarding and profile editing save suggested and custom pronouns", async 
     expect(route.request().postDataJSON()).toEqual({
       handle: user.handle,
       pronouns: "hän",
+      displayName: "",
+      acceptTerms: true,
+      ageConfirmed: true,
     });
     onboarded = true;
     pronouns = "hän";
@@ -173,20 +176,20 @@ test("onboarding and profile editing save suggested and custom pronouns", async 
   expect(profileCreations).toBe(0);
 
   const create = page.getByRole("button", { name: "Create profile" });
-  await expect(create).toBeDisabled();
+  await expect(next).toBeDisabled();
   const skip = page.getByRole("checkbox", {
     name: "Leave pronouns off my profile",
   });
   await skip.check();
-  await expect(create).toBeEnabled();
+  await expect(next).toBeEnabled();
   await skip.uncheck();
 
   const field = page.getByRole("combobox", { name: "Pronouns" });
-  const createPosition = await create.boundingBox();
+  const createPosition = await next.boundingBox();
   await field.click();
   await expect(page.getByRole("option", { name: "sie/ihr" })).toBeVisible();
   await expect(page.getByRole("option", { name: "Use my name" })).toBeVisible();
-  expect(await create.boundingBox()).toEqual(createPosition);
+  expect(await next.boundingBox()).toEqual(createPosition);
   const suggestions = page.getByRole("listbox", { name: "Pronoun suggestions" });
   await page.getByRole("option", { name: "sie/ihr" }).click();
   await expect(field).toHaveValue("sie/ihr");
@@ -203,6 +206,12 @@ test("onboarding and profile editing save suggested and custom pronouns", async 
   await next.click();
   await expect(field).toHaveValue("hän");
   expect(profileCreations).toBe(0);
+  await next.click();
+  await expect(page.getByRole("heading", { name: "Almost done" })).toBeVisible();
+  await expect(create).toBeDisabled();
+  await page.getByRole("checkbox", { name: "I am at least 16 years old." }).check();
+  await expect(create).toBeDisabled();
+  await page.getByRole("checkbox", { name: /I accept the Terms of use/ }).check();
   await create.click();
   await expect(create).toBeHidden();
   expect(profileCreations).toBe(1);

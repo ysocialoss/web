@@ -53,6 +53,8 @@ import {
 import { ThemeSwitch } from "@/features/auth/account-menu";
 import { useSessionHint } from "@/features/auth/session-hint";
 import type { AuthState } from "@/features/auth/use-auth";
+import { YourDataSettings } from "./your-data-settings";
+import { clearRecentSearches } from "@/lib/search";
 import { FeedActivitySettings } from "./feed-activity-settings";
 import { BannerEditor } from "@/features/profile/banner-editor";
 import { BannerImage } from "@/features/profile/banner-image";
@@ -74,7 +76,7 @@ import { PushSettings } from "@/features/notifications/push-settings";
 import { useNotifications } from "@/features/notifications/notifications-context";
 import { BlockedAccountsDialog } from "@/features/reports/blocked-accounts-dialog";
 import { SiteWordmark } from "@/components/layout/site-wordmark";
-import { api, errorMessage, type NamePaintPreference, type Profile, type Session } from "@/lib/api";
+import { api, errorMessage, type NamePaintPreference, type Profile, type Session, gifMediaUrl } from "@/lib/api";
 import {
   useBranding,
   variations,
@@ -426,7 +428,7 @@ function SignedInSettings({
                     <div className="relative aspect-3/1 bg-linear-to-br from-muted to-muted/40">
                       {user.bannerUrl && (
                         <BannerImage
-                          src={user.bannerUrl}
+                          src={gifMediaUrl(user.bannerUrl)}
                           crop={user.bannerCrop}
                           alt=""
                         />
@@ -549,7 +551,7 @@ function SignedInSettings({
                   <SettingsGroup title="Danger zone">
                     <Row
                       title="Delete account"
-                      description="Permanently delete your profile, posts and media. This can't be undone."
+                      description="Permanently delete your profile, posts, media, messages and activity data. Backups are overwritten within 30 days. This can't be undone."
                       action={
                         <Button
                           size="sm"
@@ -638,6 +640,7 @@ function SignedInSettings({
                     personalize={user.feedPersonalize}
                     onChange={auth.updateFeedPersonalize}
                   />
+                  <YourDataSettings />
                 </Section>
               </>
             )}
@@ -953,6 +956,7 @@ function DeleteAccountDialog({
       setBusy(false);
       return;
     }
+    clearRecentSearches();
     onDeleted();
     toast.add({ title: "Your account was deleted" });
     void navigate("/", { replace: true });

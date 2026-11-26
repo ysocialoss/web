@@ -67,6 +67,13 @@ import {
   Thread,
   TopicPage,
   preloadRoutesWhenIdle,
+  ImprintPage,
+  PrivacyPage,
+  TermsPage,
+  FeedExplainerPage,
+  ReportPage,
+  ReportStatusPage,
+  ModerationPage,
 } from "@/routes";
 import { AppUpdatePrompt } from "@/features/updates/app-update";
 
@@ -99,7 +106,8 @@ function AppShell() {
   useSearchShortcut();
   const tracking = Boolean(
     viewer && auth.session?.authenticated && !auth.session.needsOnboarding &&
-      !auth.session.pendingApproval && !auth.session.ban && viewer.feedPersonalize,
+      !auth.session.pendingApproval && !auth.session.ban && viewer.feedPersonalize &&
+      !auth.session.feedChoiceNeeded && auth.session.termsCurrent !== false,
   );
   useEffect(() => {
     setFeedTracking(tracking);
@@ -340,23 +348,17 @@ function AppShell() {
                 path="/saved"
                 element={<SavedPage session={auth.session} />}
               />
-              <Route path="/report" element={<ComingSoon title="Report" />} />
+              <Route path="/report" element={<ReportPage />} />
+              <Route path="/report/status/:token" element={<ReportStatusPage />} />
+              <Route path="/moderation" element={<ModerationPage />} />
               <Route
                 path="/bug"
                 element={<ComingSoon title="Report a bug" />}
               />
-              <Route
-                path="/legal/privacy"
-                element={<ComingSoon title="Privacy" />}
-              />
-              <Route
-                path="/legal/terms"
-                element={<ComingSoon title="Terms" />}
-              />
-              <Route
-                path="/legal/imprint"
-                element={<ComingSoon title="Imprint" />}
-              />
+              <Route path="/legal/privacy" element={<PrivacyPage />} />
+              <Route path="/legal/terms" element={<TermsPage />} />
+              <Route path="/legal/imprint" element={<ImprintPage />} />
+              <Route path="/legal/feed" element={<FeedExplainerPage />} />
               <Route
                 path="/settings/feed"
                 element={<ComingSoon title="Feed preferences" />}

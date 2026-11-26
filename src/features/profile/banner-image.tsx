@@ -1,4 +1,4 @@
-import type { BannerCrop } from "@/lib/api";
+import { gifMediaUrl, type BannerCrop } from "@/lib/api";
 export function BannerImage({
   src,
   crop,
@@ -11,7 +11,7 @@ export function BannerImage({
   return (
     <div className="absolute inset-0 overflow-hidden rounded-xl">
       <img
-        src={src}
+        src={gifMediaUrl(src)}
         alt={alt}
         className={crop ? "absolute max-w-none" : "size-full object-cover"}
         style={

@@ -6,6 +6,7 @@ import { DisplayName } from "@/components/display-name";
 import type { Post } from "@/lib/api";
 import type { PostLink } from "./post-links";
 import { PostImages } from "./post-images";
+import { gifMediaUrl } from "@/lib/api";
 
 export function PostEmbed({
   link,
@@ -65,7 +66,7 @@ export function PostEmbed({
         )}
         {post.gif && images.has(post.gif.url) && (
           <img
-            src={post.gif.url}
+            src={gifMediaUrl(post.gif.url)}
             alt={post.gif.title || "GIF"}
             loading="lazy"
             decoding="async"

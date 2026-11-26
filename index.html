@@ -2,21 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <script>
-      (() => {
-        let theme;
-        try {
-          theme = localStorage.getItem("theme");
-        } catch {
-          // Use the system theme when browser storage is unavailable.
-        }
-        const dark =
-          theme === "dark" ||
-          (theme !== "light" &&
-            window.matchMedia("(prefers-color-scheme: dark)").matches);
-        document.documentElement.classList.add(dark ? "dark" : "light");
-      })();
-    </script>
+    <script src="/theme-init.js"></script>
     <style>
       html {
         color-scheme: light;

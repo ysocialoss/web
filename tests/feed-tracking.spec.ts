@@ -32,11 +32,11 @@ const posts = Array.from({ length: 3 }, (_, index) => ({
 
 type Batch = {
   sessionId: string;
-  client: string;
+  client?: string;
   events: { type: string; postId?: string; surface: string; position?: number; value?: number }[];
 };
 
-async function setup(page: Page, { signedIn = true, personalize = true } = {}) {
+async function setup(page: Page, { signedIn = true, personalize = true, feedChoiceNeeded = false } = {}) {
   const batches: Batch[] = [];
   const feedRequests: string[] = [];
   const likeHeaders: (string | undefined)[] = [];
@@ -55,6 +55,7 @@ async function setup(page: Page, { signedIn = true, personalize = true } = {}) {
             user: { ...viewer, feedPersonalize: personalize },
             avatarUrl: null,
             suggestedHandle: viewer.handle,
+            feedChoiceNeeded,
           }
         : { authenticated: false },
     }),
@@ -107,7 +108,7 @@ test("visible posts are recorded as impressions with dwell, and actions carry th
   expect(impression).toMatchObject({ surface: "latest", position: 0 });
   const dwell = logged.find((event) => event.type === "dwell" && event.postId === posts[0].id);
   expect(dwell?.value).toBeGreaterThanOrEqual(500);
-  expect(batches[0].client).toMatch(/^(mobile|desktop)$/);
+  expect(batches[0].client).toBeUndefined();
   expect(batches[0].sessionId).toMatch(/^[0-9a-f-]{36}$/);
 });
 

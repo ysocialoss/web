@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import type { PostQuote } from "@/lib/api";
 import { PostText } from "./post-text";
 import { PostImages } from "./post-images";
+import { gifMediaUrl } from "@/lib/api";
 
 /**
  * The post a quote embeds: author, text, GIF and a poll hint. It opens the
@@ -100,7 +101,7 @@ export function QuotedPostCard({
       )}
       {post.gif && (
         <img
-          src={post.gif.url}
+          src={gifMediaUrl(post.gif.url)}
           alt={post.gif.title}
           loading="lazy"
           decoding="async"

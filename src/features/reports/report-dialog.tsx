@@ -16,10 +16,14 @@ import { toast } from "@/components/ui/toast-manager";
 import {
   api,
   errorMessage,
+  illegalDetailsMin,
+  legalCategories,
   reportReasons,
+  type LegalCategory,
   type ReportReason,
   type ReportTarget,
 } from "@/lib/api";
+import { legalCategoryLabels } from "./legal-categories";
 
 export const reasonLabels: Record<ReportReason, { label: string; hint: string }> = {
   spam: { label: "Spam", hint: "Ads, scams, repetitive or misleading links" },
@@ -67,18 +71,26 @@ export function ReportDialog({
   const [reason, setReason] = useState<ReportReason | null>(null);
   const [details, setDetails] = useState("");
   const [includeContext, setIncludeContext] = useState(true);
+  const [legalGround, setLegalGround] = useState<LegalCategory | "">("");
+  const [goodFaith, setGoodFaith] = useState(false);
+  const legalId = useId();
+  const goodFaithId = useId();
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const detailsId = useId();
   const contextId = useId();
   const earlier = subject.type === "message" ? subject.earlier : [];
-  const needsDetails = reason === "other" && !details.trim();
+  const illegal = reason === "illegal";
+  const needsDetails = (reason === "other" && !details.trim()) ||
+    (illegal && (details.trim().length < illegalDetailsMin || !goodFaith));
 
   function reset(next: boolean) {
     if (!next) {
       setReason(null);
       setDetails("");
       setIncludeContext(true);
+      setLegalGround("");
+      setGoodFaith(false);
       setError("");
     }
     onOpenChange(next);
@@ -98,11 +110,18 @@ export function ReportDialog({
     setSending(true);
     setError("");
     try {
-      const result = await api.report({ reason, details: details.trim(), target });
+      const result = await api.report({
+        reason,
+        details: details.trim(),
+        target,
+        ...(illegal ? { goodFaith: true as const, ...(legalGround ? { legalGround } : {}) } : {}),
+      });
       reset(false);
       toast.add({
-        title: result.status === "already_reported" ? "You already reported this" : "Report sent",
-        description: "Thanks for helping keep ysocial safe. Moderators will review it.",
+        title: result.status === "already_reported" ? "You already reported this" : "Report received",
+        description: result.reference
+          ? `Reference ${result.reference.slice(0, 8)}. Moderators will review it and you'll see the outcome under Moderation notices.`
+          : "Thanks for helping keep ysocial safe. Moderators will review it.",
       });
     } catch (reason) {
       setError(errorMessage(reason));
@@ -139,19 +158,42 @@ export function ReportDialog({
             </label>
           ))}
         </RadioGroup>
+        {illegal && (
+          <div className="space-y-1.5">
+            <label htmlFor={legalId} className="text-sm font-medium">
+              Which law does it break? <span className="font-normal text-muted-foreground">(optional)</span>
+            </label>
+            <select
+              id={legalId}
+              value={legalGround}
+              onChange={(event) => setLegalGround(event.target.value as LegalCategory | "")}
+              className="h-9 w-full rounded-md border bg-background px-2 text-sm"
+            >
+              <option value="">Not sure</option>
+              {legalCategories.map((value) => <option key={value} value={value}>{legalCategoryLabels[value]}</option>)}
+            </select>
+          </div>
+        )}
         <div className="space-y-1.5">
           <label htmlFor={detailsId} className="text-sm font-medium">
-            Details {reason === "other" ? "" : <span className="font-normal text-muted-foreground">(optional)</span>}
+            {illegal ? "Why is this illegal?" : "Details"}{" "}
+            {reason === "other" || illegal ? "" : <span className="font-normal text-muted-foreground">(optional)</span>}
           </label>
           <Textarea
             id={detailsId}
             value={details}
             maxLength={1000}
             rows={3}
-            placeholder="Anything moderators should know"
+            placeholder={illegal ? `Explain why, at least ${illegalDetailsMin} characters` : "Anything moderators should know"}
             onChange={(event) => setDetails(event.target.value)}
           />
         </div>
+        {illegal && (
+          <label htmlFor={goodFaithId} className="flex cursor-pointer items-start gap-2 text-xs leading-relaxed">
+            <Checkbox id={goodFaithId} checked={goodFaith} onCheckedChange={(checked) => setGoodFaith(checked === true)} className="mt-0.5" />
+            I believe in good faith that the information in this report is accurate and complete.
+          </label>
+        )}
         {subject.type === "message" && (
           <div
             role="note"

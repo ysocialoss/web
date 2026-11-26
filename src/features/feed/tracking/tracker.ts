@@ -71,9 +71,6 @@ const watched = new Map<Element, Watched>();
 let observer: IntersectionObserver | null = null;
 let listening = false;
 
-const client = () =>
-  window.matchMedia?.("(pointer: coarse)").matches ? "mobile" : "desktop";
-
 export function setFeedTracking(on: boolean) {
   enabled = on;
   if (on) {
@@ -181,7 +178,7 @@ async function send(events: QueuedEvent[], retry: boolean) {
       credentials: "same-origin",
       keepalive: true,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sessionId, client: client(), events }),
+      body: JSON.stringify({ sessionId, events }),
     });
     if (response.status === 401 || response.status === 403) setFeedTracking(false);
   } catch {

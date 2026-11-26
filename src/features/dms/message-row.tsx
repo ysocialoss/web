@@ -18,6 +18,7 @@ import { MessageReactions } from "./message-reactions";
 import { PollMessage } from "./poll-message";
 import { VoiceMessage } from "./voice-message";
 import type { MessagePayload } from "./message-payload";
+import { gifMediaUrl } from "@/lib/api";
 
 export type { DisplayMessage };
 export type OutgoingMessage = MessagePayload & Pick<DisplayMessage, "id" | "senderId" | "createdAt"> & (
@@ -271,7 +272,7 @@ export const MessageRow = memo(function MessageRow({
               {message.text && <MessageBody text={message.text} />}
               {message.gif && (
                 <img
-                  src={message.gif.url}
+                  src={gifMediaUrl(message.gif.url)}
                   alt={message.gif.title || "GIF"}
                   width={message.gif.width}
                   height={message.gif.height}

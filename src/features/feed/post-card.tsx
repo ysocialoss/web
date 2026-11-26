@@ -3,7 +3,7 @@ import { PostImages } from "./post-images";
 import { useEffect, useId, useRef, useState, type MouseEvent } from "react";
 import { Link, useNavigate } from "react-router";
 import { timeAgo } from "@/lib/time-ago";
-import { Bookmark, BookmarkOff, Check, Ellipsis, LoaderCircle, Pencil, Pin, PinOff, Trash2, X } from "lucide-react";
+import { Bookmark, BookmarkOff, Check, Ellipsis, Info, LoaderCircle, Pencil, Pin, PinOff, Trash2, X } from "lucide-react";
 import { ActionMenu } from "@/components/ui/action-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { IconButton } from "@/components/ui/icon-button";
@@ -39,6 +39,8 @@ import { useNow } from "@/hooks/use-now";
 import { useBlockedUser } from "@/features/reports/blocked-users";
 import { linkDomain, observePost, surfaceForPath, trackFeedEvent, type TrackingContext } from "./tracking/tracker";
 import { usePostTracking } from "./tracking/tracking-context";
+import { explainedSurfaces, WhyThisPostDialog } from "./why-this-post";
+import { gifMediaUrl } from "@/lib/api";
 
 export function PostCard({
   post,
@@ -77,6 +79,7 @@ export function PostCard({
   const [editing, setEditing] = useState(false);
   const [content, setContent] = useState(post.content);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [explaining, setExplaining] = useState(false);
   const now = useNow();
   const articleRef = useRef<HTMLElement>(null);
   useEffect(() => {
@@ -88,6 +91,8 @@ export function PostCard({
   const tracking = usePostTracking();
   const tracked = tracking?.track !== false && !optimistic;
   const trackSurface = tracking?.surface;
+  const explainSurface = trackSurface ?? surfaceForPath(window.location.pathname);
+  const explainable = !focused && explainedSurfaces.has(explainSurface);
   const trackPosition = tracking?.position;
   const trackRequest = tracking?.requestId;
   const trackContext = useRef<TrackingContext | null>(null);
@@ -391,6 +396,9 @@ export function PostCard({
                     onSelect: () => void feed.toggleSave(post),
                   },
                   copyLinkAction(`/posts/${post.id}`),
+                  ...(explainable
+                    ? [{ label: "Why am I seeing this?", icon: Info, immediate: true, onSelect: () => setExplaining(true) }]
+                    : []),
                 ]}
                 follow={{ handle: post.author.handle }}
                 block={{ id: post.author.id, handle: post.author.handle }}
@@ -489,7 +497,7 @@ export function PostCard({
           )}
           {post.gif && (
             <img
-              src={post.gif.url}
+              src={gifMediaUrl(post.gif.url)}
               alt={post.gif.title}
               loading="lazy"
               decoding="async"
@@ -526,6 +534,15 @@ export function PostCard({
           )}
         </div>
       </div>
+      {explainable && (
+        <WhyThisPostDialog
+          open={explaining}
+          onOpenChange={setExplaining}
+          surface={explainSurface}
+          authorHandle={post.author.handle}
+          repost={repost}
+        />
+      )}
       <ConfirmationDialog
         open={confirmDelete}
         onOpenChange={setConfirmDelete}

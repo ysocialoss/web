@@ -15,8 +15,7 @@ import {
   ApiError,
   errorMessage,
   retryRequest,
-  type Session,
-} from "@/lib/api";
+  type Session, gifMediaUrl } from "@/lib/api";
 import { ProfileCardSkeleton } from "@/components/loading-skeletons";
 import { DisplayName } from "@/components/display-name";
 import { BannerImage } from "@/features/profile/banner-image";
@@ -92,7 +91,7 @@ export function ProfileCard({
       <div className="relative aspect-[3/1] rounded-xl bg-linear-to-br from-muted to-muted/40">
         {user?.bannerUrl && (
           <BannerImage
-            src={user.bannerUrl}
+            src={gifMediaUrl(user.bannerUrl)}
             crop={user.bannerCrop}
             alt={`${user.displayName}'s banner`}
           />
