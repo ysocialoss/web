@@ -1,3 +1,4 @@
+import { refreshCelebrations } from "@/lib/celebrations";
 import { AccountSettingsContext } from "@/features/settings/account-settings-context";
 import { ViewerIdContext } from "@/lib/viewer";
 import {
@@ -231,6 +232,9 @@ function AppShell() {
       scroller.removeEventListener("touchstart", stop);
     };
   }, [scroller, pathname, navigationKey, navigationType]);
+  useEffect(() => {
+    void refreshCelebrations();
+  }, [viewerId]);
   return (
     <NotificationsProvider
       key={viewerId ?? "anonymous"}

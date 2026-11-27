@@ -1,11 +1,13 @@
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useSyncExternalStore } from "react";
+import { useCelebrations } from "@/lib/celebrations";
 
 export type BrandingId =
   | "world-cancer-day"
   | "black-history-month"
   | "earth-day"
   | "pride-month"
-  | "christmas-eve";
+  | "christmas-eve"
+  | "anniversary";
 
 type Artwork = { src: string; width: number; height: number };
 
@@ -15,8 +17,6 @@ export type Variation = {
   href: string;
   wordmark: Artwork;
   logo: Artwork;
-  when: (month: number, day: number) => boolean;
-  priority: number;
   occasion: string;
 };
 
@@ -33,8 +33,6 @@ export const variations: readonly Variation[] = [
     href: "https://www.worldcancerday.org/",
     wordmark: art("world-cancer-day", "wordmark", 538, 161),
     logo: art("world-cancer-day", "logo", 306, 189),
-    when: (month, day) => month === 1 && day === 4,
-    priority: 2,
     occasion: "February 4",
   },
   {
@@ -43,8 +41,6 @@ export const variations: readonly Variation[] = [
     href: "https://www.earthday.org/",
     wordmark: art("earth-day", "wordmark", 427, 191),
     logo: art("earth-day", "logo", 306, 189),
-    when: (month, day) => month === 3 && day === 22,
-    priority: 2,
     occasion: "April 22",
   },
   {
@@ -53,8 +49,6 @@ export const variations: readonly Variation[] = [
     href: "https://www.blackhistorymonth.gov/",
     wordmark: art("black-history-month", "wordmark", 427, 161),
     logo: art("black-history-month", "logo", 306, 189),
-    when: (month) => month === 1,
-    priority: 1,
     occasion: "February",
   },
   {
@@ -63,8 +57,6 @@ export const variations: readonly Variation[] = [
     href: "https://www.loc.gov/lgbt-pride-month/",
     wordmark: art("pride-month", "wordmark", 427, 161),
     logo: art("pride-month", "logo", 306, 189),
-    when: (month) => month === 5,
-    priority: 1,
     occasion: "June",
   },
 ];
@@ -75,9 +67,18 @@ export const christmasEve: Variation = {
   href: "/",
   wordmark: { src: "/branding/christmas-eve-wordmark.svg", width: 427, height: 193 },
   logo: { src: "/favicon-christmas.png", width: 320, height: 320 },
-  when: (month, day) => month === 11 && day === 24,
-  priority: 3,
   occasion: "December 24",
+};
+
+export const ANNIVERSARY_MESSAGE = "It's ysocial's 1 month anniversary!";
+
+export const anniversary: Variation = {
+  id: "anniversary",
+  name: "ysocial turns one month",
+  href: "/",
+  wordmark: { src: "/branding/anniversary-wordmark.png", width: 427, height: 185 },
+  logo: { src: "/favicon.png", width: 320, height: 320 },
+  occasion: "December 17",
 };
 
 export const MAIN_WORDMARK: Artwork = { src: "/wordmark.svg", width: 427, height: 161 };
@@ -93,20 +94,9 @@ export function isBrandingPreference(value: unknown): value is BrandingPreferenc
   );
 }
 
-export function variationOn(date: Date): Variation | null {
-  const month = date.getMonth();
-  const day = date.getDate();
-  let best: Variation | null = null;
-  for (const variation of variations) {
-    if (variation.when(month, day) && (!best || variation.priority > best.priority))
-      best = variation;
-  }
-  return best;
-}
-
-export function resolveBranding(preference: BrandingPreference, date: Date): Variation | null {
+export function resolveBranding(preference: BrandingPreference, automatic: Variation | null): Variation | null {
   if (preference === "default") return null;
-  if (preference === "auto") return variationOn(date);
+  if (preference === "auto") return automatic;
   return variations.find((variation) => variation.id === preference) ?? null;
 }
 
@@ -150,52 +140,18 @@ function subscribe(listener: () => void) {
   };
 }
 
-function useToday() {
-  const [today, setToday] = useState(() => new Date());
-  useEffect(() => {
-    let timer: number | undefined;
-    const update = () => {
-      const now = new Date();
-      setToday((previous) =>
-        previous.toDateString() === now.toDateString() ? previous : now,
-      );
-      window.clearTimeout(timer);
-      const midnight = new Date(now);
-      midnight.setHours(24, 0, 1, 0);
-      timer = window.setTimeout(update, midnight.getTime() - now.getTime());
-    };
-    update();
-    document.addEventListener("visibilitychange", update);
-    return () => {
-      window.clearTimeout(timer);
-      document.removeEventListener("visibilitychange", update);
-    };
-  }, []);
-  return today;
-}
-
 export function useBranding() {
   const preference = useSyncExternalStore(subscribe, () => current, () => "auto" as const);
-  const today = useToday();
-  const { active: christmasEveOn } = useSeasonal("wordmark");
+  const celebrations = useCelebrations();
+  const automatic = variations.find((variation) => variation.id === celebrations.branding) ?? null;
   return {
     preference,
-    active: christmasEveOn ? christmasEve : resolveBranding(preference, today),
-    automatic: variationOn(today),
+    active: celebrations.anniversary
+      ? anniversary
+      : celebrations.christmasEve
+        ? christmasEve
+        : resolveBranding(preference, automatic),
+    automatic,
     setPreference: setBrandingPreference,
   };
 }
-
-export function isChristmasSeason(date: Date) {
-  return date.getMonth() === 11 && date.getDate() <= 24;
-}
-
-export type SeasonalFeature = "hats" | "favicon" | "wordmark";
-
-export function useSeasonal(feature: SeasonalFeature) {
-  const today = useToday();
-  const natural = feature === "wordmark" ? christmasEve.when(today.getMonth(), today.getDate()) : isChristmasSeason(today);
-  return { active: natural };
-}
-
-export const useSantaHats = () => useSeasonal("hats");

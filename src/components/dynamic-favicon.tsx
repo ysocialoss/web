@@ -1,5 +1,6 @@
 import { useEffect } from "react";
-import { useBranding, useSeasonal, type Variation } from "@/lib/branding";
+import { useBranding, type Variation } from "@/lib/branding";
+import { useCelebrations } from "@/lib/celebrations";
 
 const SIZE = 128;
 const ART_WIDTH = 306;
@@ -66,14 +67,14 @@ function showDynamic(href: string) {
 }
 
 function artFor(variation: Variation | null, christmas: boolean): Art | null {
-  if (variation) return { source: variation.logo.src, square: variation.logo.width === variation.logo.height };
+  if (variation && variation.id !== "anniversary") return { source: variation.logo.src, square: variation.logo.width === variation.logo.height };
   if (christmas) return { source: "/favicon-christmas.png", square: true };
   return null;
 }
 
 export function DynamicFavicon() {
   const { active } = useBranding();
-  const { active: christmas } = useSeasonal("favicon");
+  const { christmasSeason: christmas } = useCelebrations();
   useEffect(() => {
     const art = artFor(active, christmas);
     if (!art) {
