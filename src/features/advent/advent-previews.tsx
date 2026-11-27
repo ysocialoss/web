@@ -11,7 +11,13 @@ export type Viewer = Extract<Session, { authenticated: true; needsOnboarding: fa
 
 type OtherBadges = { badges: { id: string; icon: string; tooltip: string }[]; isOg: boolean };
 
-function PreviewBanner({ viewer, className }: { viewer: Viewer; className?: string }) {
+export function PreviewBanner({
+  viewer,
+  className,
+}: {
+  viewer: Pick<Viewer, "bannerUrl" | "bannerCrop">;
+  className?: string;
+}) {
   return (
     <div
       className={cn(
