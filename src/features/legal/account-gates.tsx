@@ -15,7 +15,7 @@ import type { AuthState } from "@/features/auth/use-auth";
 
 export const collectedFeedData = [
   { en: "Which posts appeared on your screen and roughly how long they stayed visible", de: "Welche Beiträge auf deinem Bildschirm erschienen und wie lange sie ungefähr sichtbar waren" },
-  { en: "Opening a post, expanding text, revealing spoilers, opening media and playing voice notes", de: "Öffnen von Beiträgen, Aufklappen von Text, Aufdecken von Spoilern, Öffnen von Medien und Abspielen von Sprachnachrichten" },
+  { en: "Opening a post, expanding text, revealing text spoilers, opening media and playing voice notes", de: "Öffnen von Beiträgen, Aufklappen von Text, Aufdecken von Text-Spoilern, Öffnen von Medien und Abspielen von Sprachnachrichten" },
   { en: "The website domain of links you open and the topics you open", de: "Die Domain geöffneter Links und geöffnete Themen" },
   { en: "Likes, reposts, saves, replies, quotes, poll votes, follows, blocks and reports", de: "Likes, Reposts, Lesezeichen, Antworten, Zitate, Umfrage-Stimmen, Follows, Blockierungen und Meldungen" },
   { en: "Where in the app it happened (for example Latest or a profile) and the position in the list", de: "Wo in der App es passierte (zum Beispiel Neueste oder ein Profil) und die Position in der Liste" },
@@ -44,7 +44,8 @@ export function FeedChoiceDialog({ onDone }: { onDone: () => void }) {
           <DialogTitle className="text-xl font-semibold">Personalize your feed?</DialogTitle>
           <DialogDescription className="leading-relaxed">
             ysocial is learning to suggest posts you will like. If you turn this on, we record how you use the
-            feed on ysocial. Nothing from other websites or apps is used, and nothing is sold or shared for advertising.
+            feed on ysocial, only to make your feed better. Nothing from other websites or apps is used, and nothing
+            is used for advertising, sold or passed to third parties.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3 text-sm">
@@ -54,11 +55,11 @@ export function FeedChoiceDialog({ onDone }: { onDone: () => void }) {
           </ul>
           <p className="text-muted-foreground">
             Viewing data is deleted after 180 days, interactions after 12 months. You can change your choice or clear
-            everything at any time in Settings, Privacy and safety. Choosing "Keep off" also deletes what we already
-            derived from your past likes and follows.
+            everything at any time in Settings, Privacy and safety. Turning this on also uses your earlier likes,
+            reposts, saves, replies, quotes and follows as starting signals.
           </p>
           <p className="text-muted-foreground">
-            Legal basis: our legitimate interest in a relevant feed (Art. 6(1)(f) GDPR). Details are in the{" "}
+            Legal basis: your consent (Art. 6(1)(a) GDPR), which you can withdraw at any time. Details are in the{" "}
             <Link to="/legal/privacy" target="_blank" className="underline underline-offset-4">privacy policy</Link> and on{" "}
             <Link to="/legal/feed" target="_blank" className="underline underline-offset-4">how the feed works</Link>.
           </p>

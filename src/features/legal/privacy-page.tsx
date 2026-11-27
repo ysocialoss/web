@@ -44,7 +44,7 @@ export function PrivacyPage() {
     <LegalLayout title={{ de: "Datenschutzerklärung", en: "Privacy policy" }} version={privacyVersion}>
       {(language) => language === "de" ? (
         <>
-          <p>Diese Erklärung beschreibt, welche personenbezogenen Daten ysocial verarbeitet, wofür, auf welcher Rechtsgrundlage und wie lange. Kurz gesagt: Wir verarbeiten nur, was für den Betrieb des Netzwerks nötig ist, setzen keine Werbe- oder Analyse-Tracker ein und verkaufen keine Daten.</p>
+          <p>Diese Erklärung beschreibt, welche personenbezogenen Daten ysocial verarbeitet, wofür, auf welcher Rechtsgrundlage und wie lange. Kurz gesagt: Wir verarbeiten nur, was für den Betrieb des Netzwerks nötig ist, setzen keine Werbe- oder Analyse-Tracker ein und verkaufen keine Daten. Deine Daten, auch Nutzungsdaten, werden nicht für Werbung verwendet und nicht zu Werbezwecken an Dritte weitergegeben. Nutzungsdaten dienen allein dazu, deinen Feed zu verbessern, und nur, wenn du das erlaubst.</p>
 
           <h2>1. Verantwortlicher</h2>
           {controller}
@@ -67,9 +67,10 @@ export function PrivacyPage() {
           )}
 
           <h2>6. Feed-Personalisierung</h2>
-          <p>Wenn du die Feed-Personalisierung einschaltest, zeichnen wir auf, wie du den Feed auf ysocial nutzt:</p>
+          <p>Wenn du die Feed-Personalisierung einschaltest, zeichnen wir auf, wie du ysocial nutzt:</p>
           <ul>{collectedFeedData.map((item) => <li key={item.de}>{item.de}</li>)}</ul>
-          <p>Zweck ist, dir künftig relevantere Beiträge zu zeigen. Rechtsgrundlage ist unser berechtigtes Interesse an einem relevanten Feed (Art. 6 Abs. 1 lit. f DSGVO). Wir verwenden ausschließlich Daten aus ysocial, keine Daten anderer Websites, keine Werbe-IDs und keine Fingerprints. Vor der ersten Aufzeichnung fragen wir dich ausdrücklich. Du kannst jederzeit widersprechen (Art. 21 DSGVO), indem du die Einstellung ausschaltest; die bisher aufgezeichneten Daten werden dann gelöscht. Die Personalisierung hat keine rechtliche oder ähnlich erhebliche Wirkung für dich (keine Entscheidung nach Art. 22 DSGVO). Wie der Feed funktioniert, steht unter <a href="/legal/feed">So funktioniert der Feed</a>.</p>
+          <p>Zweck ist allein, dir einen besseren, relevanteren Feed zu zeigen. Die Daten werden nicht für Werbung verwendet, nicht verkauft, nicht an Dritte weitergegeben und nicht genutzt, um dich außerhalb des Feeds zu bewerten oder zu überwachen. Wir nutzen sie außerdem für Betriebsstatistiken ohne Personenbezug. Wir verwenden ausschließlich Daten aus ysocial, keine Daten anderer Websites, keine Werbe-IDs und keine Fingerprints. Weil wir daraus Interessen ableiten, ist das Profiling im Sinne von Art. 4 Nr. 4 DSGVO; es hat keine rechtliche oder ähnlich erhebliche Wirkung für dich (keine Entscheidung nach Art. 22 DSGVO).</p>
+          <p>Rechtsgrundlage ist deine Einwilligung (Art. 6 Abs. 1 lit. a DSGVO). Wir fragen dich ausdrücklich, bevor wir Nutzungsdaten aufzeichnen, und ohne Zustimmung zeichnen wir keine auf. Du kannst die Einwilligung jederzeit mit Wirkung für die Zukunft widerrufen, indem du die Einstellung ausschaltest; die aufgezeichneten Daten werden dann gelöscht. Wenn du die Personalisierung einschaltest, leiten wir außerdem aus deinen bisherigen Likes, Reposts, Lesezeichen, Antworten, Zitaten und Follows Startsignale ab. Auch sie werden gelöscht, sobald du die Personalisierung ausschaltest. Wie der Feed funktioniert, steht unter <a href="/legal/feed">So funktioniert der Feed</a>.</p>
 
           <h2>7. Meldungen, Moderation, Beschwerden und Kontakt</h2>
           <p>Wenn du Inhalte meldest, speichern wir Grund, Erläuterung, eine Momentaufnahme des Inhalts und dein Konto bzw. bei Meldungen ohne Konto Name und E-Mail-Adresse (bei Meldungen von Missbrauchsdarstellungen freiwillig). Wenn wir gegen Inhalte oder Konten vorgehen, speichern wir die Entscheidung mit Begründung und informieren die betroffene Person (Art. 17 DSA). Rechtsgrundlage: rechtliche Pflichten nach dem Digital Services Act (Art. 6 Abs. 1 lit. c DSGVO) und unser berechtigtes Interesse an einer sicheren Plattform (lit. f). Bei Hinweisen auf eine Gefahr für Leben oder Sicherheit geben wir Daten an Strafverfolgungsbehörden weiter (Art. 18 DSA).</p>
@@ -127,7 +128,7 @@ export function PrivacyPage() {
         </>
       ) : (
         <>
-          <p>This policy explains which personal data ysocial processes, why, on which legal basis and for how long. In short: we only process what is needed to run the network, we use no advertising or analytics trackers, and we never sell data.</p>
+          <p>This policy explains which personal data ysocial processes, why, on which legal basis and for how long. In short: we only process what is needed to run the network, we use no advertising or analytics trackers, and we never sell data. Your data, including usage data, is not used for advertising and is not passed to third parties for advertising. Usage data only serves to improve your feed, and only if you allow it.</p>
 
           <h2>1. Controller</h2>
           {controller}
@@ -150,9 +151,10 @@ export function PrivacyPage() {
           )}
 
           <h2>6. Feed personalization</h2>
-          <p>If you turn on feed personalization, we record how you use the feed on ysocial:</p>
+          <p>If you turn on feed personalization, we record how you use ysocial:</p>
           <ul>{collectedFeedData.map((item) => <li key={item.en}>{item.en}</li>)}</ul>
-          <p>The purpose is to show you more relevant posts in future. The legal basis is our legitimate interest in a relevant feed (Art. 6(1)(f) GDPR). We only use data from ysocial, no data from other websites, no advertising IDs and no fingerprinting. We ask you explicitly before anything is recorded. You can object at any time (Art. 21 GDPR) by switching the setting off; the data recorded so far is then deleted. Personalization has no legal or similarly significant effect on you (no decision under Art. 22 GDPR). See <a href="/legal/feed?lang=en">How the feed works</a>.</p>
+          <p>The sole purpose is to show you a better, more relevant feed. The data is not used for advertising, not sold, not passed to third parties and not used to evaluate or monitor you outside the feed. We also use it for operational statistics that do not relate to individuals. We only use data from ysocial, no data from other websites, no advertising IDs and no fingerprinting. Because we derive interests from it, this is profiling within the meaning of Art. 4(4) GDPR; it has no legal or similarly significant effect on you (no decision under Art. 22 GDPR).</p>
+          <p>The legal basis is your consent (Art. 6(1)(a) GDPR). We ask you explicitly before we record usage data, and we record none without your consent. You can withdraw consent at any time with effect for the future by switching the setting off; the recorded data is then deleted. When you switch personalization on, we also derive starting signals from your earlier likes, reposts, bookmarks, replies, quotes and follows. These are deleted too as soon as you switch personalization off. See <a href="/legal/feed?lang=en">How the feed works</a>.</p>
 
           <h2>7. Reports, moderation, appeals and contact</h2>
           <p>When you report content we store the reason, your explanation, a snapshot of the content and your account, or for reports without an account your name and email address (optional for reports of child sexual abuse material). When we act against content or accounts, we store the decision with its reasons and inform the person affected (Art. 17 DSA). Legal basis: legal obligations under the Digital Services Act (Art. 6(1)(c) GDPR) and our legitimate interest in a safe platform (point (f)). If there are signs of a threat to life or safety, we pass data to law enforcement (Art. 18 DSA).</p>
