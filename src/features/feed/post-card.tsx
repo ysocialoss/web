@@ -397,7 +397,7 @@ export function PostCard({
                     onSelect: () => void feed.toggleSave(post),
                   },
                   copyLinkAction(`/posts/${post.id}`),
-                  ...(feed.ranked && trackSurface === "for_you" && trackRequest ? feedbackActions(post, feed.dismiss) : []),
+                  ...(feed.personalRanking && trackSurface === "for_you" && trackRequest ? feedbackActions(post, feed.dismiss) : []),
                   ...(explainable
                     ? [{ label: "Why am I seeing this?", icon: Info, immediate: true, onSelect: () => setExplaining(true) }]
                     : []),

@@ -129,6 +129,7 @@ export function useFeed(
     : session;
   const readOnly = onboarded && (session.pendingApproval || !!session.ban);
   const canPost = onboarded && !readOnly;
+  const personalRanking = ranked && canPost && session.user.feedPersonalize && !session.feedChoiceNeeded;
   const load = useCallback(
     async (cursor?: string, signal?: AbortSignal, revalidate = false) => {
       const startedAt = getActionRevision();
@@ -483,6 +484,7 @@ export function useFeed(
     unread,
     revealNew,
     ranked,
+    personalRanking,
     placements,
     caughtUp: ranked && caughtUp,
     fallback: ranked && fallback,
