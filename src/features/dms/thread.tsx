@@ -787,7 +787,7 @@ export function Thread({ id, device, drafts, outbox, updateOutbox, sendingLifeti
                       if (event.key === "Escape" && replyTo) {
                         setReplyTo(null);
                       } else if (event.key === "ArrowUp" && !event.defaultPrevented && !draft && !fileDraft.draft) {
-                        const latest = messages.findLast((message) => message.senderId === device.userId && !!message.text);
+                        const latest = messages?.findLast((message) => message.senderId === device.userId && !!message.text);
                         if (latest) {
                           event.preventDefault();
                           setEditingId(latest.id);
