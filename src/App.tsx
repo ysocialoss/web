@@ -419,8 +419,12 @@ function RouteFallback() {
 
 function HomeFeed({ session }: { session: Session | null }) {
   usePageTitle("Feed");
+  const { pathname } = useLocation();
   if (session === null) return <PostListSkeleton />;
-  if (feedLocked(session)) return <Navigate to="/following" replace />;
+  if (feedLocked(session))
+    return pathname === "/"
+      ? <Navigate to="/following" replace />
+      : <HomeFeedList session={session} surface="following" header={<TrendingTopicsStrip />} />;
   return <HomeFeedList session={session} surface="for_you" header={<TrendingTopicsStrip />} />;
 }
 function FollowingFeed({ session }: { session: Session | null }) {
