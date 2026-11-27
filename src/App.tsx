@@ -21,11 +21,9 @@ import {
   useNavigate,
   useNavigationType,
   useParams,
-  useSearchParams,
 } from "react-router";
 import { ArrowLeft, SearchX } from "lucide-react";
 import { ComingSoonContent } from "@/components/coming-soon-content";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { NavigationSidebar } from "@/components/layout/navigation-sidebar";
 import { AccountSidebar } from "@/components/layout/account-sidebar";
 import {
@@ -39,7 +37,7 @@ import { Feed } from "@/features/feed/feed";
 import { TrendingTopicsStrip } from "@/components/account/trending-topics";
 import { Account, ApprovalBanner } from "@/features/auth/account";
 import { useAuth, type AuthState } from "@/features/auth/use-auth";
-import { setFeedTracking, setHomeSurface } from "@/features/feed/tracking/tracker";
+import { setFeedTracking } from "@/features/feed/tracking/tracker";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { useSearchShortcut } from "@/features/search/use-search-shortcut";
 import { isTopicName, normalizeTopic } from "@/lib/topics";
@@ -323,6 +321,7 @@ function AppShell() {
             <Suspense fallback={<RouteFallback />}>
             <Routes>
               <Route path="/" element={<HomeFeed session={auth.session} />} />
+              <Route path="/following" element={<FollowingFeed session={auth.session} />} />
               <Route
                 path="/posts/:id"
                 element={<PostRoute session={auth.session} />}
@@ -415,39 +414,13 @@ function RouteFallback() {
 
 function HomeFeed({ session }: { session: Session | null }) {
   usePageTitle("Feed");
-  const [params, setParams] = useSearchParams();
-  const signedIn = Boolean(session?.authenticated && !session.needsOnboarding);
-  const surface = signedIn && params.get("feed") === "following" ? "following" : "latest";
-  useEffect(() => {
-    setHomeSurface(surface);
-  }, [surface]);
-  const tabs = signedIn ? (
-    <Tabs
-      value={surface}
-      onValueChange={(next) =>
-        setParams(next === "following" ? { feed: "following" } : {}, { replace: true })
-      }
-      className="mx-auto mb-3 w-full max-w-xl"
-    >
-      <TabsList className="w-full">
-        <TabsTrigger value="latest">Latest</TabsTrigger>
-        <TabsTrigger value="following">Following</TabsTrigger>
-      </TabsList>
-    </Tabs>
-  ) : null;
-  return (
-    <HomeFeedList
-      key={surface}
-      session={session}
-      surface={surface}
-      header={
-        <>
-          {tabs}
-          <TrendingTopicsStrip />
-        </>
-      }
-    />
-  );
+  return <HomeFeedList session={session} surface="latest" header={<TrendingTopicsStrip />} />;
+}
+function FollowingFeed({ session }: { session: Session | null }) {
+  usePageTitle("Following");
+  if (session === null) return <PostListSkeleton />;
+  if (!session.authenticated || session.needsOnboarding) return <Navigate to="/" replace />;
+  return <HomeFeedList session={session} surface="following" header={<TrendingTopicsStrip />} />;
 }
 function HomeFeedList({
   session,

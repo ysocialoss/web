@@ -140,18 +140,19 @@ test("nothing is recorded when personalization is off", async ({ page }) => {
   expect(batches).toHaveLength(0);
 });
 
-test("signed-in readers switch between Latest and Following", async ({ page }) => {
+test("signed-in readers open Following from the sidebar", async ({ page }) => {
   const { feedRequests, batches } = await setup(page);
   await page.goto("/");
   await expect(page.locator(`#post-${posts[2].id}`)).toBeVisible();
-  await page.getByRole("tab", { name: "Following" }).click();
-  await expect(page).toHaveURL(/\?feed=following$/);
+  await expect(page.getByRole("tab", { name: "Following" })).toHaveCount(0);
+  await page.getByRole("link", { name: "Following" }).first().click();
+  await expect(page).toHaveURL(/\/following$/);
   await expect(page.locator(`#post-${posts[2].id}`)).toHaveCount(0);
   expect(feedRequests).toContain("following");
   await page.waitForTimeout(900);
   await hideTab(page);
   await expect.poll(() => events(batches).some((event) => event.type === "impression" && event.surface === "following")).toBe(true);
-  await page.getByRole("tab", { name: "Latest" }).click();
+  await page.getByRole("link", { name: "Feed", exact: true }).first().click();
   await expect(page).toHaveURL(/\/$/);
   await expect(page.locator(`#post-${posts[2].id}`)).toBeVisible();
 });

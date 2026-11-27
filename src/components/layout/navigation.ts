@@ -5,6 +5,7 @@ import {
   Mail,
   Search,
   UserRound,
+  UserRoundGroup,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -20,6 +21,7 @@ type NavigationEntry = {
 
 export const navigation: Record<NavigationItem, NavigationEntry> = {
   feed: { label: "Feed", icon: House, to: "/" },
+  following: { label: "Following", icon: UserRoundGroup, to: "/following", auth: true },
   search: { label: "Search", icon: Search, to: "/search" },
   messages: { label: "Messages", icon: Mail, to: "/messages" },
   activity: { label: "Activity", icon: Heart, to: "/activity", auth: true },
@@ -35,6 +37,7 @@ export const navigation: Record<NavigationItem, NavigationEntry> = {
 
 export const defaultNavigation: readonly NavigationItem[] = [
   "feed",
+  "following",
   "search",
   "messages",
   "activity",

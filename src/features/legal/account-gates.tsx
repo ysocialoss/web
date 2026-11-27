@@ -133,11 +133,11 @@ export function TermsUpdateDialog({ version, onDone, onLogout }: { version: stri
 
 export function ModerationNoticeBanner({ userId }: { userId: string }) {
   const [unseen, setUnseen] = useState(0);
-  useEffect(() => {
   const { pathname } = useLocation();
   const onModerationPage = pathname === "/moderation" || pathname.startsWith("/moderation/");
-    const controller = new AbortController();
+  useEffect(() => {
     if (onModerationPage) return;
+    const controller = new AbortController();
     api.moderationNotices(controller.signal)
       .then((notices) => setUnseen(notices.unseen))
       .catch(() => undefined);

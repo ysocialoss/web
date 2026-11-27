@@ -65,7 +65,6 @@ let enabled = false;
 let seq = 0;
 let queue: QueuedEvent[] = [];
 let flushTimer: number | undefined;
-let homeSurface: FeedSurface = "latest";
 const lastContext = new Map<string, { context: TrackingContext; at: number }>();
 const watched = new Map<Element, Watched>();
 let observer: IntersectionObserver | null = null;
@@ -92,12 +91,9 @@ export function feedTrackingEnabled() {
   return enabled;
 }
 
-export function setHomeSurface(surface: FeedSurface) {
-  homeSurface = surface;
-}
-
 export function surfaceForPath(pathname: string): FeedSurface {
-  if (pathname === "/") return homeSurface;
+  if (pathname === "/") return "latest";
+  if (pathname === "/following") return "following";
   if (pathname.startsWith("/posts/")) return "thread";
   if (pathname.startsWith("/@")) return "profile";
   if (pathname.startsWith("/topics/")) return "topic";
