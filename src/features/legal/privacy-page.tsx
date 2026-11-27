@@ -22,6 +22,7 @@ const retention = [
   { de: "Feed-Nutzungsdaten (Ansichten, Verweildauer)", en: "Feed usage data (views, dwell time)", value: { de: "180 Tage", en: "180 days" } },
   { de: "Feed-Interaktionsdaten (Likes, Follows usw. als Signal)", en: "Feed interaction signals (likes, follows etc.)", value: { de: "12 Monate", en: "12 months" } },
   { de: "Für dich ausgewählte Feed-Seiten (Beiträge, Reihenfolge, Signale)", en: "Feed pages picked for you (posts, order, signals)", value: { de: "180 Tage, nicht angezeigte Einträge 14 Tage", en: "180 days, entries never shown 14 days" } },
+  { de: "Feed-Einstellungen (Interessiert, Nicht interessiert, Stummschalten, Themen, Regler)", en: "Feed controls (Interested, Not interested, Snooze, topics, sliders)", value: { de: "Bewertungen 60 Tage, Stummschalten 30 Tage, Themen und Regler bis du sie änderst", en: "Ratings 60 days, snoozes 30 days, topics and sliders until you change them" } },
   { de: "Anonyme Feed-Liste für nicht angemeldete Besucher", en: "Anonymous feed list for visitors who are not signed in", value: { de: "2 Tage", en: "2 days" } },
   { de: "Meldungen und ihre Momentaufnahmen", en: "Reports and their snapshots", value: { de: "6 Monate nach Abschluss, bei Weitergabe an Behörden 12 Monate", en: "6 months after closing, 12 months if passed to authorities" } },
   { de: "Moderationsentscheidungen und Beschwerden", en: "Moderation decisions and appeals", value: { de: "12 Monate", en: "12 months" } },

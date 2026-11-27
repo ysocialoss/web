@@ -19,6 +19,7 @@ export const collectedFeedData = [
   { en: "The website domain of links you open and the topics you open", de: "Die Domain geöffneter Links und geöffnete Themen" },
   { en: "Likes, reposts, saves, replies, quotes, poll votes, follows, blocks and reports", de: "Likes, Reposts, Lesezeichen, Antworten, Zitate, Umfrage-Stimmen, Follows, Blockierungen und Meldungen" },
   { en: "Where in the app it happened (for example the Feed, Following or a profile) and the position in the list", de: "Wo in der App es passierte (zum Beispiel im Feed, bei Gefolgt oder auf einem Profil) und die Position in der Liste" },
+  { en: "Feedback you give with Interested, Not interested, Snooze and topic choices", de: "Rückmeldungen über Interessiert, Nicht interessiert, Stummschalten und Themenwahl" },
   { en: "Which posts the Feed picked for you, in which order, and the signals it used to rank them", de: "Welche Beiträge der Feed für dich ausgewählt hat, in welcher Reihenfolge und welche Signale er für die Sortierung genutzt hat" },
   { en: "Whether you use a phone or a desktop, derived from your browser's request headers", de: "Ob du ein Smartphone oder einen Computer nutzt, abgeleitet aus den Anfrage-Headern deines Browsers" },
   { en: "A random session number that is forgotten when you close the tab", de: "Eine zufällige Sitzungsnummer, die beim Schließen des Tabs vergessen wird" },

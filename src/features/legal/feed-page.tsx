@@ -38,7 +38,17 @@ export function FeedExplainerPage() {
           <p>Für jede Feed-Seite speichern wir, welche Beiträge ausgewählt wurden, in welcher Reihenfolge und mit welchen Signalen, damit das Weiterblättern funktioniert und wir die Sortierung verbessern können. Das wird nach 180 Tagen gelöscht. Für nicht angemeldete Besucher speichern wir eine gemeinsame, anonyme Liste für 2 Tage.</p>
           <p>Diese Daten dienen allein dazu, deinen Feed zu verbessern. Sie werden nicht für Werbung verwendet, nicht verkauft und nicht an Dritte weitergegeben. Nicht genutzt werden: Daten anderer Websites oder Apps, Werbe-IDs, Standort, Kontakte, Inhalte von Direktnachrichten.</p>
           <h2>Deine Kontrolle</h2>
-          <p>Du kannst die Personalisierung in den Einstellungen unter Datenschutz und Sicherheit jederzeit ausschalten; die gespeicherten Daten werden dann gelöscht. Über das Menü eines Beitrags siehst du mit „Warum sehe ich das?", warum er dir angezeigt wird.</p>
+          <p>Unter Einstellungen, Feed kannst du die Sortierung selbst beeinflussen. Diese Einstellungen gelten nur für den Feed, nicht für „Folge ich", Profile oder die Suche.</p>
+          <ul>
+            <li>Entdecken: wie viele Beiträge von Konten kommen, denen du noch nicht folgst. Die Bewertung solcher Beiträge wird in fünf Stufen mit 0,3, 0,6, 1, 1,5 oder 2,2 multipliziert.</li>
+            <li>Frische: wie stark neue Beiträge bevorzugt werden. Die Halbwertszeit der Bewertung beträgt in fünf Stufen 72, 48, 24, 12 oder 6 Stunden.</li>
+            <li>Antworten: wie oft Antworten von Konten, denen du folgst, erscheinen. In der niedrigsten Stufe gar nicht, sonst mit 0,5, 1, 1,5 oder 2 multipliziert.</li>
+            <li>Themen: „Mehr über #Thema" multipliziert passende Beiträge mit 1,5, „Weniger über #Thema" mit 0,3. Das gilt, bis du es entfernst.</li>
+            <li>„Interessiert" im Menü eines Beitrags: Beiträge dieses Kontos zählen 60 Tage lang 1,3-fach, seine Themen 1,2-fach.</li>
+            <li>„Nicht interessiert": Der Beitrag verschwindet aus deinem Feed, Beiträge des Kontos zählen 60 Tage lang 0,7-fach, seine Themen 0,8-fach.</li>
+            <li>„@Konto 30 Tage stummschalten": Beiträge des Kontos erscheinen 30 Tage lang nicht im Feed. In „Folge ich" und auf dem Profil siehst du sie weiterhin.</li>
+          </ul>
+          <p>Diese Entscheidungen speichern wir auch, wenn die Personalisierung ausgeschaltet ist; sie wirken dann, sobald du den Feed einschaltest. „Feed-Aktivität löschen" setzt alles zurück. Die Personalisierung selbst kannst du dort jederzeit ausschalten; die aufgezeichneten Daten werden dann gelöscht. Über das Menü eines Beitrags siehst du mit „Warum sehe ich das?", welche Gründe am stärksten zählten und welche deiner Einstellungen gewirkt haben.</p>
         </>
       ) : (
         <>
@@ -73,7 +83,17 @@ export function FeedExplainerPage() {
           <p>For each Feed page we store which posts were picked, their order and their ranking signals, so paging works and we can improve the ranking. This is deleted after 180 days. For visitors who are not signed in we store one shared, anonymous list for 2 days.</p>
           <p>This data only serves to improve your feed. It is not used for advertising, not sold and not passed to third parties. Not used: data from other websites or apps, advertising IDs, location, contacts, content of direct messages.</p>
           <h2>Your control</h2>
-          <p>You can turn personalization off at any time in Settings under Privacy and safety; the stored data is then deleted. In a post's menu, "Why am I seeing this?" tells you why it is shown to you.</p>
+          <p>In Settings, Feed you can shape the ordering yourself. These settings apply to the Feed only, not to Following, profiles or search.</p>
+          <ul>
+            <li>Discovery: how many posts come from accounts you do not follow yet. Their score is multiplied by 0.3, 0.6, 1, 1.5 or 2.2 across five steps.</li>
+            <li>Freshness: how strongly newer posts are preferred. The score's half-life is 72, 48, 24, 12 or 6 hours across five steps.</li>
+            <li>Replies: how often replies from accounts you follow show up. Not at all on the lowest step, otherwise multiplied by 0.5, 1, 1.5 or 2.</li>
+            <li>Topics: "More about #topic" multiplies matching posts by 1.5, "Fewer about #topic" by 0.3. This lasts until you remove it.</li>
+            <li>"Interested" in a post's menu: posts from that account count 1.3 times for 60 days, its topics 1.2 times.</li>
+            <li>"Not interested": the post leaves your Feed, posts from that account count 0.7 times for 60 days, its topics 0.8 times.</li>
+            <li>"Snooze @account for 30 days": that account's posts stay out of the Feed for 30 days. You still see them in Following and on their profile.</li>
+          </ul>
+          <p>We store these choices even when personalization is off; they take effect once you turn the Feed on. "Clear feed activity" resets all of them. You can also turn personalization off there at any time; the recorded data is then deleted. In a post's menu, "Why am I seeing this?" shows which reasons counted most and which of your settings applied.</p>
         </>
       )}
     </LegalLayout>
