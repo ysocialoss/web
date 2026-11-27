@@ -84,8 +84,9 @@ export function PrivacyPage() {
           <h2>10. Push-Benachrichtigungen</h2>
           <p>Wenn du Push-Benachrichtigungen aktivierst, speichern wir die von deinem Browser erzeugte Push-Adresse. Benachrichtigungen werden verschlüsselt über den Push-Dienst deines Browserherstellers (zum Beispiel Google, Mozilla oder Apple) zugestellt. Du kannst den Inhalt in Benachrichtigungen ausblenden. Rechtsgrundlage: Art. 6 Abs. 1 lit. a DSGVO; die Einwilligung kannst du jederzeit in den Einstellungen widerrufen.</p>
 
-          <h2>11. Server-Logs</h2>
-          <p>Beim Aufruf speichert unser Webserver technische Zugriffsdaten (Zeitpunkt, Adresse, Statuscode, Browserkennung) mit gekürzter IP-Adresse für 7 Tage, um Fehler und Angriffe zu erkennen (Art. 6 Abs. 1 lit. f DSGVO). Die Anwendung selbst speichert keine IP-Adressen. Für das öffentliche Meldeformular wird die IP-Adresse 10 Minuten lang nur im Arbeitsspeicher gehalten, um Missbrauch zu begrenzen.</p>
+          <h2>11. Verbindungsdaten und IP-Adressen</h2>
+          <p>Beim Aufruf von ysocial werden technisch notwendige Verbindungsdaten verarbeitet, vor allem deine IP-Adresse, damit die Seite ausgeliefert und vor Angriffen geschützt werden kann. Das geschieht zuerst bei Cloudflare, das als Auftragsverarbeiter Auslieferung, Angriffsschutz und die verschlüsselte Verbindung zu unseren Servern übernimmt (Cloudflare Tunnel), und danach auf unseren Servern. Cloudflare kann Daten in die USA übermitteln; die Übermittlung stützt sich auf das EU-US Data Privacy Framework und Standardvertragsklauseln. Rechtsgrundlage: berechtigtes Interesse an einem sicheren und stabilen Betrieb (Art. 6 Abs. 1 lit. f DSGVO).</p>
+          <p>Auf unseren eigenen Servern werden keine Zugriffsprotokolle mit IP-Adressen geschrieben, und die Anwendung selbst speichert IP-Adressen nicht dauerhaft. Für das öffentliche Meldeformular und das Kontaktformular wird die IP-Adresse 10 Minuten lang nur im Arbeitsspeicher gehalten, um Missbrauch zu begrenzen.{hashMatching && " Bei einem Treffer auf bekannte Missbrauchsdarstellungen wird sie zusammen mit dem Vorfall gespeichert (siehe Abschnitt 5)."}</p>
 
           <h2>12. Speicherung auf deinem Gerät</h2>
           <p>Wir setzen keine Cookies oder vergleichbaren Speicher für Werbung, Analyse oder Tracking ein und brauchen deshalb kein Cookie-Banner. Alle Einträge sind für den von dir gewünschten Dienst unbedingt erforderlich (§ 25 Abs. 2 Nr. 2 TDDDG):</p>
@@ -166,8 +167,9 @@ export function PrivacyPage() {
           <h2>10. Push notifications</h2>
           <p>If you turn on push notifications, we store the push address your browser creates. Notifications are delivered encrypted through your browser vendor's push service (for example Google, Mozilla or Apple). You can hide content in notifications. Legal basis: Art. 6(1)(a) GDPR; you can withdraw consent at any time in settings.</p>
 
-          <h2>11. Server logs</h2>
-          <p>Our web server stores technical access data (time, address, status code, browser identifier) with a truncated IP address for 7 days to detect errors and attacks (Art. 6(1)(f) GDPR). The application itself does not store IP addresses. For the public report form, your IP address is kept in memory only for 10 minutes to limit abuse.</p>
+          <h2>11. Connection data and IP addresses</h2>
+          <p>When you open ysocial, technically necessary connection data is processed, above all your IP address, so that the site can be delivered and protected against attacks. This happens first at Cloudflare, which acts as a processor for delivery, attack protection and the encrypted connection to our servers (Cloudflare Tunnel), and then on our servers. Cloudflare may transfer data to the USA; the transfer relies on the EU-US Data Privacy Framework and standard contractual clauses. Legal basis: our legitimate interest in secure and stable operation (Art. 6(1)(f) GDPR).</p>
+          <p>On our own servers no access logs with IP addresses are written, and the application itself does not store IP addresses permanently. For the public report form and the contact form, your IP address is kept in memory only for 10 minutes to limit abuse.{hashMatching && " On a match with known child sexual abuse material it is stored together with the incident (see section 5)."}</p>
 
           <h2>12. Storage on your device</h2>
           <p>We use no cookies or similar storage for advertising, analytics or tracking, so no cookie banner is needed. Every entry is strictly necessary for the service you asked for (§ 25(2) no. 2 TDDDG):</p>
