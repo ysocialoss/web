@@ -549,6 +549,7 @@ function AuthenticatedPostComposer({
       </div>
       {gifPickerOpen && (
         <GifPicker
+          infiniteScroll
           onSelect={(item) => {
             setGif(item);
             setGifPickerOpen(false);
