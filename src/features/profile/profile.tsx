@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import {
   api,
   errorMessage,
@@ -57,7 +57,10 @@ import { ReportMenu, copyLinkAction, type MenuAction } from "@/features/reports/
 import { setBlocked } from "@/features/reports/blocked-users";
 import { toast } from "@/components/ui/toast-manager";
 import { ConnectionsDialog, type ConnectionList } from "./connections-dialog";
-import { ProfileSkeleton } from "@/components/loading-skeletons";
+import { PostListSkeleton, ProfileSkeleton } from "@/components/loading-skeletons";
+import { useLoadMore } from "@/hooks/use-load-more";
+import { ImageViewer } from "@/features/feed/image-viewer";
+import { mergeTimelinePage } from "./profile-timeline";
 import { usePageTitle } from "@/hooks/use-page-title";
 import {
   getActionRevision,
@@ -129,6 +132,7 @@ export function ProfilePage({
     return peekProfile(profileCacheKey(handle, known));
   });
   const [pictureDialogOpen, setPictureDialogOpen] = useState(false);
+  const [avatarViewing, setAvatarViewing] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const hasGithubResult = searchParams.has("github") || searchParams.has("connection");
   const [editDialogOpen, setEditDialogOpen] = useState(hasGithubResult);
@@ -287,6 +291,31 @@ export function ProfilePage({
     void load(controller.signal);
     return () => controller.abort();
   }, [load, session]);
+  const nextCursor = loadedProfile?.nextCursors[tab] ?? null;
+  const [paging, setPaging] = useState(false);
+  const [pageFailure, setPageFailure] = useState<{ key: string; message: string } | null>(null);
+  const pageKey = `${handle}|${tab}`;
+  const pageError = pageFailure?.key === pageKey ? pageFailure.message : "";
+  const pagingRef = useRef(false);
+  const loadMore = useCallback(async () => {
+    const current = loadedProfile;
+    if (!current || !nextCursor || pagingRef.current) return;
+    pagingRef.current = true;
+    setPaging(true);
+    setPageFailure(null);
+    try {
+      const page = await api.profileTimeline(handle, tab, nextCursor);
+      setProfile((latest) =>
+        latest && latest.profile.id === current.profile.id ? mergeTimelinePage(latest, tab, page) : latest,
+      );
+    } catch (reason) {
+      setPageFailure({ key: pageKey, message: errorMessage(reason) });
+    } finally {
+      pagingRef.current = false;
+      setPaging(false);
+    }
+  }, [loadedProfile, nextCursor, handle, tab, pageKey]);
+  const sentinel = useLoadMore(() => void loadMore(), Boolean(nextCursor) && !paging && !pageError);
   useEffect(() => {
     if (loadedProfile)
       storeProfile(profileCacheKey(handle, viewerId), loadedProfile);
@@ -590,18 +619,37 @@ export function ProfilePage({
                 />
               </>
             ) : (
-              <Avatar hat className="absolute -bottom-8 left-4 size-16 ring-4 ring-background">
+              <>
+                <button
+                  type="button"
+                  aria-label="View profile picture"
+                  aria-haspopup="dialog"
+                  disabled={!profile.profile.avatarUrl}
+                  onClick={() => setAvatarViewing(true)}
+                  className="absolute -bottom-8 left-4 z-10 size-16 cursor-zoom-in rounded-[30%] ring-4 ring-background outline-none [corner-shape:squircle] focus-visible:ring-ring disabled:cursor-default"
+                >
+                  <Avatar hat className="size-full">
+                    {profile.profile.avatarUrl && (
+                      <AvatarImage
+                        src={profile.profile.avatarUrl}
+                        alt={`${profile.profile.displayName}'s avatar`}
+                        referrerPolicy="no-referrer"
+                      />
+                    )}
+                    <AvatarFallback className="text-lg">
+                      {profile.profile.displayName.slice(0, 2)}
+                    </AvatarFallback>
+                  </Avatar>
+                </button>
                 {profile.profile.avatarUrl && (
-                  <AvatarImage
-                    src={profile.profile.avatarUrl}
-                    alt={`${profile.profile.displayName}'s avatar`}
-                    referrerPolicy="no-referrer"
+                  <ImageViewer
+                    images={[{ src: profile.profile.avatarUrl, alt: `${profile.profile.displayName}'s avatar` }]}
+                    index={avatarViewing ? 0 : null}
+                    onIndexChange={(index) => setAvatarViewing(index !== null)}
+                    onClose={() => setAvatarViewing(false)}
                   />
                 )}
-                <AvatarFallback className="text-lg">
-                  {profile.profile.displayName.slice(0, 2)}
-                </AvatarFallback>
-              </Avatar>
+              </>
             )}
           </div>
           <div className="min-w-0">
@@ -701,6 +749,7 @@ export function ProfilePage({
             <div className="mt-2 -ml-1 flex flex-wrap items-center gap-0.5">
               {github && (
                 <ExternalLink
+                  warn={false}
                   className={cn(
                     buttonVariants({ variant: "ghost", size: "icon" }),
                     "size-7",
@@ -716,6 +765,7 @@ export function ProfilePage({
                 if (!provider) return null;
                 return (
                   <ExternalLink
+                    warn={false}
                     key={connection.provider}
                     className={cn(
                       buttonVariants({ variant: "ghost", size: "icon" }),
@@ -730,6 +780,7 @@ export function ProfilePage({
               })}
               {profile.profile.domains.map((domain) => (
                 <ExternalLink
+                  warn={false}
                   key={domain}
                   className={cn(
                     buttonVariants({ variant: "ghost", size: "icon" }),
@@ -812,7 +863,17 @@ export function ProfilePage({
                   pinnable={tab === "posts" && ownProfile}
                 />
               ))}
-          {profile[tab].length === 0 && <p className="mt-4">No {tab} yet.</p>}
+          {nextCursor && <div ref={sentinel} aria-hidden="true" className="h-px" />}
+          {paging && <PostListSkeleton count={2} label="Loading more…" lockScroll={false} />}
+          {pageError && (
+            <div className="space-y-2 py-4 text-center">
+              <p role="alert" className="text-sm text-destructive">{pageError}</p>
+              <Button variant="outline" size="sm" onClick={() => void loadMore()}>
+                Try again
+              </Button>
+            </div>
+          )}
+          {profile[tab].length === 0 && !nextCursor && <p className="mt-4">No {tab} yet.</p>}
         </>
       )}
     </div>

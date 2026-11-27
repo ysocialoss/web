@@ -42,11 +42,13 @@ export function ExternalLink({
   children,
   className,
   label,
+  warn: showWarning = true,
 }: {
   href: string;
   children: ReactNode;
   className: string;
   label?: string;
+  warn?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [remember, setRemember] = useState(false);
@@ -54,7 +56,7 @@ export function ExternalLink({
   const linkRef = useRef<HTMLAnchorElement>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
   function warn(event: MouseEvent<HTMLAnchorElement>) {
-    if (event.button > 1 || shouldSkipWarning()) return;
+    if (!showWarning || event.button > 1 || shouldSkipWarning()) return;
     event.preventDefault();
     setRemember(false);
     setOpen(true);

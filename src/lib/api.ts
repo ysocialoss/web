@@ -268,6 +268,7 @@ const linkedAccountSchema = z.object({
   displayOnProfile: z._default(z.boolean(), true),
 });
 export type ConnectionProviderName = z.infer<typeof connectionProviderSchema>;
+const profileReplySchema = z.object({ post: postSchema, thread: z.array(postSchema) });
 const profileSchema = z.object({
   profile: z.extend(userSchema, {
     isOg: z._default(z.boolean(), false),
@@ -307,9 +308,23 @@ const profileSchema = z.object({
   // Plain reposts and the person's own quote posts, newest first.
   reposts: z.array(postSchema),
   repostedBy: repostedBySchema,
-  replies: z.array(z.object({ post: postSchema, thread: z.array(postSchema) })),
+  replies: z.array(profileReplySchema),
+  nextCursors: z._default(z.object({
+    posts: z.nullable(z.string()),
+    replies: z.nullable(z.string()),
+    reposts: z.nullable(z.string()),
+  }), { posts: null, replies: null, reposts: null }),
   serverNow: z.string(),
 });
+const profileTimelineSchema = z.object({
+  posts: z.array(postSchema),
+  replies: z.array(profileReplySchema),
+  reposts: z.array(postSchema),
+  repostedBy: repostedBySchema,
+  nextCursor: z.nullable(z.string()),
+});
+export type ProfileTab = "posts" | "replies" | "reposts";
+export type ProfileTimelinePage = z.infer<typeof profileTimelineSchema>;
 const domainSchema = z.object({
   id: z.string(),
   domain: z.string(),
@@ -1565,6 +1580,14 @@ export const api = {
     request(
       `/api/profiles/${encodeURIComponent(handle)}`,
       profileSchema,
+      "GET",
+      undefined,
+      signal,
+    ),
+  profileTimeline: (handle: string, tab: ProfileTab, cursor: string, signal?: AbortSignal) =>
+    request(
+      `/api/profiles/${encodeURIComponent(handle)}/timeline?tab=${tab}&cursor=${encodeURIComponent(cursor)}`,
+      profileTimelineSchema,
       "GET",
       undefined,
       signal,
