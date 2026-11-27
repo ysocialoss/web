@@ -44,6 +44,7 @@ import { useSearchShortcut } from "@/features/search/use-search-shortcut";
 import { isTopicName, normalizeTopic } from "@/lib/topics";
 import type { Session } from "@/lib/api";
 import { useFeed } from "@/features/feed/use-feed";
+import { feedLocked } from "@/features/feed/feed-unlock";
 import { PostListSkeleton, ProfileSkeleton } from "@/components/loading-skeletons";
 import { ConnectionBanner } from "@/components/connection-banner";
 import { DynamicFavicon } from "@/components/dynamic-favicon";
@@ -418,7 +419,9 @@ function RouteFallback() {
 
 function HomeFeed({ session }: { session: Session | null }) {
   usePageTitle("Feed");
-  return <HomeFeedList session={session} surface="latest" header={<TrendingTopicsStrip />} />;
+  if (session === null) return <PostListSkeleton />;
+  if (feedLocked(session)) return <Navigate to="/following" replace />;
+  return <HomeFeedList session={session} surface="for_you" header={<TrendingTopicsStrip />} />;
 }
 function FollowingFeed({ session }: { session: Session | null }) {
   usePageTitle("Following");
@@ -432,7 +435,7 @@ function HomeFeedList({
   header,
 }: {
   session: Session | null;
-  surface: "latest" | "following";
+  surface: "for_you" | "following";
   header: ReactNode;
 }) {
   const feed = useFeed(session, undefined, true, undefined, undefined, undefined, surface);
@@ -443,7 +446,7 @@ function HomeFeedList({
       refreshKey={navigationKey}
       header={header}
       surface={surface}
-      emptyMessage={surface === "following" ? "No posts from people you follow yet." : undefined}
+      emptyMessage={surface === "following" ? "No posts from people you follow yet." : "Nothing to show yet. Follow a few people or check back soon."}
       floater={feed.canPost && <AdventGift />}
     />
   );

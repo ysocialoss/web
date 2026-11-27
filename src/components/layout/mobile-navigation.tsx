@@ -18,6 +18,7 @@ import { preloadRoute } from "@/routes";
 import { defaultNavigation, hiddenNavigation, navigation } from "./navigation";
 import { HiddenNavigation } from "./hidden-navigation";
 import { useShowHiddenNavigation } from "@/lib/show-hidden-navigation";
+import { useFeedUnlock } from "@/features/feed/feed-unlock";
 
 const COMPACT_AFTER = 64;
 const DIRECTION_STEP = 10;
@@ -130,6 +131,7 @@ export function MobileNavigation({ auth }: { auth: AuthState }) {
     <UserRound aria-hidden="true" />
   );
   const order = account?.user.navigation ?? defaultNavigation;
+  const feedUnlock = useFeedUnlock(auth);
   const showHidden = useShowHiddenNavigation();
   const hidden = showHidden ? hiddenNavigation(order, !!user) : [];
   const items = order
@@ -142,6 +144,9 @@ export function MobileNavigation({ auth }: { auth: AuthState }) {
         icon: id === "profile" ? profileIcon : <Icon aria-hidden="true" />,
         disabled,
         badge: id === "messages" ? unread : id === "activity" ? unreadCount : undefined,
+        locked: id === "feed" && feedUnlock.locked,
+        onLockedClick: id === "feed" ? feedUnlock.unlock : undefined,
+        tag: id === "feed" ? "Beta" : undefined,
       };
     });
   const activeTo = pathname.startsWith("/posts/")
@@ -187,6 +192,7 @@ export function MobileNavigation({ auth }: { auth: AuthState }) {
               className="pointer-events-auto w-max min-w-0 max-w-80"
             />
           )}
+          {feedUnlock.dialog}
           <div
             inert={!newPost}
             className={cn(

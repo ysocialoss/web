@@ -49,7 +49,7 @@ async function setup(page: Page, session: Record<string, unknown> | null = {}) {
           },
     }),
   );
-  await page.route("**/api/posts", (route) =>
+  await page.route(/\/api\/(posts|feed\/for-you)$/, (route) =>
     route.fulfill({ json: { posts: [post], repostedBy: {}, nextCursor: null, serverNow: new Date().toISOString() } }));
   await page.route("**/api/posts/states?*", (route) => route.fulfill({ json: { viewerId: viewer.id, posts: [] } }));
   await page.route("**/api/feed/events", (route) => {
@@ -223,5 +223,5 @@ test("the post menu explains why a post is in the feed", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("article").first().getByRole("button", { name: "Post options" }).click();
   await page.getByRole("menuitem", { name: "Why am I seeing this?" }).click();
-  await expect(page.getByRole("dialog", { name: "Why am I seeing this?" })).toContainText("Latest shows every public post");
+  await expect(page.getByRole("dialog", { name: "Why am I seeing this?" })).toContainText("picked for you by the ranked feed");
 });

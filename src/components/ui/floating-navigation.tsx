@@ -9,6 +9,9 @@ type FloatingNavigationItem = {
   activeIcon?: ReactNode;
   badge?: number;
   disabled?: boolean;
+  locked?: boolean;
+  onLockedClick?: () => void;
+  tag?: string;
 };
 
 export const floatingNavigationItemClass =
@@ -71,7 +74,19 @@ export function FloatingNavigation({
               }}
             />
             {items.map(
-              ({ to, label: itemLabel, icon, activeIcon, badge, disabled }) => {
+              ({ to, label: itemLabel, icon, activeIcon, badge, disabled, locked, onLockedClick, tag }) => {
+                if (locked)
+                  return (
+                    <button
+                      key={to}
+                      type="button"
+                      onClick={onLockedClick}
+                      aria-label={`${itemLabel}, turned off. Turn it on`}
+                      className={cn(floatingNavigationItemClass, "opacity-50")}
+                    >
+                      <span className={floatingNavigationIconClass}>{icon}</span>
+                    </button>
+                  );
                 if (disabled)
                   return (
                     <button
@@ -121,6 +136,14 @@ export function FloatingNavigation({
                           )}
                         >
                           {activeIcon}
+                        </span>
+                      )}
+                      {tag && !badge && (
+                        <span
+                          aria-hidden="true"
+                          className="absolute -right-3 -bottom-1.5 rounded-full bg-white/90 px-1 py-px text-[0.5rem] leading-none font-bold tracking-wide text-zinc-900 uppercase"
+                        >
+                          {tag}
                         </span>
                       )}
                       {!!badge && (

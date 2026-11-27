@@ -18,31 +18,47 @@ export const collectedFeedData = [
   { en: "Opening a post, expanding text, revealing text spoilers, opening media and playing voice notes", de: "Öffnen von Beiträgen, Aufklappen von Text, Aufdecken von Text-Spoilern, Öffnen von Medien und Abspielen von Sprachnachrichten" },
   { en: "The website domain of links you open and the topics you open", de: "Die Domain geöffneter Links und geöffnete Themen" },
   { en: "Likes, reposts, saves, replies, quotes, poll votes, follows, blocks and reports", de: "Likes, Reposts, Lesezeichen, Antworten, Zitate, Umfrage-Stimmen, Follows, Blockierungen und Meldungen" },
-  { en: "Where in the app it happened (for example Latest or a profile) and the position in the list", de: "Wo in der App es passierte (zum Beispiel Neueste oder ein Profil) und die Position in der Liste" },
+  { en: "Where in the app it happened (for example the Feed, Following or a profile) and the position in the list", de: "Wo in der App es passierte (zum Beispiel im Feed, bei Gefolgt oder auf einem Profil) und die Position in der Liste" },
+  { en: "Which posts the Feed picked for you, in which order, and the signals it used to rank them", de: "Welche Beiträge der Feed für dich ausgewählt hat, in welcher Reihenfolge und welche Signale er für die Sortierung genutzt hat" },
   { en: "Whether you use a phone or a desktop, derived from your browser's request headers", de: "Ob du ein Smartphone oder einen Computer nutzt, abgeleitet aus den Anfrage-Headern deines Browsers" },
   { en: "A random session number that is forgotten when you close the tab", de: "Eine zufällige Sitzungsnummer, die beim Schließen des Tabs vergessen wird" },
 ];
 
-export function FeedChoiceDialog({ onDone }: { onDone: () => void }) {
+export function FeedChoiceDialog({ onDone, onDismiss }: {
+  onDone: (personalize: boolean) => void;
+  onDismiss?: () => void;
+}) {
   const [busy, setBusy] = useState<"on" | "off" | null>(null);
   const [error, setError] = useState("");
+  const fromNav = onDismiss !== undefined;
   async function choose(personalize: boolean) {
     setBusy(personalize ? "on" : "off");
     setError("");
     try {
-      await api.setFeedPreferences(personalize);
-      onDone();
+      if (fromNav && !personalize) void api.feedChoiceDeclined().catch(() => {});
+      else await api.setFeedPreferences(personalize, fromNav ? "nav" : undefined);
+      onDone(personalize);
     } catch (reason) {
       setError(errorMessage(reason));
       setBusy(null);
     }
   }
   return (
-    <Dialog open onOpenChange={(_open, details) => details.cancel()}>
-      <DialogContent showCloseButton={false} className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-lg">
+    <Dialog
+      open
+      onOpenChange={(open, details) => {
+        if (open) return;
+        if (fromNav && busy === null) {
+          void api.feedChoiceDeclined().catch(() => {});
+          onDismiss();
+        } else details.cancel();
+      }}
+    >
+      <DialogContent showCloseButton={fromNav} className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-lg">
         <DialogHeader className="gap-2">
-          <DialogTitle className="text-xl font-semibold">Personalize your feed?</DialogTitle>
+          <DialogTitle className="text-xl font-semibold">{fromNav ? "Turn on your Feed?" : "Personalize your feed?"}</DialogTitle>
           <DialogDescription className="leading-relaxed">
+            {fromNav && "The Feed ranks posts for you, so it needs feed personalization. Following stays available either way. "}
             ysocial is learning to suggest posts you will like. If you turn this on, we record how you use the
             feed on ysocial, only to make your feed better. Nothing from other websites or apps is used, and nothing
             is used for advertising, sold or passed to third parties.
@@ -68,7 +84,7 @@ export function FeedChoiceDialog({ onDone }: { onDone: () => void }) {
         <DialogFooter className="gap-2">
           <Button variant="outline" disabled={busy !== null} onClick={() => void choose(false)}>
             {busy === "off" && <LoaderCircle aria-hidden="true" className="animate-spin" />}
-            Keep off
+            {fromNav ? "Not now" : "Keep off"}
           </Button>
           <Button disabled={busy !== null} onClick={() => void choose(true)}>
             {busy === "on" && <LoaderCircle aria-hidden="true" className="animate-spin" />}

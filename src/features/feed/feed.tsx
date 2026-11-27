@@ -1,6 +1,6 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { Link } from "react-router";
-import { Ellipsis, RotateCcw } from "lucide-react";
+import { CircleCheck, Ellipsis, RotateCcw } from "lucide-react";
 import {
   ComposerSkeleton,
   PostListSkeleton,
@@ -110,7 +110,14 @@ export function Feed({
                 feed.enteringIds.has(post.id) ? "live-enter" : undefined
               }
             >
-              <FeedTrackingContext.Provider value={{ surface, position }}>
+              <FeedTrackingContext.Provider
+                value={{
+                  surface,
+                  position: feed.placements[post.id]?.position ?? position,
+                  requestId: feed.placements[post.id]?.requestId,
+                  reason: feed.placements[post.id]?.reason,
+                }}
+              >
                 <FeedItem post={post} feed={feed} />
               </FeedTrackingContext.Provider>
             </div>
@@ -124,8 +131,16 @@ export function Feed({
             lockScroll={feed.feedPosts.length === 0}
           />
         )}
-        {!feed.loading && !feed.error && feed.feedPosts.length === 0 && (
+        {!feed.loading && !feed.error && feed.feedPosts.length === 0 && !feed.caughtUp && (
           <p className="py-4 text-muted-foreground">{emptyMessage}</p>
+        )}
+        {feed.ranked && feed.fallback && !feed.loading && feed.feedPosts.length > 0 && (
+          <p className="py-3 text-sm text-muted-foreground">
+            Showing recent posts while the feed catches up.
+          </p>
+        )}
+        {feed.ranked && !feed.loading && !feed.error && (feed.caughtUp || (!feed.loadMore && feed.feedPosts.length > 0)) && (
+          <CaughtUp onRefresh={() => void feed.refresh()} />
         )}
         {feed.loadMore && feed.error && feed.feedPosts.length > 0 && (
           <div className="flex justify-center py-4">
@@ -144,6 +159,29 @@ export function Feed({
         <NewPostDialog feed={feed} show={composerHidden} anchor={anchor} />
       )}
     </PullToRefresh>
+  );
+}
+
+function CaughtUp({ onRefresh }: { onRefresh: () => void }) {
+  return (
+    <div className="flex flex-col items-center gap-3 py-10 text-center">
+      <CircleCheck className="size-8 text-muted-foreground" aria-hidden="true" />
+      <div>
+        <p className="font-medium">You're all caught up</p>
+        <p className="text-sm text-muted-foreground">
+          You have seen the posts picked for you. New ones show up as people post.
+        </p>
+      </div>
+      <div className="flex flex-wrap justify-center gap-2">
+        <Button variant="outline" onClick={onRefresh}>
+          <RotateCcw aria-hidden="true" />
+          Refresh
+        </Button>
+        <Button variant="ghost" render={<Link to="/following" />}>
+          Open Following
+        </Button>
+      </div>
+    </div>
   );
 }
 

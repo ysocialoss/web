@@ -11,6 +11,7 @@ import {
   type GifSearchItem,
   type PollDraft,
   type VoiceDraft,
+  type FeedPlacement,
   type Post,
   type RepostAudience,
   type RepostContext,
@@ -44,8 +45,13 @@ const feedCache = new Map<
     posts: Post[];
     repostedBy: Record<string, RepostContext>;
     nextCursor: string | null;
+    placements: Record<string, FeedPlacement>;
+    caughtUp: boolean;
+    fallback: boolean;
+    fetchedAt: number;
   }
 >();
+const rankedReuseMs = 30 * 60 * 1000;
 
 export function useFeed(
   session: Session | null,
@@ -55,18 +61,30 @@ export function useFeed(
   /** Only posts and replies with this normalized topic. */
   topic?: string,
   search?: string,
-  surface: "latest" | "following" = "latest",
+  surface: "for_you" | "following" = "for_you",
 ) {
   const following = surface === "following" && parentId === undefined && !topic && !search;
+  const ranked = surface === "for_you" && parentId === undefined && !topic && !search;
   const viewerId =
     session?.authenticated && !session.needsOnboarding ? session.user.id : null;
   const cacheKey =
     parentId === undefined
-      ? `${viewerId ?? "anonymous"}${topic ? `|topic:${topic}` : ""}${search ? `|search:${search}` : ""}${following ? "|following" : ""}`
+      ? `${viewerId ?? "anonymous"}${topic ? `|topic:${topic}` : ""}${search ? `|search:${search}` : ""}${following ? "|following" : ""}${ranked ? "|for_you" : ""}`
       : null;
   const [cached] = useState(() =>
     cacheKey === null ? undefined : feedCache.get(cacheKey),
   );
+  const [cacheFresh] = useState(
+    () => !!cached && ranked && Date.now() - cached.fetchedAt < rankedReuseMs,
+  );
+  const [placements, setPlacements] = useState<Record<string, FeedPlacement>>(
+    cached?.placements ?? {},
+  );
+  const [caughtUp, setCaughtUp] = useState(cached?.caughtUp ?? false);
+  const [fallback, setFallback] = useState(cached?.fallback ?? false);
+  const [fetchedAt, setFetchedAt] = useState(cached?.fetchedAt ?? 0);
+  const liveIds = useRef(new Set<string>());
+  const pendingAcks = useRef(new Set<string>());
   const [feedPosts, setFeedPosts] = useState<Post[]>(cached?.posts ?? []);
   // Which posts are here because someone reposted them (home feed only).
   const [repostedBy, setRepostedBy] = useState<Record<string, RepostContext>>(
@@ -82,6 +100,7 @@ export function useFeed(
   const pendingPage = useRef<Awaited<ReturnType<typeof api.posts>> | null>(
     null,
   );
+  const [chainStarts, setChainStarts] = useState(0);
   useSyncExternalStore(subscribeToActions, getActionRevision);
   const localPosts = useSyncExternalStore(subscribeToLocalPosts, getLocalPosts);
   const visibleLocalPosts = localPosts.filter(
@@ -105,6 +124,9 @@ export function useFeed(
     return () => window.clearTimeout(timer);
   }, [enteringIds]);
   const onboarded = !!session?.authenticated && !session.needsOnboarding;
+  const sessionKey = ranked
+    ? `${viewerId ?? "anonymous"}|${onboarded ? session.user.feedPersonalize : ""}|${onboarded ? session.feedChoiceNeeded : ""}|${onboarded ? session.pendingApproval : ""}`
+    : session;
   const readOnly = onboarded && (session.pendingApproval || !!session.ban);
   const canPost = onboarded && !readOnly;
   const load = useCallback(
@@ -115,8 +137,24 @@ export function useFeed(
           ? await api.replies(parentId, cursor, signal)
           : following
             ? await api.following(cursor, signal)
-            : await api.posts(cursor, signal, topic, search);
+            : ranked
+              ? await api.forYou(cursor, signal)
+              : await api.posts(cursor, signal, topic, search);
         if (signal?.aborted) return;
+        const extra = page as {
+          placements?: Record<string, FeedPlacement>;
+          caughtUp?: boolean;
+          fallback?: boolean;
+        };
+        const pagePlacements = extra.placements ?? {};
+        setPlacements((current) =>
+          cursor || revalidate ? { ...current, ...pagePlacements } : pagePlacements,
+        );
+        if (ranked) {
+          setCaughtUp(extra.caughtUp ?? false);
+          setFallback(extra.fallback ?? false);
+        }
+        if (!cursor) setFetchedAt(Date.now());
         rememberPosts(page.posts, viewerId, startedAt);
         // The page is authoritative for the posts it holds, including their order:
         // a repost can lift an older post back to the top.
@@ -156,25 +194,35 @@ export function useFeed(
         if (!signal?.aborted) setLoading(false);
       }
     },
-    [parentId, viewerId, topic, search, following],
+    [parentId, viewerId, topic, search, following, ranked],
   );
   useEffect(() => {
     if (cacheKey === null) return;
-    feedCache.set(cacheKey, { posts: feedPosts, repostedBy, nextCursor });
-  }, [cacheKey, feedPosts, repostedBy, nextCursor]);
+    feedCache.set(cacheKey, { posts: feedPosts, repostedBy, nextCursor, placements, caughtUp, fallback, fetchedAt });
+  }, [cacheKey, feedPosts, repostedBy, nextCursor, placements, caughtUp, fallback, fetchedAt]);
   useEffect(() => {
-    if (!autoLoad) return;
+    if (!autoLoad || cacheFresh) return;
     const controller = new AbortController();
     // HTTP completes asynchronously; cleanup cancels stale responses.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    void load(undefined, controller.signal, !!cached);
+    void load(undefined, controller.signal, !!cached && !ranked);
     return () => controller.abort();
-  }, [load, session, autoLoad, cached]);
+  }, [load, sessionKey, autoLoad, cached, cacheFresh, ranked]);
   useLiveUpdates({
     enabled: autoLoad && parentId === undefined && !search,
-    scope: `${viewerId ?? "anonymous"}|${topic ?? ""}${following ? "|following" : ""}`,
-    relevant: (live) =>
-      ((topic
+    scope: `${viewerId ?? "anonymous"}|${topic ?? ""}${following ? "|following" : ""}${ranked ? "|for_you" : ""}`,
+    relevant: (live) => {
+      if (ranked) {
+        if (optimisticPostIds.includes(live.id)) {
+          pendingAcks.current.add(live.id);
+          return true;
+        }
+        const fresh = live.parentId === null && !live.reposted && live.authorId !== viewerId &&
+          !feedPosts.some((post) => post.id === live.id);
+        if (fresh) liveIds.current.add(live.id);
+        return fresh;
+      }
+      return ((topic
         ? live.topics.includes(topic)
         : live.parentId === null || live.reposted) &&
       (!localIds.has(live.id) || optimisticPostIds.includes(live.id)) &&
@@ -183,8 +231,30 @@ export function useFeed(
       (live.parentId !== null &&
         feedPosts.some(
           (post) => post.id === live.parentId && !post.selfReply,
-        )),
+        ));
+    },
     refresh: async (signal) => {
+      if (ranked) {
+        const acks = [...pendingAcks.current];
+        pendingAcks.current.clear();
+        if (acks.length) {
+          const confirmed = (
+            await Promise.all(
+              acks.map((id) => api.post(id, signal).then((result) => result.post, () => null)),
+            )
+          ).filter((post) => post !== null);
+          if (signal.aborted) return;
+          if (confirmed.length) {
+            setFeedPosts((current) => [
+              ...confirmed.filter((post) => !current.some((existing) => existing.id === post.id)),
+              ...current,
+            ]);
+            acknowledgePosts(confirmed);
+          }
+        }
+        if (!signal.aborted) setUnread(liveIds.current.size);
+        return;
+      }
       const startedAt = getActionRevision();
       const page = following
         ? await api.following(undefined, signal)
@@ -269,7 +339,19 @@ export function useFeed(
       );
     },
   });
+  function startChain() {
+    liveIds.current.clear();
+    pendingPage.current = null;
+    setUnread(0);
+    setChainStarts((current) => current + 1);
+    setLoading(true);
+    return load();
+  }
   function revealNew() {
+    if (ranked) {
+      void startChain();
+      return;
+    }
     const page = pendingPage.current;
     pendingPage.current = null;
     if (page) {
@@ -386,7 +468,13 @@ export function useFeed(
     pending: optimisticPostIds,
     unread,
     revealNew,
+    ranked,
+    placements,
+    caughtUp: ranked && caughtUp,
+    fallback: ranked && fallback,
+    chainStarts,
     refresh: () => {
+      if (ranked) return startChain();
       pendingPage.current = null;
       setUnread(0);
       return load();

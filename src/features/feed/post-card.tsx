@@ -541,6 +541,7 @@ export function PostCard({
           surface={explainSurface}
           authorHandle={post.author.handle}
           repost={repost}
+          reason={tracking?.reason}
         />
       )}
       <ConfirmationDialog

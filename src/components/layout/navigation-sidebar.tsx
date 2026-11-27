@@ -22,6 +22,7 @@ import { useNotifications } from "@/features/notifications/notifications-context
 import { SiteLogoLink, SiteLogoMark, SiteWordmark } from "./site-wordmark";
 import { preloadRoute } from "@/routes";
 import { useSessionHint } from "@/features/auth/session-hint";
+import { BetaTag, useFeedUnlock } from "@/features/feed/feed-unlock";
 
 const navItemClass =
   "group/nav flex h-10 w-full items-center gap-3 rounded-lg px-3 outline-none transition-[background-color,color,transform] duration-200 hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97]";
@@ -47,6 +48,7 @@ export function NavigationSidebar({
   const profilePath = user ? `/@${user.handle}` : session?.authenticated ? "/profile" : null;
   const items = account?.user.navigation ?? defaultNavigation;
   const showHidden = useShowHiddenNavigation();
+  const feedUnlock = useFeedUnlock(auth);
   const hidden = showHidden ? hiddenNavigation(items, signedIn) : [];
   const entries = items
     .filter((id) => id !== "profile" || profilePath !== null)
@@ -83,7 +85,20 @@ export function NavigationSidebar({
             <Tooltip key={to}>
               <TooltipTrigger
                 render={
-                  disabled ? (
+                  to === "/" && feedUnlock.locked ? (
+                    <button
+                      type="button"
+                      onClick={feedUnlock.unlock}
+                      aria-label={`${label}, turned off. Turn it on`}
+                      className={`${navItemClass} ${inactiveNavItemClass} opacity-60`}
+                    >
+                      <Icon className="size-5 shrink-0" />
+                      <span className="hidden items-center gap-2 lg:inline-flex">
+                        {label}
+                        <BetaTag />
+                      </span>
+                    </button>
+                  ) : disabled ? (
                     <span
                       tabIndex={0}
                       aria-label={`${label}: This feature is planned`}
@@ -135,7 +150,10 @@ export function NavigationSidebar({
                               </span>
                             )}
                           </span>
-                          <span className="hidden lg:inline">{label}</span>
+                          <span className="hidden items-center gap-2 lg:inline-flex">
+                            {label}
+                            {to === "/" && <BetaTag />}
+                          </span>
                         </>
                       )}
                     </NavLink>
@@ -146,7 +164,7 @@ export function NavigationSidebar({
                 side="right"
                 className={disabled ? "rounded-full" : undefined}
               >
-                {disabled ? "This feature is planned" : label}
+                {disabled ? "This feature is planned" : to === "/" && feedUnlock.locked ? "Turn on the Feed" : label}
               </TooltipContent>
             </Tooltip>
           ))}
@@ -179,6 +197,7 @@ export function NavigationSidebar({
             <HiddenNavigation items={hidden} profilePath={profilePath} />
           )}
         </nav>
+        {feedUnlock.dialog}
         {newPost && newPost.kind !== "reply" && (
           <Button
             type="button"

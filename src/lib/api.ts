@@ -175,6 +175,26 @@ const pageSchema = z.object({
   nextCursor: z.nullable(z.string()),
   serverNow: z.string(),
 });
+export const feedReasons = ["explore", "network", "following", "conversation", "social", "nearby", "popular", "recent"] as const;
+const placementSchema = z.object({
+  requestId: z.string(),
+  position: z.int(),
+  reason: z._default(z.enum(feedReasons), "recent"),
+});
+export type FeedPlacement = z.infer<typeof placementSchema>;
+export type FeedReason = (typeof feedReasons)[number];
+const placementsSchema = z._default(z.record(z.string(), placementSchema), {});
+const followingPageSchema = z.extend(pageSchema, {
+  requestId: z._default(z.nullable(z.string()), null),
+  placements: placementsSchema,
+});
+const rankedPageSchema = z.extend(pageSchema, {
+  requestId: z._default(z.nullable(z.string()), null),
+  placements: placementsSchema,
+  caughtUp: z._default(z.boolean(), false),
+  fallback: z._default(z.boolean(), false),
+});
+export type RankedPage = z.infer<typeof rankedPageSchema>;
 const feedPreferencesSchema = z.object({ personalize: z.boolean(), chosen: z._default(z.boolean(), true), cleared: z.optional(z.number()) });
 const postResponseSchema = z.object({
   post: postSchema,
@@ -560,6 +580,8 @@ const traceCodes: Record<string, number> = {
   push_subscription_not_found: 4009,
   invalid_feed_events: 4010,
   invalid_feed_preferences: 4011,
+  feed_personalization_required: 4012,
+  invalid_feed_config: 4013,
   // media
   invalid_avatar: 5001,
   avatar_png_required: 5002,
@@ -1247,15 +1269,25 @@ export const api = {
   following: (cursor?: string, signal?: AbortSignal) =>
     request(
       `/api/feed/following${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`,
-      pageSchema,
+      followingPageSchema,
+      "GET",
+      undefined,
+      signal,
+    ),
+  forYou: (cursor?: string, signal?: AbortSignal) =>
+    request(
+      `/api/feed/for-you${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`,
+      rankedPageSchema,
       "GET",
       undefined,
       signal,
     ),
   feedPreferences: (signal?: AbortSignal) =>
     request("/api/feed/preferences", feedPreferencesSchema, "GET", undefined, signal),
-  setFeedPreferences: (personalize: boolean) =>
-    request("/api/feed/preferences", feedPreferencesSchema, "PATCH", { personalize }, AbortSignal.timeout(10_000)),
+  setFeedPreferences: (personalize: boolean, source?: "nav") =>
+    request("/api/feed/preferences", feedPreferencesSchema, "PATCH", source ? { personalize, source } : { personalize }, AbortSignal.timeout(10_000)),
+  feedChoiceDeclined: () =>
+    request("/api/feed/choice-declined", z.undefined(), "POST", undefined, AbortSignal.timeout(10_000)),
   clearFeedActivity: () =>
     request("/api/feed/reset", z.object({ cleared: z.number() }), "POST", undefined, AbortSignal.timeout(15_000)),
   search: (query: string, signal?: AbortSignal) =>

@@ -30,7 +30,7 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
     await page.route("**/auth/me", (route) =>
       route.fulfill({ json: { authenticated: false } }),
     );
-    await page.route("**/api/posts", (route) =>
+    await page.route(/\/api\/(posts|feed\/for-you)$/, (route) =>
       route.fulfill({
         json: { posts: [post], nextCursor: null, serverNow: post.createdAt },
       }),
