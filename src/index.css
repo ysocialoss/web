@@ -177,6 +177,191 @@
     animation: none;
   }
 }
+
+.eve-star {
+  position: relative;
+  isolation: isolate;
+  display: inline-grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 1.1em;
+  height: 1.1em;
+  vertical-align: -0.2em;
+}
+.eve-star > svg {
+  width: 100%;
+  height: 100%;
+  transition: transform 0.45s cubic-bezier(0.3, 1.5, 0.5, 1);
+}
+.eve-star-glow {
+  position: absolute;
+  inset: -60%;
+  z-index: -1;
+  border-radius: 9999px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.35s ease;
+}
+.eve-star[data-floating] > * {
+  visibility: hidden;
+}
+.eve-star-glow::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+.eve-star:is(:hover, [data-hover]) .eve-star-glow,
+.eve-star[data-lit] .eve-star-glow {
+  opacity: 1;
+}
+.eve-star-sheen {
+  opacity: 0;
+}
+.eve-star:is(:hover, [data-hover]) .eve-star-sheen,
+.eve-star[data-lit] .eve-star-sheen {
+  animation: eve-sheen 2.6s ease-in-out infinite;
+}
+.eve-star-spark {
+  transform-box: fill-box;
+  transform-origin: center;
+  transform: scale(0);
+}
+.eve-star:is(:hover, [data-hover]) .eve-star-spark,
+.eve-star[data-lit] .eve-star-spark {
+  animation: eve-spark 1.5s ease-in-out infinite;
+}
+
+.eve-star[data-tier="paper"] .eve-star-glow {
+  background: radial-gradient(circle, rgb(255 190 110 / 0.6), rgb(255 145 60 / 0.2) 42%, transparent 66%);
+}
+.eve-star[data-tier="paper"]:is(:hover, [data-hover]) .eve-star-glow,
+.eve-star[data-tier="paper"][data-lit] .eve-star-glow {
+  animation: eve-candle 1.9s linear infinite;
+}
+.eve-star[data-tier="paper"]:is(:hover, [data-hover]) > svg,
+.eve-star[data-tier="paper"][data-lit] > svg {
+  transform-origin: 50% 4%;
+  animation: eve-swing 2.4s ease-in-out infinite;
+}
+
+.eve-star[data-tier="tin"] .eve-star-glow {
+  background: radial-gradient(circle, rgb(222 234 250 / 0.75), rgb(160 185 215 / 0.22) 44%, transparent 66%);
+}
+.eve-star[data-tier="tin"] .eve-star-glow::after {
+  inset: 22%;
+  border: 1px solid rgb(150 175 205 / 0.9);
+}
+.eve-star[data-tier="tin"]:is(:hover, [data-hover]) .eve-star-glow::after,
+.eve-star[data-tier="tin"][data-lit] .eve-star-glow::after {
+  animation: eve-chime 1.6s ease-out infinite;
+}
+.eve-star[data-tier="tin"]:is(:hover, [data-hover]) > svg {
+  transform: scale(1.08);
+}
+
+.eve-star[data-tier="gold"] .eve-star-glow {
+  background: radial-gradient(circle, rgb(255 214 120 / 0.7), rgb(240 170 40 / 0.22) 42%, transparent 66%);
+}
+.eve-star[data-tier="gold"] .eve-star-glow::after {
+  background: repeating-conic-gradient(from 0deg, rgb(255 205 90 / 0.75) 0deg 5deg, transparent 5deg 30deg);
+  mask-image: radial-gradient(circle, transparent 22%, #000 30%, transparent 70%);
+}
+.eve-star[data-tier="gold"]:is(:hover, [data-hover]) .eve-star-glow::after,
+.eve-star[data-tier="gold"][data-lit] .eve-star-glow::after {
+  animation: eve-turn 9s linear infinite;
+}
+.eve-star[data-tier="gold"]:is(:hover, [data-hover]) > svg {
+  transform: scale(1.1) rotate(-8deg);
+}
+
+.eve-star[data-tier="crystal"] .eve-star-glow {
+  background: radial-gradient(circle, rgb(215 240 255 / 0.75), rgb(130 195 240 / 0.2) 44%, transparent 66%);
+}
+.eve-star[data-tier="crystal"] .eve-star-glow::after {
+  inset: 12%;
+  background: conic-gradient(#8fe3ff, #c4b5ff, #ffc2e6, #fff0b0, #b4ffd8, #8fe3ff);
+  mask-image: radial-gradient(circle, transparent 52%, #000 58%, #000 64%, transparent 71%);
+  filter: blur(0.6px);
+}
+.eve-star[data-tier="crystal"]:is(:hover, [data-hover]) .eve-star-glow::after,
+.eve-star[data-tier="crystal"][data-lit] .eve-star-glow::after {
+  animation: eve-turn 3.2s linear infinite;
+}
+.eve-star[data-tier="crystal"]:is(:hover, [data-hover]) > svg {
+  transform: scale(1.1);
+}
+
+.eve-star[data-tier="guiding"] .eve-star-glow {
+  background:
+    radial-gradient(34% 16% at 42% 40%, rgb(70 225 165 / 0.75), transparent),
+    radial-gradient(30% 14% at 58% 60%, rgb(140 105 255 / 0.65), transparent),
+    radial-gradient(circle, rgb(255 244 200 / 0.75), transparent 42%);
+  filter: blur(2.5px);
+}
+.eve-star[data-tier="guiding"]:is(:hover, [data-hover]) .eve-star-glow,
+.eve-star[data-tier="guiding"][data-lit] .eve-star-glow {
+  animation: eve-aurora 4s ease-in-out infinite alternate;
+}
+.eve-star[data-tier="guiding"] .eve-star-glow::after {
+  inset: 50% calc(50% - 1px) -20%;
+  border-radius: 1px;
+  background: linear-gradient(to bottom, rgb(255 246 205 / 0.95), transparent);
+  transform-origin: top;
+}
+.eve-star[data-tier="guiding"]:is(:hover, [data-hover]) .eve-star-glow::after,
+.eve-star[data-tier="guiding"][data-lit] .eve-star-glow::after {
+  animation: eve-beam 2.2s ease-in-out infinite;
+}
+.eve-star[data-tier="guiding"]:is(:hover, [data-hover]) > svg {
+  transform: scale(1.12);
+}
+
+@keyframes eve-sheen {
+  0% { opacity: 0; transform: translateX(0); }
+  10% { opacity: 0.9; }
+  40% { opacity: 0.9; transform: translateX(34px); }
+  41%, 100% { opacity: 0; transform: translateX(34px); }
+}
+@keyframes eve-spark {
+  0%, 100% { transform: scale(0); opacity: 0; }
+  50% { transform: scale(1); opacity: 1; }
+}
+@keyframes eve-candle {
+  0%, 100% { transform: scale(1); filter: brightness(1); }
+  12% { transform: scale(0.94); filter: brightness(0.85); }
+  27% { transform: scale(1.05); filter: brightness(1.1); }
+  41% { transform: scale(0.97); filter: brightness(0.9); }
+  56% { transform: scale(1.03); filter: brightness(1.05); }
+  71% { transform: scale(0.93); filter: brightness(0.8); }
+  86% { transform: scale(1.04); filter: brightness(1.08); }
+}
+@keyframes eve-swing {
+  0%, 100% { transform: rotate(-7deg); }
+  50% { transform: rotate(7deg); }
+}
+@keyframes eve-chime {
+  0% { transform: scale(0.7); opacity: 0.9; }
+  100% { transform: scale(1.45); opacity: 0; }
+}
+@keyframes eve-turn {
+  to { transform: rotate(360deg); }
+}
+@keyframes eve-aurora {
+  0% { transform: rotate(-12deg) scale(0.95); }
+  100% { transform: rotate(28deg) scale(1.12); }
+}
+@keyframes eve-beam {
+  0%, 100% { transform: scaleY(0.55); opacity: 0.55; }
+  50% { transform: scaleY(1); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .eve-star *,
+  .eve-star .eve-star-glow::after,
+  .eve-star > svg {
+    animation: none !important;
+  }
+}
 @keyframes quote-rotate {
   0%, 18% { transform: translateX(0); }
   82%, 100% { transform: translateX(var(--quote-shift)); }

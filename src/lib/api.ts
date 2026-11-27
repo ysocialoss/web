@@ -36,6 +36,7 @@ export type PaintDefinition = z.infer<typeof paintDefinitionSchema>;
 export type Paint = z.infer<typeof paintSchema>;
 // A paint that fails to parse falls back to the plain name instead of breaking the list.
 const userPaintSchema = z.catch(z.nullable(paintSchema), null);
+const eveStarSchema = z._default(z.catch(z.nullable(z.object({ year: z.number(), doors: z.number() })), null), null);
 const adventCosmeticsSchema = z._default(z.array(z.object({ year: z.number(), day: z.number() })), []);
 export const userSchema = z.object({
   id: z.string(),
@@ -43,6 +44,7 @@ export const userSchema = z.object({
   displayName: z.string(),
   avatarUrl: z.nullable(z.string()),
   paint: userPaintSchema,
+  eveStar: eveStarSchema,
 });
 const catalogPaintSchema = z.extend(paintSchema, {
   isFree: z.boolean(),
@@ -148,6 +150,7 @@ const basePostSchema = z.object({
       handle: z.string(),
       displayName: z.string(),
       paint: userPaintSchema,
+      eveStar: eveStarSchema,
     })), null),
   // Mutual follows who liked this post: how many, and the first few.
   friendLikes: z._default(z.number(), 0),

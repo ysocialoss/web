@@ -6,7 +6,7 @@ import { useRewards } from "./advent-store";
 
 export const BADGE_DAY = 7;
 export const FRAME_DAY = 14;
-export const SNOW_DAY = 24;
+export const SNOW_DAY = 1;
 
 type Received = { year: number; day: number };
 

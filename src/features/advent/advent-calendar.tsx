@@ -18,7 +18,9 @@ import { errorMessage } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { ConfettiLayer, launchConfetti } from "./advent-confetti";
 import { GiftArt } from "./advent-gift";
+import { EveReveal, EveTileStar } from "./advent-eve";
 import { RewardPreview, type Viewer } from "./advent-previews";
+import { EVE_DAY } from "./eve-star";
 import { SnowField } from "./snow";
 import {
   ADVENT_DOORS,
@@ -33,6 +35,7 @@ import {
   useAdventNow,
   useAdventSecond,
   useAdventState,
+  useRewards,
 } from "./advent-store";
 
 type DoorStatus = "locked" | "today" | "opened" | "missed";
@@ -42,8 +45,12 @@ type Stage = { day: number; year: number; from: Box; to: Box };
 
 const days = Array.from({ length: ADVENT_DOORS }, (_, index) => index + 1);
 const RED = "#c62f3b";
-const BIG_DOORS = [7, 14, 24];
+const BIG_DOORS = [1, 7, 14, EVE_DAY];
 const bigRewards: Record<number, { title: (year: number) => string; text: string }> = {
+  1: {
+    title: () => "Snowy profile",
+    text: "Let it snow over the top of your profile for everyone who visits.",
+  },
   7: {
     title: (year) => `Christmas ${year} badge`,
     text: "A sparkling bauble for your profile. Everyone who visits sees it next to your name.",
@@ -52,19 +59,21 @@ const bigRewards: Record<number, { title: (year: number) => string; text: string
     title: () => "Christmas garland frame",
     text: "Wrap your banner in a festive garland, shown everywhere your banner appears.",
   },
-  24: {
-    title: () => "Snowy profile",
-    text: "Let it snow over the top of your profile for everyone who visits.",
+  [EVE_DAY]: {
+    title: (year) => `Christmas Eve star ${year}`,
+    text: "Every door you opened this December shaped the star next to your name.",
   },
 };
 
 const tileSpan: Record<number, string> = {
+  1: "col-span-2 row-span-2 md:col-start-6 md:row-start-1",
   7: "col-span-2 row-span-2 md:col-start-3 md:row-start-2",
+  13: "col-span-2 md:col-span-1",
   14: "col-span-2 row-span-2 md:col-start-6 md:row-start-3",
-  20: "md:col-span-2",
-  21: "col-span-2",
-  22: "col-span-2",
-  23: "col-span-2",
+  19: "md:col-span-2",
+  21: "col-span-2 md:col-span-1",
+  22: "col-span-2 md:col-span-1",
+  23: "col-span-2 md:col-span-1",
   24: "col-span-4 row-span-2 md:col-span-3 md:col-start-5 md:row-start-5",
 };
 
@@ -504,6 +513,7 @@ function TileFace({
       )}
     >
       {eve && <EveSparkles />}
+      {eve && status === "opened" && <OpenedEveStar year={year} fresh={fresh} />}
       {big ? (
         <m.span {...pop} className="relative grid flex-1 place-content-center text-center">
           <span
@@ -530,6 +540,21 @@ function TileFace({
         <StatusMark status={status} fresh={fresh} />
       </span>
     </span>
+  );
+}
+
+function OpenedEveStar({ year, fresh }: { year: number; fresh: boolean }) {
+  const reward = useRewards()?.find((item) => item.year === year && item.day === EVE_DAY);
+  if (!reward || reward.doorsOpened === null) return null;
+  return (
+    <m.span
+      className="absolute top-2.5 right-2.5 md:top-3 md:right-3"
+      initial={fresh ? { scale: 0, rotate: -40 } : false}
+      animate={{ scale: 1, rotate: 0 }}
+      transition={{ type: "spring", stiffness: 360, damping: 14, delay: fresh ? BEAT.swing + 0.6 : 0 }}
+    >
+      <EveTileStar year={year} doors={reward.doorsOpened} />
+    </m.span>
   );
 }
 
@@ -671,6 +696,8 @@ function RevealLight({ start }: { start: number }) {
 }
 
 function BigStage({ stage, viewer, onDone }: { stage: Stage; viewer: Viewer; onDone: () => void }) {
+  const { opened } = useAdventState();
+  const eve = stage.day === EVE_DAY;
   const [closing, setClosing] = useState(false);
   const [applying, setApplying] = useState(false);
   const reward = bigRewards[stage.day];
@@ -715,16 +742,30 @@ function BigStage({ stage, viewer, onDone }: { stage: Stage; viewer: Viewer; onD
         >
           <div className="flex min-h-full items-center justify-center p-5 sm:p-8">
             <div className="flex w-full max-w-md flex-col items-center text-center">
-              <RewardPreview day={stage.day} viewer={viewer} />
-              <h3 className="mt-5 text-2xl font-semibold tracking-tight">{reward.title(stage.year)}</h3>
-              <p className="mt-2 text-sm text-muted-foreground">{reward.text}</p>
+              {eve ? (
+                <EveReveal opened={opened} year={stage.year} start={reveal} viewer={viewer} />
+              ) : (
+                <>
+                  <RewardPreview day={stage.day} viewer={viewer} />
+                  <h3 className="mt-5 text-2xl font-semibold tracking-tight">{reward.title(stage.year)}</h3>
+                  <p className="mt-2 text-sm text-muted-foreground">{reward.text}</p>
+                </>
+              )}
               <div className="mt-6 flex w-full gap-2 sm:w-auto">
-                <Button variant="outline" size="lg" className="flex-1 sm:min-w-28" disabled={closing || applying} onClick={() => setClosing(true)}>
-                  Save
-                </Button>
-                <Button size="lg" className="flex-1 sm:min-w-28" disabled={closing || applying} onClick={() => void apply()}>
-                  Apply
-                </Button>
+                {eve ? (
+                  <Button size="lg" className="flex-1 sm:min-w-28" disabled={closing} onClick={() => setClosing(true)}>
+                    Wonderful
+                  </Button>
+                ) : (
+                  <>
+                    <Button variant="outline" size="lg" className="flex-1 sm:min-w-28" disabled={closing || applying} onClick={() => setClosing(true)}>
+                      Save
+                    </Button>
+                    <Button size="lg" className="flex-1 sm:min-w-28" disabled={closing || applying} onClick={() => void apply()}>
+                      Apply
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
           </div>
