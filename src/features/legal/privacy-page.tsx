@@ -6,7 +6,7 @@ export const privacyVersion = "2026-12-01";
 
 const storageKeys = [
   { key: "theme, branding", de: "Gewähltes Farbschema und Logo", en: "Chosen colour scheme and logo" },
-  { key: "ysocial:show-hidden-navigation, ysocial:skip-external-link-warning", de: "Anzeigeeinstellungen, die du selbst gesetzt hast", en: "Display settings you chose" },
+  { key: "ysocial:show-hidden-navigation, ysocial:skip-external-link-warning, advent:gift-hidden", de: "Anzeigeeinstellungen, die du selbst gesetzt hast", en: "Display settings you chose" },
   { key: "ysocial:dismiss-staging-notice, notification-prompt-dismissed, approval-welcome", de: "Merkt sich, dass du einen Hinweis geschlossen hast", en: "Remembers that you closed a notice" },
   { key: "session-hint", de: "Handle, Anzeigename und Avatar des angemeldeten Kontos für einen schnellen Start; wird beim Abmelden gelöscht", en: "Handle, display name and avatar of the signed-in account for a fast start; removed when you log out" },
   { key: "ysocial:recent-searches", de: "Deine letzten Suchanfragen, nur auf deinem Gerät; in der Suche löschbar", en: "Your recent searches, only on your device; can be cleared in search" },
@@ -26,7 +26,6 @@ const retention = [
   { de: "Vom Bildfilter markierte Uploads", en: "Uploads flagged by the image filter", value: { de: "7 Tage", en: "7 days" } },
   { de: "Kontaktnachrichten", en: "Contact messages", value: { de: "3 Monate nach Bearbeitung, unbearbeitet 12 Monate", en: "3 months after handling, 12 months if unhandled" } },
   { de: "Sitzungen", en: "Sessions", value: { de: "Bis zur Abmeldung, höchstens 30 Tage", en: "Until you log out, at most 30 days" } },
-  { de: "Hinweise auf Missbrauchsdarstellungen (nur Prüfsumme und Metadaten)", en: "Child sexual abuse material incidents (hash and metadata only)", value: { de: "12 Monate oder solange ein Verfahren läuft", en: "12 months or while proceedings are ongoing" } },
 ];
 
 const hashMatchingRetention = { de: "Hinweise auf Missbrauchsdarstellungen (nur Prüfsumme und Metadaten)", en: "Child sexual abuse material incidents (hash and metadata only)", value: { de: "12 Monate oder solange ein Verfahren läuft", en: "12 months or while proceedings are ongoing" } };
