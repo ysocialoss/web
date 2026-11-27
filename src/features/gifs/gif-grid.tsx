@@ -7,6 +7,7 @@ import {
 } from "react";
 import type { GifSearchItem } from "@/lib/api";
 import { GifPreview } from "./gif-preview";
+import { gifMediaUrl } from "@/lib/api";
 
 const gap = 8;
 const overscan = 200;
@@ -186,7 +187,7 @@ export function GifGrid({
               style={{ top, left, width, height, contain: "layout paint" }}
             >
               <GifPreview
-                src={item.previewUrl}
+                src={gifMediaUrl(item.previewUrl)}
                 width={item.width}
                 height={item.height}
                 alt={item.title}

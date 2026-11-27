@@ -5,7 +5,7 @@ import { Link } from "react-router";
 import { DisplayName } from "@/components/display-name";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
-import { api, type Post } from "@/lib/api";
+import { api, type Post, gifMediaUrl } from "@/lib/api";
 import { countFormat } from "@/lib/count-format";
 import { cn } from "@/lib/utils";
 import { ExternalLink } from "@/components/ui/external-link";
@@ -145,7 +145,7 @@ export function PostCard({ postId, href }: { postId: string; href: string }) {
           <Mic aria-hidden="true" className="size-4 shrink-0" /> Voice note
         </span>
       )}
-      {post.gif && <img src={post.gif.url} alt={post.gif.title || "GIF"} loading="lazy" decoding="async" referrerPolicy="no-referrer" className="max-h-52 max-w-full rounded-lg object-contain" />}
+      {post.gif && <img src={gifMediaUrl(post.gif.url)} alt={post.gif.title || "GIF"} loading="lazy" decoding="async" referrerPolicy="no-referrer" className="max-h-52 max-w-full rounded-lg object-contain" />}
       <PostImages ids={post.imageIds} compact />
       <span className="flex items-center gap-4 pt-0.5 text-xs text-muted-foreground">
         <Count icon={Heart} value={post.likes} label="likes" active={post.liked} activeLabel="you liked this" className="text-red-500" fill />

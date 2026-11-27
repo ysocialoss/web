@@ -1,6 +1,7 @@
 import { z } from "zod/mini";
 import { beginConnectionRetry } from "./connection-status";
 import { navigationItemsSchema, type NavigationItem } from "./navigation-items";
+import { feedContextHeader } from "@/features/feed/tracking/tracker";
 
 export const bannerCropSchema = z.object({
   x: z.number(),
@@ -171,6 +172,7 @@ const pageSchema = z.object({
   nextCursor: z.nullable(z.string()),
   serverNow: z.string(),
 });
+const feedPreferencesSchema = z.object({ personalize: z.boolean(), chosen: z._default(z.boolean(), true), cleared: z.optional(z.number()) });
 const postResponseSchema = z.object({
   post: postSchema,
   serverNow: z.string(),
@@ -217,6 +219,8 @@ const sessionSchema = z.union([
     user: z.null(),
     avatarUrl: z.nullable(z.string()),
     suggestedHandle: z.string(),
+    suggestedDisplayName: z._default(z.string(), ""),
+    termsVersion: z._default(z.string(), ""),
   }),
   z.object({
     authenticated: z.literal(true),
@@ -233,11 +237,15 @@ const sessionSchema = z.union([
       bannerUrl: z.nullable(z.string()),
       bannerCrop: z.nullable(bannerCropSchema),
       navigation: navigationItemsSchema,
+      feedPersonalize: z._default(z.boolean(), true),
       namePaintsDisabled: z._default(z.boolean(), false),
       namePaintAnimationsDisabled: z._default(z.boolean(), false),
     }),
     avatarUrl: z.nullable(z.string()),
     suggestedHandle: z.string(),
+    termsCurrent: z._default(z.nullable(z.boolean()), true),
+    termsVersion: z._default(z.string(), ""),
+    feedChoiceNeeded: z._default(z.boolean(), false),
   }),
 ]);
 const githubAccountSchema = z.object({
@@ -360,14 +368,125 @@ const connectionUserSchema = z.extend(userSchema, {
 });
 export type ConnectionUser = z.infer<typeof connectionUserSchema>;
 export const reportReasons = [
-  "spam", "harassment", "hate", "violence", "sexual", "self_harm", "misinformation", "impersonation", "illegal", "other",
+  "spam", "harassment", "hate", "violence", "sexual", "self_harm", "misinformation", "impersonation", "ai_generated", "illegal", "other",
 ] as const;
 export type ReportReason = (typeof reportReasons)[number];
 export type ReportTarget =
   | { type: "post"; id: string }
   | { type: "user"; id: string }
   | { type: "message"; conversationId: string; messageId: string; messages: { id: string; text: string }[] };
-export type ReportInput = { reason: ReportReason; details: string; target: ReportTarget };
+export const legalCategories = [
+  "child_sexual_abuse", "terrorism", "threats", "incitement", "insult_defamation", "unconstitutional_symbols",
+  "privacy_violation", "intellectual_property", "fraud", "youth_protection", "other",
+] as const;
+export type LegalCategory = (typeof legalCategories)[number];
+export const illegalDetailsMin = 30;
+export type ReportInput = {
+  reason: ReportReason;
+  details: string;
+  target: ReportTarget;
+  legalGround?: LegalCategory;
+  goodFaith?: true;
+};
+export type PublicReportInput = {
+  url: string;
+  reason: ReportReason;
+  legalGround?: LegalCategory;
+  details: string;
+  name?: string;
+  email?: string;
+  goodFaith: true;
+};
+const operatorSchema = z.object({
+  name: z.string(),
+  address: z.array(z.string()),
+  email: z.string(),
+  hashMatching: z._default(z.boolean(), false),
+  contacts: z.object({ privacy: z.nullable(z.string()), abuse: z.nullable(z.string()) }),
+});
+export type Operator = z.infer<typeof operatorSchema>;
+const appealSchema = z.object({
+  id: z.uuid(),
+  text: z.string(),
+  status: z.enum(["open", "upheld", "reversed"]),
+  staffNote: z.nullable(z.string()),
+  resolvedAt: z.nullable(z.string()),
+  createdAt: z.string(),
+  seenAt: z.optional(z.nullable(z.string())),
+});
+const decisionSchema = z.object({
+  id: z.uuid(),
+  action: z.string(),
+  targetType: z.enum(["post", "user", "message"]),
+  targetKey: z.nullable(z.string()),
+  excerpt: z.string(),
+  groundType: z.enum(["illegal", "terms"]),
+  groundRef: z.string(),
+  facts: z.string(),
+  automatedDetection: z.boolean(),
+  automatedDecision: z.boolean(),
+  fromReport: z.boolean(),
+  seenAt: z.nullable(z.string()),
+  reversedAt: z.nullable(z.string()),
+  createdAt: z.string(),
+  appeal: z.nullable(appealSchema),
+  appealDeadline: z.string(),
+  canAppeal: z.boolean(),
+});
+export type ModerationDecision = z.infer<typeof decisionSchema>;
+const reportUpdateSchema = z.object({
+  id: z.uuid(),
+  targetType: z.enum(["post", "user", "message"]),
+  targetHandle: z.string(),
+  reason: z.string(),
+  status: z.enum(["open", "resolved", "dismissed"]),
+  actionTaken: z.boolean(),
+  resolvedAt: z.nullable(z.string()),
+  seenAt: z.nullable(z.string()),
+  createdAt: z.string(),
+});
+export type ReportUpdate = z.infer<typeof reportUpdateSchema>;
+const noticesSchema = z.object({
+  decisions: z.array(decisionSchema),
+  reportUpdates: z.array(reportUpdateSchema),
+  unseen: z.number(),
+});
+export type ModerationNotices = z.infer<typeof noticesSchema>;
+const reportStatusSchema = z.object({
+  reference: z.uuid(),
+  targetType: z.enum(["post", "user", "message"]),
+  reason: z.string(),
+  status: z.enum(["open", "resolved", "dismissed"]),
+  actionTaken: z.boolean(),
+  resolvedAt: z.nullable(z.string()),
+  receivedAt: z.string(),
+});
+export type ReportStatus = z.infer<typeof reportStatusSchema>;
+export function gifMediaUrl<T extends string | null | undefined>(url: T): T {
+  if (!url) return url;
+  try {
+    const parsed = new URL(url, window.location.origin);
+    if (parsed.origin === window.location.origin) return url;
+    if (!/^static\d*\.klipy\.com$/.test(parsed.hostname)) return url;
+    return `/api/gifs/media?u=${encodeURIComponent(parsed.href)}` as T;
+  } catch {
+    return url;
+  }
+}
+export async function downloadDataExport() {
+  const response = await fetch("/api/me/export", { credentials: "same-origin", signal: AbortSignal.timeout(120_000) });
+  if (!response.ok) {
+    const parsed = z.object({ error: z.string() }).safeParse(await response.json().catch(() => null));
+    throw new ApiError(response.status, parsed.success ? parsed.data.error : "unexpected_response", "GET /api/me/export");
+  }
+  const name = /filename="([^"]+)"/.exec(response.headers.get("content-disposition") ?? "")?.[1] ?? "ysocial-export.zip";
+  const url = URL.createObjectURL(await response.blob());
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = name;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
 const notificationsSchema = z.object({
   notifications: z.array(notificationSchema),
   hideContent: z.optional(z.boolean()),
@@ -421,6 +540,8 @@ const traceCodes: Record<string, number> = {
   invalid_push_subscription: 4007,
   notification_not_found: 4008,
   push_subscription_not_found: 4009,
+  invalid_feed_events: 4010,
+  invalid_feed_preferences: 4011,
   // media
   invalid_avatar: 5001,
   avatar_png_required: 5002,
@@ -460,6 +581,8 @@ const traceCodes: Record<string, number> = {
   invalid_report: 8001,
   own_content: 8002,
   report_rate_limited: 8003,
+  invalid_contact_message: 8005,
+  contact_rate_limited: 8006,
   blocked: 8004,
   invalid_pin: 2013,
   invalid_connection: 9101,
@@ -679,6 +802,28 @@ function friendlyMessage(error: unknown) {
       return "You can't report your own content.";
     if (error.message === "report_rate_limited")
       return "You've sent a lot of reports recently. Try again in a few minutes.";
+    if (error.message === "contact_rate_limited")
+      return "You've sent several messages recently. Try again in a few minutes.";
+    if (error.message === "invalid_contact_message")
+      return "Write a message of at least 10 characters. If you add an email address, check that it is valid.";
+    if (error.message === "illegal_notice_incomplete")
+      return `Explain why the content is illegal (at least ${illegalDetailsMin} characters) and confirm the statement.`;
+    if (error.message === "notifier_contact_required")
+      return "Add your name and email address. They are only optional for reports of child sexual abuse material.";
+    if (error.message === "invalid_report_url")
+      return "Paste a link to a ysocial post or profile.";
+    if (error.message === "export_rate_limited")
+      return "You requested an export recently. Try again in 15 minutes.";
+    if (error.message === "already_appealed")
+      return "You already appealed this decision.";
+    if (error.message === "appeal_window_closed")
+      return "The six month appeal window for this decision has closed.";
+    if (error.message === "terms_required")
+      return "Confirm your age and accept the terms to continue.";
+    if (error.message === "upload_rejected")
+      return "This file can't be uploaded.";
+    if (error.message === "safety_check_unavailable")
+      return "Uploads are paused for a moment. Try again shortly.";
     if (error.message === "dm_message_not_found")
       return "This message is no longer available.";
     if (error.message === "post_id_conflict")
@@ -778,8 +923,9 @@ function request<T>(
   method = "GET",
   body?: unknown,
   signal?: AbortSignal,
+  headers?: Record<string, string>,
 ): Promise<T> {
-  const send = () => sendRequest(path, schema, method, body, signal);
+  const send = () => sendRequest(path, schema, method, body, signal, headers);
   // GIF search uses POST but is a read. Writes opt in at their owner, where
   // account checks and stable post IDs make replay safe.
   return method === "GET" || path === "/api/banners/gifs/search"
@@ -963,11 +1109,29 @@ export const api = {
       attemptSignal(5000, signal)),
   session: (signal?: AbortSignal) =>
     request("/auth/me", sessionSchema, "GET", undefined, signal),
-  onboard: (handle: string, pronouns: string) =>
+  onboard: (handle: string, pronouns: string, displayName: string) =>
     request("/auth/profile", z.object({ user: userSchema }), "POST", {
       handle,
       pronouns,
+      displayName,
+      acceptTerms: true,
+      ageConfirmed: true,
     }),
+  acceptTerms: (version: string) =>
+    request("/auth/terms", z.undefined(), "POST", { version, acceptTerms: true, ageConfirmed: true }, AbortSignal.timeout(10_000)),
+  operator: (signal?: AbortSignal) => sendRequest("/api/legal/operator", operatorSchema, "GET", undefined, attemptSignal(10_000, signal)),
+  moderationNotices: (signal?: AbortSignal) => request("/api/moderation/notices", noticesSchema, "GET", undefined, signal),
+  markNoticesSeen: () => request("/api/moderation/notices/seen", z.undefined(), "POST", undefined, AbortSignal.timeout(10_000)),
+  moderationDecision: (id: string, signal?: AbortSignal) =>
+    request(`/api/moderation/decisions/${encodeURIComponent(id)}`, decisionSchema, "GET", undefined, signal),
+  appealDecision: (id: string, text: string) =>
+    request(`/api/moderation/decisions/${encodeURIComponent(id)}/appeal`, z.object({ id: z.uuid() }), "POST", { text }, AbortSignal.timeout(10_000)),
+  sendContact: (input: { name?: string; email?: string; message: string; website?: string }) =>
+    request("/api/contact", z.undefined(), "POST", input, AbortSignal.timeout(15_000)),
+  publicReport: (input: PublicReportInput) =>
+    request("/api/reports/public", z.object({ reference: z.uuid(), receivedAt: z.string(), statusToken: z.string() }), "POST", input, AbortSignal.timeout(15_000)),
+  reportStatus: (token: string, signal?: AbortSignal) =>
+    request(`/api/reports/status/${encodeURIComponent(token)}`, reportStatusSchema, "GET", undefined, signal),
   searchGifs: (query: string, page = 1, signal?: AbortSignal) =>
     request(
       "/api/banners/gifs/search",
@@ -1062,6 +1226,20 @@ export const api = {
       signal,
     );
   },
+  following: (cursor?: string, signal?: AbortSignal) =>
+    request(
+      `/api/feed/following${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`,
+      pageSchema,
+      "GET",
+      undefined,
+      signal,
+    ),
+  feedPreferences: (signal?: AbortSignal) =>
+    request("/api/feed/preferences", feedPreferencesSchema, "GET", undefined, signal),
+  setFeedPreferences: (personalize: boolean) =>
+    request("/api/feed/preferences", feedPreferencesSchema, "PATCH", { personalize }, AbortSignal.timeout(10_000)),
+  clearFeedActivity: () =>
+    request("/api/feed/reset", z.object({ cleared: z.number() }), "POST", undefined, AbortSignal.timeout(15_000)),
   search: (query: string, signal?: AbortSignal) =>
     request(
       `/api/search?q=${encodeURIComponent(query)}`,
@@ -1226,7 +1404,7 @@ export const api = {
       attachmentIds,
       poll,
       quotedPostId,
-    }, voiceToken ? AbortSignal.timeout(15_000) : undefined),
+    }, voiceToken ? AbortSignal.timeout(15_000) : undefined, quotedPostId ? feedContextHeader(quotedPostId) : undefined),
   replies: (id: string, cursor?: string, signal?: AbortSignal) =>
     request(
       `${postPath(id)}/replies${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`,
@@ -1251,13 +1429,15 @@ export const api = {
       voiceToken,
       attachmentIds,
       poll,
-    }, voiceToken ? AbortSignal.timeout(15_000) : undefined),
+    }, voiceToken ? AbortSignal.timeout(15_000) : undefined, feedContextHeader(id)),
   vote: (id: string, optionIndex: number) =>
     request(
       `${postPath(id)}/poll/vote`,
       z.object({ poll: pollSchema }),
       "PUT",
       { optionIndex },
+      undefined,
+      feedContextHeader(id),
     ),
   postStates: (ids: string[], signal: AbortSignal) =>
     sendRequest(
@@ -1287,6 +1467,9 @@ export const api = {
       `${postPath(id)}/like`,
       z.object({ likes: z.number(), liked: z.boolean() }),
       liked ? "PUT" : "DELETE",
+      undefined,
+      undefined,
+      feedContextHeader(id),
     ),
   repost: (
     id: string,
@@ -1302,9 +1485,11 @@ export const api = {
       }),
       reposted ? "PUT" : "DELETE",
       reposted ? { audience } : undefined,
+      undefined,
+      feedContextHeader(id),
     ),
   save: (id: string, saved: boolean) =>
-    request(`${postPath(id)}/save`, z.object({ saved: z.boolean() }), saved ? "PUT" : "DELETE"),
+    request(`${postPath(id)}/save`, z.object({ saved: z.boolean() }), saved ? "PUT" : "DELETE", undefined, undefined, feedContextHeader(id)),
   pin: (id: string, pinned: boolean) =>
     request(
       `${postPath(id)}/pin`,
@@ -1361,7 +1546,7 @@ export const api = {
   report: (input: ReportInput) =>
     request(
       "/api/reports",
-      z.object({ status: z.enum(["reported", "already_reported"]) }),
+      z.object({ status: z.enum(["reported", "already_reported"]), reference: z.optional(z.nullable(z.string())) }),
       "POST",
       input,
     ),

@@ -12,6 +12,8 @@ import { PostCard } from "./post-card";
 import type { Post } from "@/lib/api";
 import type { FeedState } from "./use-feed";
 import { PullToRefresh } from "./pull-to-refresh.tsx";
+import { FeedTrackingContext } from "./tracking/tracking-context";
+import type { FeedSurface } from "./tracking/tracker";
 import {
   NewPostDialog,
   NewPostsNudge,
@@ -29,9 +31,11 @@ export function Feed({
   header,
   showComposer = true,
   emptyMessage = "No posts yet.",
+  surface,
   floater,
 }: {
   feed: FeedState;
+  surface?: FeedSurface;
   refreshKey?: string;
   /** Shown where the composer would be, e.g. a topic's title. */
   header?: ReactNode;
@@ -99,14 +103,16 @@ export function Feed({
         )}
         {feed.feedPosts
           .filter((post) => !selfReplyIds.has(post.id))
-          .map((post) => (
+          .map((post, position) => (
             <div
               key={post.id}
               className={
                 feed.enteringIds.has(post.id) ? "live-enter" : undefined
               }
             >
-              <FeedItem post={post} feed={feed} />
+              <FeedTrackingContext.Provider value={{ surface, position }}>
+                <FeedItem post={post} feed={feed} />
+              </FeedTrackingContext.Provider>
             </div>
           ))}
         {feed.loading && (
@@ -141,6 +147,8 @@ export function Feed({
   );
 }
 
+const untracked = { track: false };
+
 // Longer chains above a reply are cut down to the root and the last two posts.
 const MAX_SHOWN_ANCESTORS = 4;
 
@@ -165,13 +173,15 @@ function FeedItem({ post, feed }: { post: Post; feed: FeedState }) {
           replyContext
           connectToNext="tight"
         />
-        <PostCard
-          post={selfReply}
-          feed={feed}
-          compact
-          connectFromPrev
-          connectToNext={hidden > 0 ? "tight" : false}
-        />
+        <FeedTrackingContext.Provider value={untracked}>
+          <PostCard
+            post={selfReply}
+            feed={feed}
+            compact
+            connectFromPrev
+            connectToNext={hidden > 0 ? "tight" : false}
+          />
+        </FeedTrackingContext.Provider>
         {hidden > 0 && (
           <div className="relative pb-3 pl-12">
             <Link
@@ -212,14 +222,15 @@ function FeedItem({ post, feed }: { post: Post; feed: FeedState }) {
             </Link>
           </div>
         ) : (
-          <PostCard
-            key={item.ancestor.id}
-            post={item.ancestor}
-            feed={feed}
-            compact
-            connectToNext="tight"
-            connectFromPrev={index > 0}
-          />
+          <FeedTrackingContext.Provider key={item.ancestor.id} value={untracked}>
+            <PostCard
+              post={item.ancestor}
+              feed={feed}
+              compact
+              connectToNext="tight"
+              connectFromPrev={index > 0}
+            />
+          </FeedTrackingContext.Provider>
         ),
       )}
       <PostCard post={post} feed={feed} repost={repost} connectFromPrev />

@@ -2,6 +2,7 @@ import { z } from "zod/mini";
 
 export const navigationItemSchema = z.enum([
   "feed",
+  "following",
   "search",
   "messages",
   "activity",

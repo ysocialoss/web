@@ -7,7 +7,7 @@ import "@zriz/react/styles.css";
 import type { BannerCrop } from "@/lib/api";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Camera, Check, ImagePlus, Trash2 } from "lucide-react";
-import { api, errorMessage, retryRequest } from "@/lib/api";
+import { api, errorMessage, retryRequest, gifMediaUrl } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -103,7 +103,7 @@ function BannerPicker({
 }) {
   const [selection, setSelection] = useState<BannerSelection | null>(null);
   const file = selection?.kind === "upload" ? selection.file : null;
-  const preview = selection?.kind === "gif" ? selection.url : file;
+  const preview = selection?.kind === "gif" ? gifMediaUrl(selection.url) : file;
   const selectedGif = selection?.kind === "gif" ? selection.token : "";
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(false);

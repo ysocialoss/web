@@ -13,6 +13,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Onboarding } from "./onboarding";
+import { AccountGates, ModerationNoticeBanner } from "@/features/legal/account-gates";
 import type { AuthState } from "./use-auth";
 
 export function ApprovalBanner() {
@@ -35,16 +36,20 @@ export function Account({ auth }: { auth: AuthState }) {
   const signInError = location.pathname === "/login"
     ? new URLSearchParams(location.search).get("error")
     : null;
-  if (session?.authenticated && session.needsOnboarding) {
-    return <Onboarding auth={auth} suggestedHandle={session.suggestedHandle} />;
+  const onLegalPage = ["/legal/", "/contact", "/report"].some((prefix) => location.pathname.startsWith(prefix));
+  if (session?.authenticated && session.needsOnboarding && !onLegalPage) {
+    return <Onboarding auth={auth} suggestedHandle={session.suggestedHandle} suggestedDisplayName={session.suggestedDisplayName} />;
   }
   const ban = session?.authenticated && !session.needsOnboarding ? session.ban : null;
-  if (!auth.error && signInError === null && !ban && !auth.showApprovalWelcome) return null;
+  const userId = session?.authenticated && !session.needsOnboarding ? session.user.id : null;
+  const gates = onLegalPage ? null : <AccountGates auth={auth} />;
   return (
     <section
-      className="mx-auto mb-6 max-w-xl space-y-3"
+      className="mx-auto max-w-xl space-y-3 empty:hidden [&:has(>*)]:mb-6"
       aria-label="Account access"
     >
+      {gates}
+      {userId && <ModerationNoticeBanner userId={userId} />}
       {ban && <BanNotice key={ban.at} ban={ban} />}
       {auth.showApprovalWelcome && (
         <Dialog open onOpenChange={(open) => { if (!open) auth.dismissApprovalWelcome(); }}>

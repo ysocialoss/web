@@ -18,6 +18,7 @@ export function PostImages({ ids, compact = false }: { ids: string[]; compact?: 
             key={image.src}
             type="button"
             aria-label={`Open ${image.alt.toLowerCase()}`}
+            data-track="media"
             onClick={(event) => {
               event.preventDefault();
               event.stopPropagation();

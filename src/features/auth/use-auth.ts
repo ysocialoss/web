@@ -14,6 +14,7 @@ import { showRetryToast } from "@/lib/retry-toast";
 import { toast } from "@/components/ui/toast-manager";
 import { subscribeToLive } from "@/lib/live-events";
 import { rememberSession } from "./session-hint";
+import { clearRecentSearches } from "@/lib/search";
 
 function approvalWelcomeKey(userId: string) {
   return `approval-welcome:${userId}`;
@@ -144,6 +145,7 @@ export function useAuth() {
   }
   function logout() {
     const previous = session;
+    clearRecentSearches();
     function send() {
       const startedAt = ++sessionRevision.current;
       setSession({ authenticated: false });
@@ -186,6 +188,14 @@ export function useAuth() {
     setSession((current) =>
       current?.authenticated && !current.needsOnboarding && current.user.id === userId
         ? { ...current, user: { ...current.user, navigation: items } }
+        : current,
+    );
+  }
+  function updateFeedPersonalize(userId: string, feedPersonalize: boolean) {
+    sessionRevision.current++;
+    setSession((current) =>
+      current?.authenticated && !current.needsOnboarding && current.user.id === userId
+        ? { ...current, user: { ...current.user, feedPersonalize } }
         : current,
     );
   }
@@ -255,6 +265,7 @@ export function useAuth() {
 
   return {
     updateNavigationItems,
+    updateFeedPersonalize,
     updateProfile,
     updateBanner,
     updateAvatar,
@@ -275,8 +286,8 @@ export function useAuth() {
       }
       setWelcomeUserId(undefined);
     },
-    onboard: (handle: string, pronouns: string) => act(async () => {
-      const result = await api.onboard(handle, pronouns);
+    onboard: (handle: string, pronouns: string, displayName: string) => act(async () => {
+      const result = await api.onboard(handle, pronouns, displayName);
       rememberPendingApproval(result.user.id);
     }),
     logout,

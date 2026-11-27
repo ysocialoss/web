@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
   type MouseEvent,
+  type ReactNode,
 } from "react";
 import {
   BrowserRouter,
@@ -36,6 +37,7 @@ import { Feed } from "@/features/feed/feed";
 import { TrendingTopicsStrip } from "@/components/account/trending-topics";
 import { Account, ApprovalBanner } from "@/features/auth/account";
 import { useAuth, type AuthState } from "@/features/auth/use-auth";
+import { setFeedTracking } from "@/features/feed/tracking/tracker";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { useSearchShortcut } from "@/features/search/use-search-shortcut";
 import { isTopicName, normalizeTopic } from "@/lib/topics";
@@ -66,6 +68,14 @@ import {
   Thread,
   TopicPage,
   preloadRoutesWhenIdle,
+  ImprintPage,
+  PrivacyPage,
+  TermsPage,
+  FeedExplainerPage,
+  ContactPage,
+  ReportPage,
+  ReportStatusPage,
+  ModerationPage,
 } from "@/routes";
 import { AppUpdatePrompt } from "@/features/updates/app-update";
 
@@ -96,6 +106,14 @@ function AppShell() {
     [namePaintsDisabled, namePaintAnimationsDisabled],
   );
   useSearchShortcut();
+  const tracking = Boolean(
+    viewer && auth.session?.authenticated && !auth.session.needsOnboarding &&
+      !auth.session.pendingApproval && !auth.session.ban && viewer.feedPersonalize &&
+      !auth.session.feedChoiceNeeded && auth.session.termsCurrent !== false,
+  );
+  useEffect(() => {
+    setFeedTracking(tracking);
+  }, [tracking]);
   const awaitingApproval = auth.session?.authenticated && !auth.session.needsOnboarding
     && auth.session.pendingApproval && !auth.session.ban;
   // State, not a ref: the section is recreated when the signed-in session
@@ -303,6 +321,7 @@ function AppShell() {
             <Suspense fallback={<RouteFallback />}>
             <Routes>
               <Route path="/" element={<HomeFeed session={auth.session} />} />
+              <Route path="/following" element={<FollowingFeed session={auth.session} />} />
               <Route
                 path="/posts/:id"
                 element={<PostRoute session={auth.session} />}
@@ -347,23 +366,18 @@ function AppShell() {
                 path="/saved"
                 element={<SavedPage session={auth.session} />}
               />
-              <Route path="/report" element={<ComingSoon title="Report" />} />
+              <Route path="/contact" element={<ContactPage />} />
+              <Route path="/report" element={<ReportPage />} />
+              <Route path="/report/status/:token" element={<ReportStatusPage />} />
+              <Route path="/moderation" element={<ModerationPage />} />
               <Route
                 path="/bug"
                 element={<ComingSoon title="Report a bug" />}
               />
-              <Route
-                path="/legal/privacy"
-                element={<ComingSoon title="Privacy" />}
-              />
-              <Route
-                path="/legal/terms"
-                element={<ComingSoon title="Terms" />}
-              />
-              <Route
-                path="/legal/imprint"
-                element={<ComingSoon title="Imprint" />}
-              />
+              <Route path="/legal/privacy" element={<PrivacyPage />} />
+              <Route path="/legal/terms" element={<TermsPage />} />
+              <Route path="/legal/imprint" element={<ImprintPage />} />
+              <Route path="/legal/feed" element={<FeedExplainerPage />} />
               <Route
                 path="/settings/feed"
                 element={<ComingSoon title="Feed preferences" />}
@@ -400,13 +414,32 @@ function RouteFallback() {
 
 function HomeFeed({ session }: { session: Session | null }) {
   usePageTitle("Feed");
-  const feed = useFeed(session);
+  return <HomeFeedList session={session} surface="latest" header={<TrendingTopicsStrip />} />;
+}
+function FollowingFeed({ session }: { session: Session | null }) {
+  usePageTitle("Following");
+  if (session === null) return <PostListSkeleton />;
+  if (!session.authenticated || session.needsOnboarding) return <Navigate to="/" replace />;
+  return <HomeFeedList session={session} surface="following" header={<TrendingTopicsStrip />} />;
+}
+function HomeFeedList({
+  session,
+  surface,
+  header,
+}: {
+  session: Session | null;
+  surface: "latest" | "following";
+  header: ReactNode;
+}) {
+  const feed = useFeed(session, undefined, true, undefined, undefined, undefined, surface);
   const { key: navigationKey } = useLocation();
   return (
     <Feed
       feed={feed}
       refreshKey={navigationKey}
-      header={<TrendingTopicsStrip />}
+      header={header}
+      surface={surface}
+      emptyMessage={surface === "following" ? "No posts from people you follow yet." : undefined}
       floater={feed.canPost && <AdventGift />}
     />
   );

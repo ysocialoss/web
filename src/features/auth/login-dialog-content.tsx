@@ -21,6 +21,12 @@ export function LoginDialogContent({
       <DialogHeader>
         <DialogTitle>{title}</DialogTitle>
         <DialogDescription>{description}</DialogDescription>
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          By signing up you confirm that you are at least 16 and accept the{" "}
+          <a href="/legal/terms" className="underline underline-offset-4">Terms</a>. See how we handle data in the{" "}
+          <a href="/legal/privacy" className="underline underline-offset-4">privacy policy</a> and the{" "}
+          <a href="/legal/imprint" className="underline underline-offset-4">imprint</a>.
+        </p>
       </DialogHeader>
       <DialogFooter>
         <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>

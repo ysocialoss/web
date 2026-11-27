@@ -5,7 +5,7 @@ import { format } from "date-fns";
 import { CalendarDays, Check, UserRoundX } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { api, errorMessage, type ProfileCard } from "@/lib/api";
+import { api, errorMessage, type ProfileCard, gifMediaUrl } from "@/lib/api";
 import { countFormat } from "@/lib/count-format";
 import { TwitchLive } from "./twitch-live";
 import { BannerImage } from "./banner-image";
@@ -89,7 +89,7 @@ function UserCardBody({ card }: { card: ProfileCard }) {
       <div className={`relative aspect-[3.4/1] overflow-hidden bg-linear-to-br from-mention/40 via-mention-surface to-muted${cosmetics.frame ? " rounded-xl" : ""}`}>
         {profile.bannerUrl ? (
           <BannerImage
-            src={profile.bannerUrl}
+            src={gifMediaUrl(profile.bannerUrl)}
             crop={profile.bannerCrop}
             alt=""
           />

@@ -8,6 +8,7 @@ import {
 import { Link, useNavigationType } from "react-router";
 import { cn } from "@/lib/utils";
 import { api, errorMessage, type Post, type Session } from "@/lib/api";
+import { startDetailDwell } from "./tracking/tracker";
 import {
   ArrowLeft,
   ChevronRight,
@@ -97,6 +98,7 @@ export function Thread({
   const focusedRef = useRef<HTMLDivElement>(null);
   const anchored = useRef(false);
   const navigationType = useNavigationType();
+  useEffect(() => startDetailDwell(id), [id]);
   const parentPath = data?.post.parentId ? `/posts/${data.post.parentId}` : "/";
   const goBack = useGoBack(parentPath);
   const load = useCallback(

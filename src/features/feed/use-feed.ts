@@ -55,12 +55,14 @@ export function useFeed(
   /** Only posts and replies with this normalized topic. */
   topic?: string,
   search?: string,
+  surface: "latest" | "following" = "latest",
 ) {
+  const following = surface === "following" && parentId === undefined && !topic && !search;
   const viewerId =
     session?.authenticated && !session.needsOnboarding ? session.user.id : null;
   const cacheKey =
     parentId === undefined
-      ? `${viewerId ?? "anonymous"}${topic ? `|topic:${topic}` : ""}${search ? `|search:${search}` : ""}`
+      ? `${viewerId ?? "anonymous"}${topic ? `|topic:${topic}` : ""}${search ? `|search:${search}` : ""}${following ? "|following" : ""}`
       : null;
   const [cached] = useState(() =>
     cacheKey === null ? undefined : feedCache.get(cacheKey),
@@ -111,7 +113,9 @@ export function useFeed(
       try {
         const page = parentId
           ? await api.replies(parentId, cursor, signal)
-          : await api.posts(cursor, signal, topic, search);
+          : following
+            ? await api.following(cursor, signal)
+            : await api.posts(cursor, signal, topic, search);
         if (signal?.aborted) return;
         rememberPosts(page.posts, viewerId, startedAt);
         // The page is authoritative for the posts it holds, including their order:
@@ -152,7 +156,7 @@ export function useFeed(
         if (!signal?.aborted) setLoading(false);
       }
     },
-    [parentId, viewerId, topic, search],
+    [parentId, viewerId, topic, search, following],
   );
   useEffect(() => {
     if (cacheKey === null) return;
@@ -168,7 +172,7 @@ export function useFeed(
   }, [load, session, autoLoad, cached]);
   useLiveUpdates({
     enabled: autoLoad && parentId === undefined && !search,
-    scope: `${viewerId ?? "anonymous"}|${topic ?? ""}`,
+    scope: `${viewerId ?? "anonymous"}|${topic ?? ""}${following ? "|following" : ""}`,
     relevant: (live) =>
       ((topic
         ? live.topics.includes(topic)
@@ -182,7 +186,9 @@ export function useFeed(
         )),
     refresh: async (signal) => {
       const startedAt = getActionRevision();
-      const page = await api.posts(undefined, signal, topic);
+      const page = following
+        ? await api.following(undefined, signal)
+        : await api.posts(undefined, signal, topic);
       if (signal.aborted) return;
       const known = new Set([...localIds, ...feedPosts.map((post) => post.id)]);
       // A deletion can backfill the end of the first page with older posts.

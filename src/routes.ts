@@ -74,3 +74,12 @@ export function preloadRoutesWhenIdle() {
   if (idle) idle.call(window, run, { timeout: 6000 });
   else window.setTimeout(run, 3000);
 }
+
+export const ImprintPage = lazyRoute<Record<string, never>>(() => import("@/features/legal/imprint-page").then((m) => ({ default: m.ImprintPage })));
+export const PrivacyPage = lazyRoute<Record<string, never>>(() => import("@/features/legal/privacy-page").then((m) => ({ default: m.PrivacyPage })));
+export const TermsPage = lazyRoute<Record<string, never>>(() => import("@/features/legal/terms-page").then((m) => ({ default: m.TermsPage })));
+export const FeedExplainerPage = lazyRoute<Record<string, never>>(() => import("@/features/legal/feed-page").then((m) => ({ default: m.FeedExplainerPage })));
+export const ContactPage = lazyRoute<Record<string, never>>(() => import("@/features/legal/contact-page").then((m) => ({ default: m.ContactPage })));
+export const ReportPage = lazyRoute<Record<string, never>>(() => import("@/features/legal/report-page").then((m) => ({ default: m.ReportPage })));
+export const ReportStatusPage = lazyRoute<Record<string, never>>(() => import("@/features/legal/report-page").then((m) => ({ default: m.ReportStatusPage })));
+export const ModerationPage = lazyRoute<Record<string, never>>(() => import("@/features/legal/moderation-page").then((m) => ({ default: m.ModerationPage })));

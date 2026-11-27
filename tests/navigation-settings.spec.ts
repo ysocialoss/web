@@ -58,6 +58,8 @@ test("keyboard edits retain focus and survive a switch to the mobile layout", as
 
   const moveSearch = editor.getByRole("button", { name: "Move Search up" });
   await moveSearch.press("Enter");
+  await expect(editor.getByRole("listitem").nth(1)).toContainText("Search");
+  await moveSearch.press("Enter");
   await expect(moveSearch).toBeDisabled();
   await expect(moveSearch).toBeFocused();
   await expect(editor.getByRole("listitem").first()).toContainText("Search");
@@ -231,7 +233,7 @@ test("all shortcuts fit in a scrollable mobile bar on narrow screens", async ({
 
   await page.getByRole("button", { name: "Close account settings" }).click();
   const bar = page.getByRole("navigation", { name: "Mobile navigation" });
-  await expect(bar.getByRole("link")).toHaveCount(6);
+  await expect(bar.getByRole("link")).toHaveCount(7);
   await expect(bar.getByRole("button", { name: "Show hidden" })).toHaveCount(0);
   const saved = bar.getByRole("link", { name: "Saved posts" });
   await saved.scrollIntoViewIfNeeded();
@@ -251,6 +253,7 @@ test("the mobile bar stays compact with one visible shortcut and reachable with 
   const editor = page.getByRole("dialog", { name: "Customize navigation" });
   await editor.getByRole("switch", { name: "Show hidden shortcuts in navigation" }).check();
   for (const name of [
+    "Following",
     "Search",
     "Messages",
     "Activity",
@@ -288,7 +291,7 @@ test("the mobile bar stays compact with one visible shortcut and reachable with 
   await bar.getByRole("button", { name: "Show hidden" }).click();
   const hidden = page.getByRole("dialog", { name: "Hidden shortcuts" });
   await expect(hidden).toHaveAttribute("data-slot", "drawer-popup");
-  await expect(hidden.getByRole("link")).toHaveCount(6);
+  await expect(hidden.getByRole("link")).toHaveCount(7);
   await hidden.getByRole("link", { name: "Feed", exact: true }).click();
   await expect(page).toHaveURL(/\/$/);
   await expect(hidden).toBeHidden();

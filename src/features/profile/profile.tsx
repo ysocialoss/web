@@ -6,8 +6,7 @@ import {
   type Profile,
   type Session,
   type BannerCrop,
-  type Paint,
-} from "@/lib/api";
+  type Paint, gifMediaUrl } from "@/lib/api";
 import {
   ArrowLeft,
   Ban,
@@ -524,7 +523,7 @@ export function ProfilePage({
           <div className={cn("relative mb-12 aspect-3/1 rounded-xl bg-linear-to-br from-muted to-muted/40", cosmetics.frame && "mt-8 max-sm:mx-7")}>
             {profile.profile.bannerUrl && (
               <BannerImage
-                src={profile.profile.bannerUrl}
+                src={gifMediaUrl(profile.profile.bannerUrl)}
                 crop={profile.profile.bannerCrop}
                 alt={`${profile.profile.displayName}'s banner`}
               />

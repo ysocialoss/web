@@ -21,8 +21,7 @@ import {
   type GifSearchItem,
   type PollDraft,
   type Post,
-  type VoiceDraft,
-} from "@/lib/api";
+  type VoiceDraft, gifMediaUrl } from "@/lib/api";
 import { QuotedPostCard } from "./quoted-post";
 import { QuoteText, pickQuote, type ComposerQuote } from "./composer-quote";
 import { quoteOf } from "./quote";
@@ -309,7 +308,7 @@ function AuthenticatedPostComposer({
             <div className="w-full pt-2">
               <div className="relative w-fit max-w-full">
                 <img
-                  src={gif.previewUrl}
+                  src={gifMediaUrl(gif.previewUrl)}
                   alt={gif.title}
                   className="max-h-40 max-w-full rounded-xl"
                 />
