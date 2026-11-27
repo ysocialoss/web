@@ -701,6 +701,7 @@ export function ProfilePage({
             <div className="mt-2 -ml-1 flex flex-wrap items-center gap-0.5">
               {github && (
                 <ExternalLink
+                  warn={false}
                   className={cn(
                     buttonVariants({ variant: "ghost", size: "icon" }),
                     "size-7",
@@ -716,6 +717,7 @@ export function ProfilePage({
                 if (!provider) return null;
                 return (
                   <ExternalLink
+                    warn={false}
                     key={connection.provider}
                     className={cn(
                       buttonVariants({ variant: "ghost", size: "icon" }),
@@ -730,6 +732,7 @@ export function ProfilePage({
               })}
               {profile.profile.domains.map((domain) => (
                 <ExternalLink
+                  warn={false}
                   key={domain}
                   className={cn(
                     buttonVariants({ variant: "ghost", size: "icon" }),
