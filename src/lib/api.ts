@@ -308,6 +308,7 @@ const sessionSchema = z.union([
       feedDiscovery: sliderValueSchema,
       feedFreshness: sliderValueSchema,
       feedReplies: sliderValueSchema,
+      ageConfirmed: z._default(z.boolean(), false),
       namePaintsDisabled: z._default(z.boolean(), false),
       namePaintAnimationsDisabled: z._default(z.boolean(), false),
     }),
@@ -1207,8 +1208,8 @@ export const api = {
       acceptTerms: true,
       ageConfirmed: true,
     }),
-  acceptTerms: (version: string) =>
-    request("/auth/terms", z.undefined(), "POST", { version, acceptTerms: true, ageConfirmed: true }, AbortSignal.timeout(10_000)),
+  acceptTerms: (version: string, confirmAge: boolean) =>
+    request("/auth/terms", z.undefined(), "POST", confirmAge ? { version, acceptTerms: true, ageConfirmed: true } : { version, acceptTerms: true }, AbortSignal.timeout(10_000)),
   operator: (signal?: AbortSignal) => sendRequest("/api/legal/operator", operatorSchema, "GET", undefined, attemptSignal(10_000, signal)),
   moderationNotices: (signal?: AbortSignal) => request("/api/moderation/notices", noticesSchema, "GET", undefined, signal),
   markNoticesSeen: () => request("/api/moderation/notices/seen", z.undefined(), "POST", undefined, AbortSignal.timeout(10_000)),

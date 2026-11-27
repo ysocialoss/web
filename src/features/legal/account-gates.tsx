@@ -97,8 +97,13 @@ export function FeedChoiceDialog({ onDone, onDismiss }: {
   );
 }
 
-export function TermsUpdateDialog({ version, onDone, onLogout }: { version: string; onDone: () => void; onLogout: () => void }) {
-  const [age, setAge] = useState(false);
+export function TermsUpdateDialog({ version, ageConfirmed, onDone, onLogout }: {
+  version: string;
+  ageConfirmed: boolean;
+  onDone: () => void;
+  onLogout: () => void;
+}) {
+  const [age, setAge] = useState(ageConfirmed);
   const [terms, setTerms] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -106,7 +111,7 @@ export function TermsUpdateDialog({ version, onDone, onLogout }: { version: stri
     setBusy(true);
     setError("");
     try {
-      await api.acceptTerms(version);
+      await api.acceptTerms(version, !ageConfirmed);
       onDone();
     } catch (reason) {
       setError(errorMessage(reason));
@@ -124,11 +129,13 @@ export function TermsUpdateDialog({ version, onDone, onLogout }: { version: stri
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3 text-sm">
-          <label className="flex cursor-pointer items-start gap-3.5 rounded-lg border px-4 py-3">
-            <input type="checkbox" className="mt-0.5 size-4 shrink-0 accent-primary" checked={age} disabled={busy}
-              onChange={(event) => setAge(event.target.checked)} />
-            I am at least 16 years old.
-          </label>
+          {!ageConfirmed && (
+            <label className="flex cursor-pointer items-start gap-3.5 rounded-lg border px-4 py-3">
+              <input type="checkbox" className="mt-0.5 size-4 shrink-0 accent-primary" checked={age} disabled={busy}
+                onChange={(event) => setAge(event.target.checked)} />
+              I am at least 16 years old.
+            </label>
+          )}
           <label className="flex cursor-pointer items-start gap-3.5 rounded-lg border px-4 py-3">
             <input type="checkbox" className="mt-0.5 size-4 shrink-0 accent-primary" checked={terms} disabled={busy}
               onChange={(event) => setTerms(event.target.checked)} />
@@ -176,7 +183,7 @@ export function AccountGates({ auth }: { auth: AuthState }) {
   const session = auth.session;
   if (!session?.authenticated || session.needsOnboarding) return null;
   if (session.termsCurrent === false)
-    return <TermsUpdateDialog version={session.termsVersion} onDone={() => void auth.reload()} onLogout={auth.logout} />;
+    return <TermsUpdateDialog version={session.termsVersion} ageConfirmed={session.user.ageConfirmed} onDone={() => void auth.reload()} onLogout={auth.logout} />;
   if (session.feedChoiceNeeded && !session.ban && !auth.showApprovalWelcome)
     return <FeedChoiceDialog onDone={() => void auth.reload()} />;
   return null;
