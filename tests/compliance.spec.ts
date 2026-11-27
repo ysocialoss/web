@@ -82,11 +82,43 @@ test("legal pages render in German and English and the imprint handles a missing
 test("the imprint shows the configured operator and the DSA contact point", async ({ page }) => {
   await setup(page, null);
   await page.route("**/api/legal/operator", (route) => route.fulfill({
-    json: { name: "Erika Muster", address: ["c/o Beispiel", "25421 Pinneberg"], email: "hello@example.org", phone: null, contacts: { privacy: "privacy@example.org", abuse: "abuse@example.org" } },
+    json: { name: "Erika Muster", address: ["c/o Beispiel", "25421 Pinneberg"], email: "hello@example.org", hashMatching: false, contacts: { privacy: "privacy@example.org", abuse: "abuse@example.org" } },
   }));
   await page.goto("/legal/imprint");
   await expect(page.getByText("Erika Muster")).toBeVisible();
   await expect(page.getByRole("link", { name: "abuse@example.org" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "ysocial Kontaktformular" })).toBeVisible();
+  await expect(page.getByText("Telefon")).toHaveCount(0);
+});
+
+test("the hash matching paragraph only appears while it is enabled", async ({ page }) => {
+  await setup(page, null);
+  const operator = { name: "Erika Muster", address: ["c/o Beispiel"], email: "hello@example.org", contacts: { privacy: null, abuse: null } };
+  await page.route("**/api/legal/operator", (route) => route.fulfill({ json: { ...operator, hashMatching: false } }));
+  await page.goto("/legal/privacy?lang=en");
+  await expect(page.getByRole("heading", { name: "5. Safety and image checks" })).toBeVisible();
+  await expect(page.getByText("PhotoDNA")).toHaveCount(0);
+  await page.unroute("**/api/legal/operator");
+  await page.route("**/api/legal/operator", (route) => route.fulfill({ json: { ...operator, hashMatching: true } }));
+  await page.reload();
+  await expect(page.getByText("PhotoDNA").first()).toBeVisible();
+});
+
+test("the contact form sends a message and a filled honeypot is passed along", async ({ page }) => {
+  await setup(page, null);
+  let sent: unknown = null;
+  await page.route("**/api/contact", (route) => {
+    sent = route.request().postDataJSON();
+    return route.fulfill({ status: 204 });
+  });
+  await page.goto("/contact");
+  const send = page.getByRole("button", { name: "Send message" });
+  await expect(send).toBeDisabled();
+  await page.getByRole("textbox", { name: "Message", exact: true }).fill("I have a question about my account.");
+  await page.getByLabel(/Your email/).fill("me@example.org");
+  await send.click();
+  await expect(page.getByRole("heading", { name: "Message sent" })).toBeVisible();
+  expect(sent).toEqual({ message: "I have a question about my account.", email: "me@example.org" });
 });
 
 test("nothing is tracked until the feed choice is made, and keeping it off is saved", async ({ page }) => {

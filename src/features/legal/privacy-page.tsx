@@ -29,11 +29,15 @@ const retention = [
   { de: "Hinweise auf Missbrauchsdarstellungen (nur Prüfsumme und Metadaten)", en: "Child sexual abuse material incidents (hash and metadata only)", value: { de: "12 Monate oder solange ein Verfahren läuft", en: "12 months or while proceedings are ongoing" } },
 ];
 
+const hashMatchingRetention = { de: "Hinweise auf Missbrauchsdarstellungen (nur Prüfsumme und Metadaten)", en: "Child sexual abuse material incidents (hash and metadata only)", value: { de: "12 Monate oder solange ein Verfahren läuft", en: "12 months or while proceedings are ongoing" } };
+
 export function PrivacyPage() {
   const { operator } = useOperator();
   const controller = operator
     ? <address className="not-italic">{operator.name}{operator.address.map((line) => <span key={line} className="block">{line}</span>)}</address>
     : <p><a href="/legal/imprint">Impressum / Imprint</a></p>;
+  const hashMatching = operator?.hashMatching === true;
+  const retentionRows = hashMatching ? [...retention, hashMatchingRetention] : retention;
   const privacyMail = operator?.contacts.privacy ?? operator?.email;
   const mail = privacyMail ? <a href={`mailto:${privacyMail}`}>{privacyMail}</a> : <a href="/legal/imprint">Impressum</a>;
   return (
@@ -56,8 +60,11 @@ export function PrivacyPage() {
           <h2>4. Direktnachrichten</h2>
           <p>Direktnachrichten und ihre Anhänge sind Ende-zu-Ende-verschlüsselt. Der Server speichert nur verschlüsselte Inhalte und Metadaten (Teilnehmende, Zeitpunkte, Geräteschlüssel). Inhalte sehen wir nur, wenn du eine Nachricht meldest; dann wird der gemeldete Ausschnitt entschlüsselt mitgesendet.</p>
 
-          <h2>5. Sicherheit, Bildprüfung und Schutz vor Missbrauchsdarstellungen</h2>
-          <p>Hochgeladene Bilder prüft ein selbst betriebenes Klassifikationsmodell automatisch auf Nacktheit. Abgelehnte Uploads werden 7 Tage für eine Überprüfung durch das Moderationsteam aufbewahrt. Zusätzlich gleichen wir Bilder mit Prüfsummen bekannter Darstellungen sexuellen Kindesmissbrauchs ab (Microsoft PhotoDNA, sobald aktiviert). Bei einem Treffer wird der Upload blockiert, das Bild nicht gespeichert, nur eine Prüfsumme mit Metadaten (Konto, Zeitpunkt, IP-Adresse) gesichert, das Konto gesperrt und der Fall an die Strafverfolgungsbehörden gemeldet. Rechtsgrundlage: berechtigtes Interesse am Schutz der Nutzenden und Dritter sowie rechtliche Pflichten (Art. 6 Abs. 1 lit. c und f DSGVO). Microsoft verarbeitet die Bilder als Auftragsverarbeiter; dabei kann eine Übermittlung in die USA stattfinden, die auf das EU-US Data Privacy Framework gestützt ist.</p>
+          <h2>5. Sicherheit und Bildprüfung</h2>
+          <p>Hochgeladene Bilder prüft ein selbst betriebenes Klassifikationsmodell automatisch auf Nacktheit. Abgelehnte Uploads werden 7 Tage für eine Überprüfung durch das Moderationsteam aufbewahrt. Rechtsgrundlage: berechtigtes Interesse am Schutz der Nutzenden und Dritter (Art. 6 Abs. 1 lit. f DSGVO).</p>
+          {hashMatching && (
+            <p>Zusätzlich gleichen wir hochgeladene Bilder mit Prüfsummen (Hashes) bekannter Darstellungen sexuellen Kindesmissbrauchs ab (Microsoft PhotoDNA). Bei einem Treffer wird der Upload blockiert, das Bild nicht gespeichert, nur eine Prüfsumme mit Metadaten (Konto, Zeitpunkt, IP-Adresse) gesichert und das Konto vorläufig gesperrt. Treffer melden wir den zuständigen Behörden. Rechtsgrundlage: berechtigtes Interesse am Schutz von Kindern und anderen (Art. 6 Abs. 1 lit. f DSGVO) sowie, soweit wir Straftaten melden müssen, rechtliche Pflichten (Art. 6 Abs. 1 lit. c DSGVO, Art. 18 DSA). Microsoft verarbeitet die Bilder in unserem Auftrag; eine Übermittlung in die USA stützt sich auf das EU-US Data Privacy Framework.</p>
+          )}
 
           <h2>6. Feed-Personalisierung</h2>
           <p>Wenn du die Feed-Personalisierung einschaltest, zeichnen wir auf, wie du den Feed auf ysocial nutzt:</p>
@@ -89,15 +96,15 @@ export function PrivacyPage() {
           <h2>13. Empfänger und Auftragsverarbeiter</h2>
           <ul>
             <li>Hosting und Login (CNS): eigene Infrastruktur des Betreibers.</li>
-            <li>Speicherung von Avataren, Bannern und Sprachnachrichten: Cloudflare R2 mit Speicherort in der EU (Cloudflare, Inc. als Auftragsverarbeiter; Standardvertragsklauseln und EU-US Data Privacy Framework).</li>
-            <li>Abgleich mit bekannten Missbrauchsdarstellungen: Microsoft PhotoDNA (sobald aktiviert).</li>
+            <li>Auslieferung und Schutz der Website (Content-Delivery-Netzwerk, Cloudflare Tunnel) sowie Speicherung von Avataren, Bannern, Sprachnachrichten, Beitragsbildern und verschlüsselten Anhängen von Direktnachrichten (Cloudflare R2, Speicherort EU): Cloudflare, Inc. als Auftragsverarbeiter; Standardvertragsklauseln und EU-US Data Privacy Framework.</li>
+            {hashMatching && <li>Abgleich mit bekannten Missbrauchsdarstellungen: Microsoft PhotoDNA.</li>}
             <li>GIF-Suche: KLIPY (nur Suchbegriff und pseudonyme Kennung).</li>
             <li>Strafverfolgungsbehörden, wenn wir gesetzlich dazu verpflichtet sind oder eine Gefahr für Leben oder Sicherheit besteht.</li>
           </ul>
 
           <h2>14. Speicherdauer</h2>
           <table><thead><tr><th>Daten</th><th>Dauer</th></tr></thead><tbody>
-            {retention.map((row) => <tr key={row.de}><td>{row.de}</td><td>{row.value.de}</td></tr>)}
+            {retentionRows.map((row) => <tr key={row.de}><td>{row.de}</td><td>{row.value.de}</td></tr>)}
           </tbody></table>
 
           <h2>15. Deine Rechte</h2>
@@ -135,8 +142,11 @@ export function PrivacyPage() {
           <h2>4. Direct messages</h2>
           <p>Direct messages and their attachments are end-to-end encrypted. The server only stores encrypted content and metadata (participants, timestamps, device keys). We only see content if you report a message, in which case the reported excerpt is decrypted and sent along.</p>
 
-          <h2>5. Safety, image checks and protection against child sexual abuse material</h2>
-          <p>A self-hosted classification model automatically checks uploaded images for nudity. Rejected uploads are kept for 7 days so the moderation team can review them. We also compare images with hashes of known child sexual abuse material (Microsoft PhotoDNA, once enabled). On a match, the upload is blocked, the image is not stored, only a hash with metadata (account, time, IP address) is preserved, the account is suspended and the case is reported to law enforcement. Legal basis: our legitimate interest in protecting users and others and legal obligations (Art. 6(1)(c) and (f) GDPR). Microsoft processes images as our processor; this may involve a transfer to the USA based on the EU-US Data Privacy Framework.</p>
+          <h2>5. Safety and image checks</h2>
+          <p>A self-hosted classification model automatically checks uploaded images for nudity. Rejected uploads are kept for 7 days so the moderation team can review them. Legal basis: our legitimate interest in protecting users and others (Art. 6(1)(f) GDPR).</p>
+          {hashMatching && (
+            <p>We also compare uploaded images with hashes of known child sexual abuse material (Microsoft PhotoDNA). On a match, the upload is blocked, the image is not stored, only a hash with metadata (account, time, IP address) is preserved and the account is suspended pending review. We report matches to the competent authorities. Legal basis: our legitimate interest in protecting children and others (Art. 6(1)(f) GDPR) and, where we are obliged to report criminal offences, legal obligations (Art. 6(1)(c) GDPR, Art. 18 DSA). Microsoft processes the images on our behalf; a transfer to the USA relies on the EU-US Data Privacy Framework.</p>
+          )}
 
           <h2>6. Feed personalization</h2>
           <p>If you turn on feed personalization, we record how you use the feed on ysocial:</p>
@@ -168,15 +178,15 @@ export function PrivacyPage() {
           <h2>13. Recipients and processors</h2>
           <ul>
             <li>Hosting and login (CNS): the operator's own infrastructure.</li>
-            <li>Storage of avatars, banners and voice notes: Cloudflare R2 with EU data location (Cloudflare, Inc. as processor; standard contractual clauses and EU-US Data Privacy Framework).</li>
-            <li>Matching against known child sexual abuse material: Microsoft PhotoDNA (once enabled).</li>
+            <li>Delivery and protection of the website (content delivery network, Cloudflare Tunnel) and storage of avatars, banners, voice notes, post images and encrypted direct message attachments (Cloudflare R2, EU data location): Cloudflare, Inc. as processor; standard contractual clauses and EU-US Data Privacy Framework.</li>
+            {hashMatching && <li>Matching against known child sexual abuse material: Microsoft PhotoDNA.</li>}
             <li>GIF search: KLIPY (search term and pseudonymous identifier only).</li>
             <li>Law enforcement, where we are legally obliged or there is a threat to life or safety.</li>
           </ul>
 
           <h2>14. Retention</h2>
           <table><thead><tr><th>Data</th><th>Period</th></tr></thead><tbody>
-            {retention.map((row) => <tr key={row.en}><td>{row.en}</td><td>{row.value.en}</td></tr>)}
+            {retentionRows.map((row) => <tr key={row.en}><td>{row.en}</td><td>{row.value.en}</td></tr>)}
           </tbody></table>
 
           <h2>15. Your rights</h2>

@@ -401,7 +401,7 @@ const operatorSchema = z.object({
   name: z.string(),
   address: z.array(z.string()),
   email: z.string(),
-  phone: z.nullable(z.string()),
+  hashMatching: z._default(z.boolean(), false),
   contacts: z.object({ privacy: z.nullable(z.string()), abuse: z.nullable(z.string()) }),
 });
 export type Operator = z.infer<typeof operatorSchema>;
