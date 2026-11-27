@@ -1,5 +1,6 @@
 import { BADGE_DAY, BannerFrame, FRAME_DAY, FRAME_SPACE, SNOW_DAY, useCosmetics } from "@/features/advent/cosmetics";
-import { setRewardEnabled, useRewards, type Reward } from "@/features/advent/advent-store";
+import { setRewardEnabled, useAdventNow, useRewards, type Reward } from "@/features/advent/advent-store";
+import { EVE_DAY, EveStarArt, eveStarShown, eveTierFor } from "@/features/advent/eve-star";
 import {
   createContext,
   useContext,
@@ -852,6 +853,7 @@ function NamePaintSettings({ user, auth }: { user: SignedInUser; auth: AuthState
 
 function AdventSettings() {
   const rewards = useRewards();
+  const now = useAdventNow();
   const [error, setError] = useState("");
   if (!rewards) return null;
 
@@ -872,14 +874,37 @@ function AdventSettings() {
       <Switch checked={reward.enabled} onCheckedChange={(enabled) => void change(reward, enabled)} />
     </label>
   );
+  const stars = rewards.filter(
+    (reward) => reward.day === EVE_DAY && reward.doorsOpened !== null && eveStarShown(reward.year, now),
+  );
+  const starRow = (reward: Reward) => {
+    const tier = eveTierFor(reward.doorsOpened ?? 0);
+    return (
+      <label key={`${reward.year}-${reward.day}`} className="flex items-center justify-between gap-4">
+        <span className="flex min-w-0 items-center gap-3">
+          <EveStarArt tier={tier.id} className="size-6 shrink-0" />
+          <span className="min-w-0">
+            <span className="block font-medium">Show your {tier.name}</span>
+            <span className="block text-xs text-muted-foreground">
+              Next to your name until February 1, {reward.year + 1}
+            </span>
+          </span>
+        </span>
+        <Switch checked={reward.enabled} onCheckedChange={(enabled) => void change(reward, enabled)} />
+      </label>
+    );
+  };
   const badges = rewards.filter((reward) => reward.day === BADGE_DAY);
   const effects = rewards.filter((reward) => reward.day === FRAME_DAY || reward.day === SNOW_DAY);
-  if (badges.length === 0 && effects.length === 0) return null;
+  if (badges.length === 0 && effects.length === 0 && stars.length === 0) return null;
   return (
     <>
-      {badges.length > 0 && (
+      {(badges.length > 0 || stars.length > 0) && (
         <SettingsGroup title="Badges">
-          <div className="space-y-3 px-4 py-3 text-sm">{badges.map((reward) => row(reward, "Show your Christmas badge"))}</div>
+          <div className="space-y-3 px-4 py-3 text-sm">
+            {stars.map(starRow)}
+            {badges.map((reward) => row(reward, "Show your Christmas badge"))}
+          </div>
         </SettingsGroup>
       )}
       {effects.length > 0 && (

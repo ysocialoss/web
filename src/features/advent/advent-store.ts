@@ -7,7 +7,7 @@ export const ADVENT_DOORS = 24;
 
 const GIFT_HIDDEN_KEY = "advent:gift-hidden";
 
-export type Reward = { year: number; day: number; enabled: boolean };
+export type Reward = { year: number; day: number; enabled: boolean; doorsOpened: number | null };
 
 type State = {
   open: boolean;
@@ -98,7 +98,14 @@ export const isGiftSeason = (date: Date) => date.getMonth() === 11 && date.getDa
 
 const doorsSchema = z.object({ year: z.number(), opened: z.array(z.number()) });
 const rewardsSchema = z.object({
-  rewards: z.array(z.object({ year: z.number(), day: z.number(), enabled: z.boolean() })),
+  rewards: z.array(
+    z.object({
+      year: z.number(),
+      day: z.number(),
+      enabled: z.boolean(),
+      doorsOpened: z._default(z.nullable(z.number()), null),
+    }),
+  ),
 });
 
 function apply(year: number, opened: number[]) {
