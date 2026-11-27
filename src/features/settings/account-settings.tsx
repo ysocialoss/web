@@ -1,5 +1,5 @@
 import { BADGE_DAY, BannerFrame, FRAME_DAY, FRAME_SPACE, SNOW_DAY, useCosmetics } from "@/features/advent/cosmetics";
-import { setRewardEnabled, useAdventNow, useRewards, type Reward } from "@/features/advent/advent-store";
+import { setRewardEnabled, useRewards, type Reward } from "@/features/advent/advent-store";
 import { EVE_DAY, EveStarArt, eveStarShown, eveTierFor } from "@/features/advent/eve-star";
 import {
   createContext,
@@ -78,6 +78,7 @@ import {
 import { PushSettings } from "@/features/notifications/push-settings";
 import { useNotifications } from "@/features/notifications/notifications-context";
 import { BlockedAccountsDialog } from "@/features/reports/blocked-accounts-dialog";
+import { useCelebrations } from "@/lib/celebrations";
 import { SiteWordmark } from "@/components/layout/site-wordmark";
 import { api, errorMessage, type NamePaintPreference, type Profile, type Session, gifMediaUrl } from "@/lib/api";
 import {
@@ -853,7 +854,7 @@ function NamePaintSettings({ user, auth }: { user: SignedInUser; auth: AuthState
 
 function AdventSettings() {
   const rewards = useRewards();
-  const now = useAdventNow();
+  const { eveStarSince } = useCelebrations();
   const [error, setError] = useState("");
   if (!rewards) return null;
 
@@ -875,7 +876,7 @@ function AdventSettings() {
     </label>
   );
   const stars = rewards.filter(
-    (reward) => reward.day === EVE_DAY && reward.doorsOpened !== null && eveStarShown(reward.year, now),
+    (reward) => reward.day === EVE_DAY && reward.doorsOpened !== null && eveStarShown(reward.year, eveStarSince),
   );
   const starRow = (reward: Reward) => {
     const tier = eveTierFor(reward.doorsOpened ?? 0);

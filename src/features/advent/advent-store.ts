@@ -2,6 +2,7 @@ import { useSyncExternalStore } from "react";
 import { z } from "zod/mini";
 import { sendRequest } from "@/lib/api";
 import { useNow } from "@/hooks/use-now";
+import { serverNow } from "@/lib/celebrations";
 
 export const ADVENT_DOORS = 24;
 
@@ -59,8 +60,25 @@ const subscribe = (listener: () => void) => {
 
 export const useAdventState = () => useSyncExternalStore(subscribe, () => state, () => state);
 
+const berlinFormat = new Intl.DateTimeFormat("en-GB", {
+  timeZone: "Europe/Berlin",
+  year: "numeric",
+  month: "numeric",
+  day: "numeric",
+  hour: "numeric",
+  minute: "numeric",
+  second: "numeric",
+  hourCycle: "h23",
+});
+
+function berlinClock() {
+  const part = Object.fromEntries(berlinFormat.formatToParts(serverNow()).map((entry) => [entry.type, Number(entry.value)]));
+  return new Date(part.year, part.month - 1, part.day, part.hour, part.minute, part.second);
+}
+
 export function useAdventNow() {
-  return new Date(useNow());
+  useNow();
+  return berlinClock();
 }
 
 const secondListeners = new Set<() => void>();
@@ -86,15 +104,13 @@ function subscribeSecond(listener: () => void) {
 }
 
 export function useAdventSecond() {
-  return new Date(useSyncExternalStore(subscribeSecond, () => second, () => second));
+  useSyncExternalStore(subscribeSecond, () => second, () => second);
+  return berlinClock();
 }
 
 export function adventDay(date: Date) {
   return { year: date.getFullYear(), month: date.getMonth(), day: date.getDate() };
 }
-
-export const isAdventSeason = (date: Date) => date.getMonth() === 11;
-export const isGiftSeason = (date: Date) => date.getMonth() === 11 && date.getDate() <= 26;
 
 const doorsSchema = z.object({ year: z.number(), opened: z.array(z.number()) });
 const rewardsSchema = z.object({
