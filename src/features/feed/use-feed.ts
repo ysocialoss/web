@@ -425,6 +425,20 @@ export function useFeed(
       onConfirmed,
     });
   }
+  function dismiss(match: (post: Post) => boolean) {
+    if (!ranked) return () => {};
+    const removed = feedPosts.flatMap((post, index) => (match(post) ? [{ post, index }] : []));
+    if (!removed.length) return () => {};
+    const ids = new Set(removed.map((entry) => entry.post.id));
+    setFeedPosts((current) => current.filter((post) => !ids.has(post.id)));
+    return () =>
+      setFeedPosts((current) => {
+        const next = [...current];
+        for (const entry of removed)
+          if (!next.some((post) => post.id === entry.post.id)) next.splice(Math.min(entry.index, next.length), 0, entry.post);
+        return next;
+      });
+  }
   return {
     feedPosts: [
       ...visibleLocalPosts.map((entry) => entry.post),
@@ -473,6 +487,7 @@ export function useFeed(
     caughtUp: ranked && caughtUp,
     fallback: ranked && fallback,
     chainStarts,
+    dismiss,
     refresh: () => {
       if (ranked) return startChain();
       pendingPage.current = null;

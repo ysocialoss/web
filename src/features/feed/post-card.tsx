@@ -40,6 +40,7 @@ import { useBlockedUser } from "@/features/reports/blocked-users";
 import { linkDomain, observePost, surfaceForPath, trackFeedEvent, type TrackingContext } from "./tracking/tracker";
 import { usePostTracking } from "./tracking/tracking-context";
 import { explainedSurfaces, WhyThisPostDialog } from "./why-this-post";
+import { feedbackActions } from "./feed-feedback";
 import { gifMediaUrl } from "@/lib/api";
 
 export function PostCard({
@@ -396,6 +397,7 @@ export function PostCard({
                     onSelect: () => void feed.toggleSave(post),
                   },
                   copyLinkAction(`/posts/${post.id}`),
+                  ...(feed.ranked && trackSurface === "for_you" && trackRequest ? feedbackActions(post, feed.dismiss) : []),
                   ...(explainable
                     ? [{ label: "Why am I seeing this?", icon: Info, immediate: true, onSelect: () => setExplaining(true) }]
                     : []),
@@ -542,6 +544,8 @@ export function PostCard({
           authorHandle={post.author.handle}
           repost={repost}
           reason={tracking?.reason}
+          postId={post.id}
+          requestId={trackSurface === "for_you" ? trackRequest ?? null : null}
         />
       )}
       <ConfirmationDialog
