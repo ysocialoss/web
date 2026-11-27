@@ -36,12 +36,13 @@ export function Account({ auth }: { auth: AuthState }) {
   const signInError = location.pathname === "/login"
     ? new URLSearchParams(location.search).get("error")
     : null;
-  if (session?.authenticated && session.needsOnboarding) {
+  const onLegalPage = ["/legal/", "/contact", "/report"].some((prefix) => location.pathname.startsWith(prefix));
+  if (session?.authenticated && session.needsOnboarding && !onLegalPage) {
     return <Onboarding auth={auth} suggestedHandle={session.suggestedHandle} suggestedDisplayName={session.suggestedDisplayName} />;
   }
   const ban = session?.authenticated && !session.needsOnboarding ? session.ban : null;
   const userId = session?.authenticated && !session.needsOnboarding ? session.user.id : null;
-  const gates = <AccountGates auth={auth} />;
+  const gates = onLegalPage ? null : <AccountGates auth={auth} />;
   return (
     <section
       className="mx-auto max-w-xl space-y-3 empty:hidden [&:has(>*)]:mb-6"
