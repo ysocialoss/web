@@ -353,20 +353,22 @@ function BannerPicker({
               ref={scrollRoot}
               aria-busy={loading}
             >
-              <GifGrid
-                items={results?.items ?? []}
-                scrollRoot={scrollRoot}
-                disabled={busy}
-                onSelect={(item) => {
-                  setReady(false);
-                  setSelection({
-                    kind: "gif",
-                    token: item.token,
-                    url: item.url,
-                  });
-                  setError("");
-                }}
-              />
+              {results && (
+                <GifGrid
+                  items={results.items}
+                  scrollRoot={scrollRoot}
+                  disabled={busy}
+                  onSelect={(item) => {
+                    setReady(false);
+                    setSelection({
+                      kind: "gif",
+                      token: item.token,
+                      url: item.url,
+                    });
+                    setError("");
+                  }}
+                />
+              )}
               <div ref={sentinel} className="h-px" aria-hidden="true" />
               {loading && results && (
                 <p
