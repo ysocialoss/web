@@ -60,7 +60,7 @@ for (const reply of [false, true]) {
       }),
     );
     await page.route("**/api/**", (route) => route.fulfill({ json: {} }));
-    await page.route("**/api/posts", async (route) => {
+    await page.route(/\/api\/(posts|feed\/for-you)$/, async (route) => {
       if (route.request().method() === "POST") {
         saved = {
           ...parent,
@@ -80,6 +80,11 @@ for (const reply of [false, true]) {
         },
       });
     });
+    await page.route(/\/api\/posts\/[0-9a-f-]{36}$/, (route) =>
+      saved && route.request().url().endsWith(saved.id)
+        ? route.fulfill({ json: { post: saved, serverNow: new Date().toISOString() } })
+        : route.fulfill({ status: 404, json: { error: "post_not_found" } }),
+    );
     await page.route(`**/api/posts/${parent.id}/thread`, (route) =>
       route.fulfill({
         json: {

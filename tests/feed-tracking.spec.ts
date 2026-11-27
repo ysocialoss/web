@@ -30,16 +30,21 @@ const posts = Array.from({ length: 3 }, (_, index) => ({
   reposted: false,
 }));
 
+const requestId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+
 type Batch = {
   sessionId: string;
   client?: string;
-  events: { type: string; postId?: string; surface: string; position?: number; value?: number }[];
+  events: { type: string; postId?: string; surface: string; position?: number; requestId?: string; value?: number }[];
 };
 
-async function setup(page: Page, { signedIn = true, personalize = true, feedChoiceNeeded = false } = {}) {
+async function setup(page: Page, { signedIn = true, personalize = true, feedChoiceNeeded = false, ranked = {} as Record<string, unknown> } = {}) {
   const batches: Batch[] = [];
   const feedRequests: string[] = [];
   const likeHeaders: (string | undefined)[] = [];
+  const preferenceBodies: unknown[] = [];
+  const declined: number[] = [];
+  const state = { personalize };
   await page.addInitScript(() => {
     window.EventSource = class extends EventTarget {
       close() {}
@@ -52,7 +57,7 @@ async function setup(page: Page, { signedIn = true, personalize = true, feedChoi
         ? {
             authenticated: true,
             needsOnboarding: false,
-            user: { ...viewer, feedPersonalize: personalize },
+            user: { ...viewer, feedPersonalize: state.personalize },
             avatarUrl: null,
             suggestedHandle: viewer.handle,
             feedChoiceNeeded,
@@ -61,9 +66,20 @@ async function setup(page: Page, { signedIn = true, personalize = true, feedChoi
     }),
   );
   const page1 = { posts, repostedBy: {}, nextCursor: null, serverNow: new Date().toISOString() };
-  await page.route("**/api/posts", (route) => {
-    feedRequests.push("latest");
-    return route.fulfill({ json: page1 });
+  const placements = Object.fromEntries(posts.map((post, position) => [post.id, { requestId, position, reason: "recent" }]));
+  await page.route("**/api/feed/for-you", (route) => {
+    feedRequests.push("for_you");
+    return route.fulfill({ json: { ...page1, requestId, placements, caughtUp: false, fallback: false, ...ranked } });
+  });
+  await page.route("**/api/feed/preferences", (route) => {
+    const body = route.request().postDataJSON();
+    preferenceBodies.push(body);
+    state.personalize = body.personalize;
+    return route.fulfill({ json: { personalize: body.personalize, chosen: true } });
+  });
+  await page.route("**/api/feed/choice-declined", (route) => {
+    declined.push(Date.now());
+    return route.fulfill({ status: 204 });
   });
   await page.route("**/api/feed/following", (route) => {
     feedRequests.push("following");
@@ -80,7 +96,7 @@ async function setup(page: Page, { signedIn = true, personalize = true, feedChoi
     likeHeaders.push(route.request().headers()["x-feed-context"]);
     return route.fulfill({ json: { likes: 1, liked: true } });
   });
-  return { batches, feedRequests, likeHeaders };
+  return { batches, feedRequests, likeHeaders, preferenceBodies, declined };
 }
 
 async function hideTab(page: Page) {
@@ -100,12 +116,12 @@ test("visible posts are recorded as impressions with dwell, and actions carry th
   await page.waitForTimeout(900);
   await first.getByRole("button", { name: /like/i }).first().click();
   await expect.poll(() => likeHeaders.length).toBe(1);
-  expect(likeHeaders[0]).toBe("latest 0 -");
+  expect(likeHeaders[0]).toBe(`for_you 0 ${requestId}`);
   await hideTab(page);
   await expect.poll(() => events(batches).length).toBeGreaterThan(1);
   const logged = events(batches);
   const impression = logged.find((event) => event.type === "impression" && event.postId === posts[0].id);
-  expect(impression).toMatchObject({ surface: "latest", position: 0 });
+  expect(impression).toMatchObject({ surface: "for_you", position: 0, requestId });
   const dwell = logged.find((event) => event.type === "dwell" && event.postId === posts[0].id);
   expect(dwell?.value).toBeGreaterThanOrEqual(500);
   expect(batches[0].client).toBeUndefined();
@@ -127,8 +143,10 @@ test("opening a post records an open event", async ({ page }) => {
 });
 
 test("nothing is recorded when personalization is off", async ({ page }) => {
-  const { batches, likeHeaders } = await setup(page, { personalize: false });
+  const { batches, likeHeaders, feedRequests } = await setup(page, { personalize: false });
   await page.goto("/");
+  await expect(page).toHaveURL(/\/following$/);
+  expect(feedRequests).not.toContain("for_you");
   const first = page.locator(`#post-${posts[0].id}`);
   await expect(first).toContainText(posts[0].content);
   await page.waitForTimeout(900);
@@ -166,4 +184,52 @@ test("signed-out visitors see no feed tabs and send no events", async ({ page })
   await hideTab(page);
   await page.waitForTimeout(300);
   expect(batches).toHaveLength(0);
+});
+
+test("the Feed is greyed out for opted-out readers, and turning it on unlocks it", async ({ page }) => {
+  const { preferenceBodies, declined, feedRequests } = await setup(page, { personalize: false });
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/");
+  await expect(page).toHaveURL(/\/following$/);
+  const locked = page.getByRole("button", { name: "Feed, turned off. Turn it on" }).first();
+  await expect(locked).toBeVisible();
+  await locked.click();
+  const dialog = page.getByRole("dialog", { name: "Turn on your Feed?" });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("button", { name: "Not now" }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect.poll(() => declined.length).toBe(1);
+  expect(preferenceBodies).toHaveLength(0);
+  await expect(page).toHaveURL(/\/following$/);
+
+  await locked.click();
+  await page.getByRole("dialog", { name: "Turn on your Feed?" }).getByRole("button", { name: "Turn on" }).click();
+  await expect.poll(() => preferenceBodies).toEqual([{ personalize: true, source: "nav" }]);
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.locator(`#post-${posts[2].id}`)).toBeVisible();
+  expect(feedRequests).toContain("for_you");
+  await expect(page.getByRole("button", { name: "Feed, turned off. Turn it on" })).toHaveCount(0);
+});
+
+test("coming back to the Feed within 30 minutes reuses the ranked page", async ({ page }) => {
+  const { feedRequests } = await setup(page);
+  await page.goto("/");
+  await expect(page.locator(`#post-${posts[2].id}`)).toBeVisible();
+  await page.waitForLoadState("networkidle");
+  await page.waitForTimeout(300);
+  const before = feedRequests.filter((name) => name === "for_you").length;
+  await page.getByRole("link", { name: "Following" }).first().click();
+  await expect(page).toHaveURL(/\/following$/);
+  await page.getByRole("link", { name: "Feed", exact: true }).first().click();
+  await expect(page.locator(`#post-${posts[2].id}`)).toBeVisible();
+  await page.waitForTimeout(300);
+  expect(feedRequests.filter((name) => name === "for_you")).toHaveLength(before);
+});
+
+test("an exhausted ranked feed shows the caught-up card", async ({ page }) => {
+  await setup(page, { ranked: { posts: [], placements: {}, caughtUp: true } });
+  await page.goto("/");
+  await expect(page.getByText("You're all caught up")).toBeVisible();
+  await page.getByRole("link", { name: "Open Following" }).click();
+  await expect(page).toHaveURL(/\/following$/);
 });

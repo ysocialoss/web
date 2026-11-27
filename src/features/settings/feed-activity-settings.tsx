@@ -3,15 +3,18 @@ import { api, errorMessage } from "@/lib/api";
 import { Switch } from "@/components/ui/switch";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { SettingsGroup } from "./settings-group";
+import { forgetRankedFeeds } from "@/features/feed/use-feed";
 
 export function FeedActivitySettings({
   userId,
   personalize,
   onChange,
+  onCleared,
 }: {
   userId: string;
   personalize: boolean;
   onChange: (userId: string, personalize: boolean) => void;
+  onCleared?: () => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -28,6 +31,7 @@ export function FeedActivitySettings({
       if (!current.authenticated || current.needsOnboarding || current.user.id !== userId)
         throw new Error("account changed");
       const saved = await api.setFeedPreferences(checked);
+      forgetRankedFeeds();
       onChange(userId, saved.personalize);
     } catch (reason) {
       onChange(userId, !checked);
@@ -41,7 +45,9 @@ export function FeedActivitySettings({
     setClearError("");
     try {
       await api.clearFeedActivity();
+      forgetRankedFeeds();
       setCleared(true);
+      onCleared?.();
       return true;
     } catch (reason) {
       setClearError(errorMessage(reason));
@@ -82,7 +88,7 @@ export function FeedActivitySettings({
         <div className="min-w-0">
           <p className="text-sm font-medium">Clear feed activity</p>
           <p className="mt-0.5 text-sm text-muted-foreground" aria-live="polite">
-            {cleared ? "Your feed activity was cleared." : "Delete everything recorded so far."}
+            {cleared ? "Your feed activity was cleared." : "Delete everything recorded so far, and reset your topics, snoozes, ratings and sliders."}
           </p>
         </div>
         <ConfirmationDialog
@@ -100,7 +106,7 @@ export function FeedActivitySettings({
             </button>
           }
           title="Clear feed activity?"
-          description="This deletes the record of posts you viewed and interacted with. Your posts, likes and follows stay as they are."
+          description="This deletes the record of posts you viewed and interacted with, your topic choices, snoozes and post ratings, and sets the sliders back to the middle. Your posts, likes and follows stay as they are."
           confirmLabel="Clear activity"
           destructive
           error={clearError}

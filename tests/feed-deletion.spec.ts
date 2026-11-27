@@ -56,11 +56,29 @@ test("live refresh removes a deleted post without inserting an older post at the
   let current = posts.slice(0, 20);
   let feedRequests = 0;
 
-  await page.route("**/auth/me", (route) =>
-    route.fulfill({ json: { authenticated: false } }),
-  );
+  const viewer = {
+    id: "11111111-1111-4111-8111-111111111111",
+    handle: "viewer",
+    displayName: "Viewer",
+    avatarUrl: null,
+    bannerUrl: null,
+    bannerCrop: null,
+    navigation: null,
+    feedPersonalize: false,
+  };
   await page.route("**/api/**", (route) => route.fulfill({ json: {} }));
-  await page.route("**/api/posts", (route) => {
+  await page.route("**/auth/me", (route) =>
+    route.fulfill({
+      json: {
+        authenticated: true,
+        needsOnboarding: false,
+        user: viewer,
+        avatarUrl: null,
+        suggestedHandle: viewer.handle,
+      },
+    }),
+  );
+  await page.route("**/api/feed/following", (route) => {
     feedRequests++;
     return route.fulfill({
       json: {
@@ -70,7 +88,7 @@ test("live refresh removes a deleted post without inserting an older post at the
       },
     });
   });
-  await page.route("**/api/posts?cursor=next", (route) =>
+  await page.route("**/api/feed/following?cursor=next", (route) =>
     route.fulfill({
       json: {
         posts: [older],
@@ -84,15 +102,15 @@ test("live refresh removes a deleted post without inserting an older post at the
       new URL(route.request().url()).searchParams.get("ids")?.split(",") ?? [];
     return route.fulfill({
       json: {
-        viewerId: null,
+        viewerId: viewer.id,
         posts: current.filter((post) => ids.includes(post.id)),
       },
     });
   });
 
-  await page.goto("/");
+  await page.goto("/following");
   await expect(
-    page.getByRole("button", { name: "What's on your mind?" }),
+    page.getByRole("textbox", { name: "What's on your mind?" }),
   ).toBeVisible();
   await page.waitForLoadState("networkidle");
   const feed = page.locator("article[id^='post-']");

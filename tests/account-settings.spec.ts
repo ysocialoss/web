@@ -472,7 +472,7 @@ test("santa hats show in the week before Christmas, on profiles but not in posts
 
 test("a streaming Twitch user gets a live icon that links to the stream", async ({ page }) => {
   const author = { id: "88888888-8888-4888-8888-888888888888", handle: "streamer", displayName: "Streamer", avatarUrl: null };
-  await page.route("**/api/posts", (route) =>
+  await page.route(/\/api\/(posts|feed\/for-you)$/, (route) =>
     route.fulfill({
       json: {
         posts: [{

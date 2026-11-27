@@ -199,6 +199,14 @@ export function useAuth() {
         : current,
     );
   }
+  function updateFeedSliders(userId: string, values: Partial<Record<"feedDiscovery" | "feedFreshness" | "feedReplies", number>>) {
+    sessionRevision.current++;
+    setSession((current) =>
+      current?.authenticated && !current.needsOnboarding && current.user.id === userId
+        ? { ...current, user: { ...current.user, ...values } }
+        : current,
+    );
+  }
   function updateBanner(
     userId: string,
     bannerUrl: string | null,
@@ -266,6 +274,7 @@ export function useAuth() {
   return {
     updateNavigationItems,
     updateFeedPersonalize,
+    updateFeedSliders,
     updateProfile,
     updateBanner,
     updateAvatar,

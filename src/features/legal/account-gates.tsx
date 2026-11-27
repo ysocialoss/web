@@ -12,37 +12,59 @@ import {
 } from "@/components/ui/dialog";
 import { api, errorMessage } from "@/lib/api";
 import type { AuthState } from "@/features/auth/use-auth";
+import { forgetRankedFeeds } from "@/features/feed/use-feed";
 
 export const collectedFeedData = [
   { en: "Which posts appeared on your screen and roughly how long they stayed visible", de: "Welche Beiträge auf deinem Bildschirm erschienen und wie lange sie ungefähr sichtbar waren" },
   { en: "Opening a post, expanding text, revealing text spoilers, opening media and playing voice notes", de: "Öffnen von Beiträgen, Aufklappen von Text, Aufdecken von Text-Spoilern, Öffnen von Medien und Abspielen von Sprachnachrichten" },
   { en: "The website domain of links you open and the topics you open", de: "Die Domain geöffneter Links und geöffnete Themen" },
   { en: "Likes, reposts, saves, replies, quotes, poll votes, follows, blocks and reports", de: "Likes, Reposts, Lesezeichen, Antworten, Zitate, Umfrage-Stimmen, Follows, Blockierungen und Meldungen" },
-  { en: "Where in the app it happened (for example Latest or a profile) and the position in the list", de: "Wo in der App es passierte (zum Beispiel Neueste oder ein Profil) und die Position in der Liste" },
+  { en: "Where in the app it happened (for example the Feed, Following or a profile) and the position in the list", de: "Wo in der App es passierte (zum Beispiel im Feed, bei Gefolgt oder auf einem Profil) und die Position in der Liste" },
+  { en: "Feedback you give with Interested, Not interested, Snooze and topic choices", de: "Rückmeldungen über Interessiert, Nicht interessiert, Stummschalten und Themenwahl" },
+  { en: "Which posts the Feed picked for you, in which order, and the signals it used to rank them", de: "Welche Beiträge der Feed für dich ausgewählt hat, in welcher Reihenfolge und welche Signale er für die Sortierung genutzt hat" },
+  { en: "Which posts you were shown in Following, with the same signals, to train the ranking (Following stays in time order)", de: "Welche Beiträge dir bei „Folge ich“ angezeigt wurden, mit denselben Signalen, um die Sortierung zu trainieren („Folge ich“ bleibt zeitlich sortiert)" },
   { en: "Whether you use a phone or a desktop, derived from your browser's request headers", de: "Ob du ein Smartphone oder einen Computer nutzt, abgeleitet aus den Anfrage-Headern deines Browsers" },
   { en: "A random session number that is forgotten when you close the tab", de: "Eine zufällige Sitzungsnummer, die beim Schließen des Tabs vergessen wird" },
 ];
 
-export function FeedChoiceDialog({ onDone }: { onDone: () => void }) {
+export function FeedChoiceDialog({ onDone, onDismiss }: {
+  onDone: (personalize: boolean) => void;
+  onDismiss?: () => void;
+}) {
   const [busy, setBusy] = useState<"on" | "off" | null>(null);
   const [error, setError] = useState("");
+  const fromNav = onDismiss !== undefined;
   async function choose(personalize: boolean) {
     setBusy(personalize ? "on" : "off");
     setError("");
     try {
-      await api.setFeedPreferences(personalize);
-      onDone();
+      if (fromNav && !personalize) void api.feedChoiceDeclined().catch(() => {});
+      else {
+        await api.setFeedPreferences(personalize, fromNav ? "nav" : undefined);
+        forgetRankedFeeds();
+      }
+      onDone(personalize);
     } catch (reason) {
       setError(errorMessage(reason));
       setBusy(null);
     }
   }
   return (
-    <Dialog open onOpenChange={(_open, details) => details.cancel()}>
-      <DialogContent showCloseButton={false} className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-lg">
+    <Dialog
+      open
+      onOpenChange={(open, details) => {
+        if (open) return;
+        if (fromNav && busy === null) {
+          void api.feedChoiceDeclined().catch(() => {});
+          onDismiss();
+        } else details.cancel();
+      }}
+    >
+      <DialogContent showCloseButton={fromNav} className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-lg">
         <DialogHeader className="gap-2">
-          <DialogTitle className="text-xl font-semibold">Personalize your feed?</DialogTitle>
+          <DialogTitle className="text-xl font-semibold">{fromNav ? "Turn on your Feed?" : "Personalize your feed?"}</DialogTitle>
           <DialogDescription className="leading-relaxed">
+            {fromNav && "The Feed ranks posts for you, so it needs feed personalization. Following stays available either way. "}
             ysocial is learning to suggest posts you will like. If you turn this on, we record how you use the
             feed on ysocial, only to make your feed better. Nothing from other websites or apps is used, and nothing
             is used for advertising, sold or passed to third parties.
@@ -68,7 +90,7 @@ export function FeedChoiceDialog({ onDone }: { onDone: () => void }) {
         <DialogFooter className="gap-2">
           <Button variant="outline" disabled={busy !== null} onClick={() => void choose(false)}>
             {busy === "off" && <LoaderCircle aria-hidden="true" className="animate-spin" />}
-            Keep off
+            {fromNav ? "Not now" : "Keep off"}
           </Button>
           <Button disabled={busy !== null} onClick={() => void choose(true)}>
             {busy === "on" && <LoaderCircle aria-hidden="true" className="animate-spin" />}
@@ -80,8 +102,13 @@ export function FeedChoiceDialog({ onDone }: { onDone: () => void }) {
   );
 }
 
-export function TermsUpdateDialog({ version, onDone, onLogout }: { version: string; onDone: () => void; onLogout: () => void }) {
-  const [age, setAge] = useState(false);
+export function TermsUpdateDialog({ version, ageConfirmed, onDone, onLogout }: {
+  version: string;
+  ageConfirmed: boolean;
+  onDone: () => void;
+  onLogout: () => void;
+}) {
+  const [age, setAge] = useState(ageConfirmed);
   const [terms, setTerms] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -89,7 +116,7 @@ export function TermsUpdateDialog({ version, onDone, onLogout }: { version: stri
     setBusy(true);
     setError("");
     try {
-      await api.acceptTerms(version);
+      await api.acceptTerms(version, !ageConfirmed);
       onDone();
     } catch (reason) {
       setError(errorMessage(reason));
@@ -107,11 +134,13 @@ export function TermsUpdateDialog({ version, onDone, onLogout }: { version: stri
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3 text-sm">
-          <label className="flex cursor-pointer items-start gap-3.5 rounded-lg border px-4 py-3">
-            <input type="checkbox" className="mt-0.5 size-4 shrink-0 accent-primary" checked={age} disabled={busy}
-              onChange={(event) => setAge(event.target.checked)} />
-            I am at least 16 years old.
-          </label>
+          {!ageConfirmed && (
+            <label className="flex cursor-pointer items-start gap-3.5 rounded-lg border px-4 py-3">
+              <input type="checkbox" className="mt-0.5 size-4 shrink-0 accent-primary" checked={age} disabled={busy}
+                onChange={(event) => setAge(event.target.checked)} />
+              I am at least 16 years old.
+            </label>
+          )}
           <label className="flex cursor-pointer items-start gap-3.5 rounded-lg border px-4 py-3">
             <input type="checkbox" className="mt-0.5 size-4 shrink-0 accent-primary" checked={terms} disabled={busy}
               onChange={(event) => setTerms(event.target.checked)} />
@@ -159,7 +188,7 @@ export function AccountGates({ auth }: { auth: AuthState }) {
   const session = auth.session;
   if (!session?.authenticated || session.needsOnboarding) return null;
   if (session.termsCurrent === false)
-    return <TermsUpdateDialog version={session.termsVersion} onDone={() => void auth.reload()} onLogout={auth.logout} />;
+    return <TermsUpdateDialog version={session.termsVersion} ageConfirmed={session.user.ageConfirmed} onDone={() => void auth.reload()} onLogout={auth.logout} />;
   if (session.feedChoiceNeeded && !session.ban && !auth.showApprovalWelcome)
     return <FeedChoiceDialog onDone={() => void auth.reload()} />;
   return null;

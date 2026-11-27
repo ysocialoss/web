@@ -1,7 +1,7 @@
 import { LegalLayout } from "./legal-layout";
 import { useOperator } from "./use-operator";
 
-export const termsVersion = "2026-11-27";
+export const termsVersion = "2026-11-28";
 
 export const termsClauseTitles: Record<string, { de: string; en: string }> = {
   "3.1": { de: "Mindestalter", en: "Minimum age" },
@@ -32,6 +32,7 @@ export function TermsPage() {
 
           <h2>2. Leistungen</h2>
           <p>ysocial ermöglicht es, ein Profil anzulegen, Beiträge, Bilder, GIFs, Umfragen und Sprachnachrichten zu veröffentlichen, anderen zu folgen und Ende-zu-Ende-verschlüsselte Direktnachrichten zu senden. Ein Anspruch auf bestimmte Funktionen oder ständige Verfügbarkeit besteht nicht. Wir dürfen Funktionen ändern, wenn das für dich zumutbar ist.</p>
+          <p>Der Feed auf der Startseite sortiert Beiträge mit einem Empfehlungssystem. Die wichtigsten Parameter, ihre Gewichtung und wie du sie beeinflussen kannst, beschreibt <a href="/legal/feed">So funktioniert der Feed</a>; diese Seite ist Teil dieser Bedingungen. „Folge ich“ zeigt Beiträge in zeitlicher Reihenfolge; diese Reihenfolge wird nicht personalisiert. Wenn du die Feed-Personalisierung eingeschaltet hast, speichern wir auch dort, welche Beiträge du gesehen hast, um den Feed zu verbessern; Einzelheiten stehen in der Datenschutzerklärung.</p>
 
           <h2>3. Registrierung</h2>
           <p><strong>3.1 Mindestalter.</strong> Du musst mindestens 16 Jahre alt sein. Mit der Registrierung bestätigst du das.</p>
@@ -92,6 +93,7 @@ export function TermsPage() {
 
           <h2>2. Services</h2>
           <p>ysocial lets you create a profile, publish posts, images, GIFs, polls and voice notes, follow others and send end-to-end encrypted direct messages. There is no entitlement to specific features or constant availability. We may change features where this is reasonable for you.</p>
+          <p>The Feed on the home page orders posts with a recommender system. Its main parameters, their weight and how you can influence them are described in <a href="/legal/feed?lang=en">How the feed works</a>; that page is part of these terms. Following shows posts in time order, and that order is never personalized. If you turned on feed personalization, we also record which posts you saw there to improve the Feed; the privacy policy has the details.</p>
 
           <h2>3. Registration</h2>
           <p><strong>3.1 Minimum age.</strong> You must be at least 16 years old. You confirm this when you sign up.</p>

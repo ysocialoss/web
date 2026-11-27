@@ -48,7 +48,7 @@ for (const mobile of [false, true]) {
           : { authenticated: false },
       }),
     );
-    await page.route("**/api/posts", (route) =>
+    await page.route(/\/api\/(posts|feed\/for-you)$/, (route) =>
       route.fulfill({
         json: { posts: [post], nextCursor: null, serverNow: now },
       }),

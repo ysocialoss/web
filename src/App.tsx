@@ -44,6 +44,7 @@ import { useSearchShortcut } from "@/features/search/use-search-shortcut";
 import { isTopicName, normalizeTopic } from "@/lib/topics";
 import type { Session } from "@/lib/api";
 import { useFeed } from "@/features/feed/use-feed";
+import { feedLocked } from "@/features/feed/feed-unlock";
 import { PostListSkeleton, ProfileSkeleton } from "@/components/loading-skeletons";
 import { ConnectionBanner } from "@/components/connection-banner";
 import { DynamicFavicon } from "@/components/dynamic-favicon";
@@ -131,7 +132,7 @@ function AppShell() {
   if (settingsRequest && settingsRequest.navigationKey !== navigationKey) {
     setSettingsRequest(null);
   }
-  const settingsLink = matchPath("/settings/account", pathname) !== null;
+  const settingsLink = matchPath("/settings/account", pathname) !== null || matchPath("/settings/feed", pathname) !== null;
   const settingsOpen = settingsLink || settingsRequest?.navigationKey === navigationKey;
   const profileHandle = matchPath("/:profileHandle", pathname)?.params
     .profileHandle;
@@ -384,7 +385,7 @@ function AppShell() {
               <Route path="/legal/feed" element={<FeedExplainerPage />} />
               <Route
                 path="/settings/feed"
-                element={<ComingSoon title="Feed preferences" />}
+                element={<HomeFeed session={auth.session} />}
               />
               <Route
                 path="/communities"
@@ -418,7 +419,13 @@ function RouteFallback() {
 
 function HomeFeed({ session }: { session: Session | null }) {
   usePageTitle("Feed");
-  return <HomeFeedList session={session} surface="latest" header={<TrendingTopicsStrip />} />;
+  const { pathname } = useLocation();
+  if (session === null) return <PostListSkeleton />;
+  if (feedLocked(session))
+    return pathname === "/"
+      ? <Navigate to="/following" replace />
+      : <HomeFeedList session={session} surface="following" header={<TrendingTopicsStrip />} />;
+  return <HomeFeedList session={session} surface="for_you" header={<TrendingTopicsStrip />} />;
 }
 function FollowingFeed({ session }: { session: Session | null }) {
   usePageTitle("Following");
@@ -432,7 +439,7 @@ function HomeFeedList({
   header,
 }: {
   session: Session | null;
-  surface: "latest" | "following";
+  surface: "for_you" | "following";
   header: ReactNode;
 }) {
   const feed = useFeed(session, undefined, true, undefined, undefined, undefined, surface);
@@ -443,7 +450,7 @@ function HomeFeedList({
       refreshKey={navigationKey}
       header={header}
       surface={surface}
-      emptyMessage={surface === "following" ? "No posts from people you follow yet." : undefined}
+      emptyMessage={surface === "following" ? "No posts from people you follow yet." : "Nothing to show yet. Follow a few people or check back soon."}
       floater={feed.canPost && <AdventGift />}
     />
   );

@@ -175,7 +175,76 @@ const pageSchema = z.object({
   nextCursor: z.nullable(z.string()),
   serverNow: z.string(),
 });
-const feedPreferencesSchema = z.object({ personalize: z.boolean(), chosen: z._default(z.boolean(), true), cleared: z.optional(z.number()) });
+export const feedReasons = ["explore", "network", "following", "conversation", "social", "nearby", "popular", "recent", "topic", "control"] as const;
+const placementSchema = z.object({
+  requestId: z.string(),
+  position: z.int(),
+  reason: z._default(z.catch(z.enum(feedReasons), "recent"), "recent"),
+});
+export type FeedPlacement = z.infer<typeof placementSchema>;
+export type FeedReason = (typeof feedReasons)[number];
+const placementsSchema = z._default(z.record(z.string(), placementSchema), {});
+const followingPageSchema = z.extend(pageSchema, {
+  requestId: z._default(z.nullable(z.string()), null),
+  placements: placementsSchema,
+});
+const rankedPageSchema = z.extend(pageSchema, {
+  requestId: z._default(z.nullable(z.string()), null),
+  placements: placementsSchema,
+  caughtUp: z._default(z.boolean(), false),
+  fallback: z._default(z.boolean(), false),
+});
+export type RankedPage = z.infer<typeof rankedPageSchema>;
+const sliderValueSchema = z._default(z.int().check(z.gte(-2)).check(z.lte(2)), 0);
+const feedPreferencesSchema = z.object({
+  personalize: z.boolean(),
+  chosen: z._default(z.boolean(), true),
+  cleared: z.optional(z.number()),
+  discovery: sliderValueSchema,
+  freshness: sliderValueSchema,
+  replies: sliderValueSchema,
+});
+export type FeedPreferences = z.infer<typeof feedPreferencesSchema>;
+export type FeedSlider = "discovery" | "freshness" | "replies";
+const feedFeedbackListSchema = z.object({
+  snoozed: z.array(z.object({ id: z.string(), user: userSchema, expiresAt: z.nullable(z.string()) })),
+  authors: z._default(z.array(z.object({ id: z.string(), user: userSchema, direction: z.number(), expiresAt: z.nullable(z.string()) })), []),
+  topics: z.array(z.object({ id: z.string(), topic: z.string(), direction: z.number() })),
+  posts: z.object({ interested: z.number(), notInterested: z.number() }),
+  suggestedTopics: z._default(z.array(z.string()), []),
+});
+export type FeedFeedbackList = z.infer<typeof feedFeedbackListSchema>;
+export type FeedFeedbackInput =
+  | { kind: "post"; postId: string; direction: 1 | -1 }
+  | { kind: "author"; authorId: string; direction: 1 | -1 }
+  | { kind: "snooze"; authorId: string }
+  | { kind: "topic"; topic: string; direction: 1 | -1 };
+const feedFeedbackSavedSchema = z.object({
+  id: z.string(),
+  direction: z.number(),
+  previousDirection: z._default(z.nullable(z.union([z.literal(1), z.literal(-1)])), null),
+  expiresAt: z.nullable(z.string()),
+});
+export const feedFactorKinds = [
+  "following", "social", "conversation", "affinity", "topic", "popular", "recent", "network", "format", "explore", "control",
+] as const;
+export type FeedFactorKind = (typeof feedFactorKinds)[number];
+const feedWhySchema = z.object({
+  postId: z.string(),
+  requestId: z.string(),
+  reason: z.string(),
+  explore: z.boolean(),
+  factors: z.array(z.object({
+    kind: z.catch(z.enum(feedFactorKinds), "recent"),
+    strength: z.catch(z.enum(["low", "medium", "high"]), "low"),
+  })),
+  controls: z.object({
+    author: z.nullable(z.enum(["more", "less"])),
+    topics: z.array(z.object({ topic: z.string(), direction: z.enum(["more", "less"]) })),
+    sliders: z.object({ discovery: z.number(), freshness: z.number(), replies: z.number() }),
+  }),
+});
+export type FeedWhy = z.infer<typeof feedWhySchema>;
 const postResponseSchema = z.object({
   post: postSchema,
   serverNow: z.string(),
@@ -241,6 +310,10 @@ const sessionSchema = z.union([
       bannerCrop: z.nullable(bannerCropSchema),
       navigation: navigationItemsSchema,
       feedPersonalize: z._default(z.boolean(), true),
+      feedDiscovery: sliderValueSchema,
+      feedFreshness: sliderValueSchema,
+      feedReplies: sliderValueSchema,
+      ageConfirmed: z._default(z.boolean(), false),
       namePaintsDisabled: z._default(z.boolean(), false),
       namePaintAnimationsDisabled: z._default(z.boolean(), false),
     }),
@@ -560,6 +633,11 @@ const traceCodes: Record<string, number> = {
   push_subscription_not_found: 4009,
   invalid_feed_events: 4010,
   invalid_feed_preferences: 4011,
+  feed_personalization_required: 4012,
+  invalid_feed_config: 4013,
+  invalid_feed_feedback: 4014,
+  feed_explanation_unavailable: 4015,
+  feed_feedback_not_found: 4016,
   // media
   invalid_avatar: 5001,
   avatar_png_required: 5002,
@@ -1135,8 +1213,8 @@ export const api = {
       acceptTerms: true,
       ageConfirmed: true,
     }),
-  acceptTerms: (version: string) =>
-    request("/auth/terms", z.undefined(), "POST", { version, acceptTerms: true, ageConfirmed: true }, AbortSignal.timeout(10_000)),
+  acceptTerms: (version: string, confirmAge: boolean) =>
+    request("/auth/terms", z.undefined(), "POST", confirmAge ? { version, acceptTerms: true, ageConfirmed: true } : { version, acceptTerms: true }, AbortSignal.timeout(10_000)),
   operator: (signal?: AbortSignal) => sendRequest("/api/legal/operator", operatorSchema, "GET", undefined, attemptSignal(10_000, signal)),
   moderationNotices: (signal?: AbortSignal) => request("/api/moderation/notices", noticesSchema, "GET", undefined, signal),
   markNoticesSeen: () => request("/api/moderation/notices/seen", z.undefined(), "POST", undefined, AbortSignal.timeout(10_000)),
@@ -1247,15 +1325,44 @@ export const api = {
   following: (cursor?: string, signal?: AbortSignal) =>
     request(
       `/api/feed/following${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`,
-      pageSchema,
+      followingPageSchema,
+      "GET",
+      undefined,
+      signal,
+    ),
+  forYou: (cursor?: string, signal?: AbortSignal) =>
+    request(
+      `/api/feed/for-you${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`,
+      rankedPageSchema,
       "GET",
       undefined,
       signal,
     ),
   feedPreferences: (signal?: AbortSignal) =>
     request("/api/feed/preferences", feedPreferencesSchema, "GET", undefined, signal),
-  setFeedPreferences: (personalize: boolean) =>
-    request("/api/feed/preferences", feedPreferencesSchema, "PATCH", { personalize }, AbortSignal.timeout(10_000)),
+  setFeedPreferences: (personalize: boolean, source?: "nav") =>
+    request("/api/feed/preferences", feedPreferencesSchema, "PATCH", source ? { personalize, source } : { personalize }, AbortSignal.timeout(10_000)),
+  setFeedSliders: (values: Partial<Record<FeedSlider, number>>) =>
+    request("/api/feed/preferences", feedPreferencesSchema, "PATCH", values, AbortSignal.timeout(10_000)),
+  feedFeedback: (signal?: AbortSignal) =>
+    request("/api/feed/feedback", feedFeedbackListSchema, "GET", undefined, signal),
+  addFeedFeedback: (input: FeedFeedbackInput, contextPostId?: string) =>
+    request(
+      "/api/feed/feedback",
+      feedFeedbackSavedSchema,
+      "POST",
+      input,
+      AbortSignal.timeout(10_000),
+      contextPostId ? feedContextHeader(contextPostId) : input.kind === "post" ? feedContextHeader(input.postId) : undefined,
+    ),
+  removeFeedFeedback: (id: string) =>
+    request(`/api/feed/feedback/${encodeURIComponent(id)}`, z.undefined(), "DELETE", undefined, AbortSignal.timeout(10_000)),
+  clearFeedFeedback: (kind: "post" | "author" | "snooze" | "topic") =>
+    request(`/api/feed/feedback?kind=${kind}`, z.object({ removed: z.number() }), "DELETE", undefined, AbortSignal.timeout(10_000)),
+  feedWhy: (postId: string, requestId: string, signal?: AbortSignal) =>
+    request(`/api/feed/why/${encodeURIComponent(postId)}?request=${encodeURIComponent(requestId)}`, feedWhySchema, "GET", undefined, signal),
+  feedChoiceDeclined: () =>
+    request("/api/feed/choice-declined", z.undefined(), "POST", undefined, AbortSignal.timeout(10_000)),
   clearFeedActivity: () =>
     request("/api/feed/reset", z.object({ cleared: z.number() }), "POST", undefined, AbortSignal.timeout(15_000)),
   search: (query: string, signal?: AbortSignal) =>

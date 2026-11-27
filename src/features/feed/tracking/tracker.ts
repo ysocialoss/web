@@ -92,7 +92,7 @@ export function feedTrackingEnabled() {
 }
 
 export function surfaceForPath(pathname: string): FeedSurface {
-  if (pathname === "/") return "latest";
+  if (pathname === "/") return "for_you";
   if (pathname === "/following") return "following";
   if (pathname.startsWith("/posts/")) return "thread";
   if (pathname.startsWith("/@")) return "profile";
