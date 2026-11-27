@@ -234,3 +234,24 @@ test("opted-out users can open Feed settings and see that controls apply later",
   await expect(section.getByText("These apply when your Feed is on.")).toBeVisible();
   await expect(page).toHaveURL(/\/settings\/feed$/);
 });
+
+test("Undo after changing a rating puts the earlier rating back", async ({ page }) => {
+  const { calls } = await setup(page);
+  await page.route(/\/api\/feed\/feedback$/, (route) => {
+    if (route.request().method() !== "POST") return route.fallback();
+    const body = route.request().postDataJSON();
+    calls.push({ method: "POST", url: "/api/feed/feedback", body });
+    return route.fulfill({ status: 201, json: { id: "rating-1", direction: body.direction, previousDirection: body.direction === -1 ? 1 : null, expiresAt: null } });
+  });
+  await page.goto("/");
+  await openMenu(page, 0);
+  await page.getByRole("menuitem", { name: "Not interested" }).click();
+  await expect(card(page, 0)).toHaveCount(0);
+  await page.getByRole("button", { name: "Undo" }).click();
+  await expect(card(page, 0)).toBeVisible();
+  await expect.poll(() => calls.filter((call) => call.method === "POST").map((call) => call.body)).toEqual([
+    { kind: "post", postId: posts[0].id, direction: -1 },
+    { kind: "post", postId: posts[0].id, direction: 1 },
+  ]);
+  expect(calls.some((call) => call.method === "DELETE")).toBe(false);
+});

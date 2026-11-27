@@ -15,7 +15,11 @@ async function send(input: FeedFeedbackInput, postId: string, done: string, rest
         children: "Undo",
         onClick: () => {
           restore?.();
-          void api.removeFeedFeedback(saved.id).catch((reason) => {
+          const previous = saved.previousDirection;
+          const undo = previous !== null && input.kind !== "snooze"
+            ? api.addFeedFeedback({ ...input, direction: previous }, postId)
+            : api.removeFeedFeedback(saved.id);
+          void undo.catch((reason) => {
             toast.add({ type: "error", title: "Couldn't undo", description: errorMessage(reason) });
           });
         },

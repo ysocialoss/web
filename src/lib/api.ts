@@ -219,7 +219,12 @@ export type FeedFeedbackInput =
   | { kind: "author"; authorId: string; direction: 1 | -1 }
   | { kind: "snooze"; authorId: string }
   | { kind: "topic"; topic: string; direction: 1 | -1 };
-const feedFeedbackSavedSchema = z.object({ id: z.string(), direction: z.number(), expiresAt: z.nullable(z.string()) });
+const feedFeedbackSavedSchema = z.object({
+  id: z.string(),
+  direction: z.number(),
+  previousDirection: z._default(z.nullable(z.union([z.literal(1), z.literal(-1)])), null),
+  expiresAt: z.nullable(z.string()),
+});
 export const feedFactorKinds = [
   "following", "social", "conversation", "affinity", "topic", "popular", "recent", "network", "format", "explore", "control",
 ] as const;
