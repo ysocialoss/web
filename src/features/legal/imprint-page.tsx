@@ -28,14 +28,14 @@ export function ImprintPage() {
             <h2>{de ? "Kontakt" : "Contact"}</h2>
             <ul>
               <li>E-Mail: <a href={`mailto:${operator.email}`}>{operator.email}</a></li>
-              {operator.phone && <li>{de ? "Telefon" : "Phone"}: <a href={`tel:${operator.phone.replace(/\s/g, "")}`}>{operator.phone}</a></li>}
+              <li>{de ? "Kontaktformular" : "Contact form"}: <a href="/contact">{de ? "ysocial Kontaktformular" : "ysocial contact form"}</a></li>
             </ul>
             <h2>{de ? "Kontaktstellen nach dem Digital Services Act" : "Points of contact under the Digital Services Act"}</h2>
             <p>
               {de
                 ? "Zentrale Kontaktstelle für Behörden der Mitgliedstaaten, die Europäische Kommission und das Gremium (Art. 11 DSA) sowie für Nutzerinnen und Nutzer (Art. 12 DSA):"
                 : "Single point of contact for Member State authorities, the European Commission and the Board (Art. 11 DSA) and for users (Art. 12 DSA):"}{" "}
-              <a href={`mailto:${abuse}`}>{abuse}</a>.{" "}
+              <a href={`mailto:${abuse}`}>{abuse}</a>{de ? " oder über das " : " or through the "}<a href="/contact">{de ? "Kontaktformular" : "contact form"}</a>.{" "}
               {de
                 ? "Die Kommunikation ist auf Deutsch und Englisch möglich. Die Kontaktaufnahme ist nicht ausschließlich automatisiert."
                 : "You can write to us in German or English. Contact is not handled solely by automated means."}

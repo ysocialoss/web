@@ -581,6 +581,8 @@ const traceCodes: Record<string, number> = {
   invalid_report: 8001,
   own_content: 8002,
   report_rate_limited: 8003,
+  invalid_contact_message: 8005,
+  contact_rate_limited: 8006,
   blocked: 8004,
   invalid_pin: 2013,
   invalid_connection: 9101,
@@ -800,6 +802,10 @@ function friendlyMessage(error: unknown) {
       return "You can't report your own content.";
     if (error.message === "report_rate_limited")
       return "You've sent a lot of reports recently. Try again in a few minutes.";
+    if (error.message === "contact_rate_limited")
+      return "You've sent several messages recently. Try again in a few minutes.";
+    if (error.message === "invalid_contact_message")
+      return "Write a message of at least 10 characters. If you add an email address, check that it is valid.";
     if (error.message === "illegal_notice_incomplete")
       return `Explain why the content is illegal (at least ${illegalDetailsMin} characters) and confirm the statement.`;
     if (error.message === "notifier_contact_required")
@@ -1120,6 +1126,8 @@ export const api = {
     request(`/api/moderation/decisions/${encodeURIComponent(id)}`, decisionSchema, "GET", undefined, signal),
   appealDecision: (id: string, text: string) =>
     request(`/api/moderation/decisions/${encodeURIComponent(id)}/appeal`, z.object({ id: z.uuid() }), "POST", { text }, AbortSignal.timeout(10_000)),
+  sendContact: (input: { name?: string; email?: string; message: string; website?: string }) =>
+    request("/api/contact", z.undefined(), "POST", input, AbortSignal.timeout(15_000)),
   publicReport: (input: PublicReportInput) =>
     request("/api/reports/public", z.object({ reference: z.uuid(), receivedAt: z.string(), statusToken: z.string() }), "POST", input, AbortSignal.timeout(15_000)),
   reportStatus: (token: string, signal?: AbortSignal) =>

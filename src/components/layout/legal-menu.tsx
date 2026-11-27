@@ -1,4 +1,4 @@
-import { Bug, CodeXml, Equal, FileText, Flag, Megaphone } from "lucide-react";
+import { Bug, CodeXml, Equal, FileText, Flag, Mail, Megaphone } from "lucide-react";
 import { IconButton } from "@/components/ui/icon-button";
 import { ActionMenu } from "@/components/ui/action-menu";
 import { cn } from "@/lib/utils";
@@ -20,6 +20,7 @@ export function LegalMenu({ className }: { className?: string }) {
           icon: FileText,
           to: "/legal/imprint",
         },
+        { kind: "link", label: "Contact", icon: Mail, to: "/contact" },
         {
           kind: "link",
           label: "Open Source",

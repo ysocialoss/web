@@ -58,6 +58,7 @@ export function LegalLayout({
         <Link to={`/legal/privacy${language === "en" ? "?lang=en" : ""}`}>{language === "de" ? "Datenschutz" : "Privacy"}</Link>
         <Link to={`/legal/terms${language === "en" ? "?lang=en" : ""}`}>{language === "de" ? "Nutzungsbedingungen" : "Terms"}</Link>
         <Link to={`/legal/feed${language === "en" ? "?lang=en" : ""}`}>{language === "de" ? "So funktioniert der Feed" : "How the feed works"}</Link>
+        <Link to="/contact">{language === "de" ? "Kontakt" : "Contact"}</Link>
         <Link to="/report">{language === "de" ? "Inhalte melden" : "Report content"}</Link>
       </nav>
     </article>

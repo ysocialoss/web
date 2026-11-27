@@ -74,6 +74,7 @@ import {
   PrivacyPage,
   TermsPage,
   FeedExplainerPage,
+  ContactPage,
   ReportPage,
   ReportStatusPage,
   ModerationPage,
@@ -366,6 +367,7 @@ function AppShell() {
                 path="/saved"
                 element={<SavedPage session={auth.session} />}
               />
+              <Route path="/contact" element={<ContactPage />} />
               <Route path="/report" element={<ReportPage />} />
               <Route path="/report/status/:token" element={<ReportStatusPage />} />
               <Route path="/moderation" element={<ModerationPage />} />
