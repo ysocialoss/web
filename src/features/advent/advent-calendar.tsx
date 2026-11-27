@@ -16,6 +16,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { toast } from "@/components/ui/toast-manager";
 import { errorMessage } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { useCelebrations } from "@/lib/celebrations";
 import { ConfettiLayer, launchConfetti } from "./advent-confetti";
 import { GiftArt } from "./advent-gift";
 import { EveReveal, EveTileStar } from "./advent-eve";
@@ -26,7 +27,6 @@ import {
   ADVENT_DOORS,
   adventDay,
   closeAdventCalendar,
-  isAdventSeason,
   loadAdvent,
   loadRewards,
   openDoor,
@@ -114,9 +114,10 @@ function scrollParent(element: HTMLElement) {
 
 export function AdventCalendar({ signedIn, viewer }: { signedIn: boolean; viewer: Viewer | null }) {
   const now = useAdventNow();
+  const { adventSeason } = useCelebrations();
   const { open } = useAdventState();
   const year = now.getFullYear();
-  const active = signedIn && isAdventSeason(now);
+  const active = signedIn && adventSeason;
   const shown = open && active;
 
   useEffect(() => {

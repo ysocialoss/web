@@ -1,3 +1,4 @@
+import { useCelebrations } from "@/lib/celebrations";
 import { AccountSettingsContext } from "@/features/settings/account-settings-context";
 import { useContext, useRef, useState, type ComponentProps } from "react";
 import { IconButton } from "@/components/ui/icon-button";
@@ -41,7 +42,6 @@ import { useSessionHint } from "./session-hint";
 import {
   ADVENT_DOORS,
   adventDay,
-  isAdventSeason,
   openAdventCalendar,
   useAdventNow,
   useAdventState,
@@ -132,7 +132,7 @@ function AccountAvatar({
   className?: string;
 }) {
   return (
-    <Avatar hat="top-[-24%] left-[46%]" className={className}>
+    <Avatar hat className={className}>
       {src && <AvatarImage src={src} alt="" referrerPolicy="no-referrer" />}
       <AvatarFallback className="text-xs">
         {initials || <UserRound className="size-4" />}
@@ -157,10 +157,11 @@ export function AccountMenu({ auth }: { auth: AuthState }) {
     session.user.navigation?.includes("messages") === false;
   const showMessageBadge = showMessages && unread > 0;
   const adventNow = useAdventNow();
+  const { adventSeason } = useCelebrations();
   const advent = useAdventState();
   const adventToday = adventDay(adventNow);
   const showAdvent = session?.authenticated && !session.needsOnboarding &&
-    !session.pendingApproval && !session.ban && isAdventSeason(adventNow);
+    !session.pendingApproval && !session.ban && adventSeason;
   const adventWaiting = showAdvent && advent.year === adventToday.year && adventToday.month === 11 &&
     adventToday.day <= ADVENT_DOORS && !advent.opened.has(adventToday.day);
   const unreadMessageLabel = `${unread} unread ${unread === 1 ? "message" : "messages"}`;

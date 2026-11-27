@@ -3,7 +3,8 @@ import { createPortal } from "react-dom";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { ViewerIdContext } from "@/lib/viewer";
-import { useAdventNow, useRewards } from "./advent-store";
+import { useCelebrations } from "@/lib/celebrations";
+import { useRewards } from "./advent-store";
 
 export const EVE_DAY = 24;
 export const EVE_DOORS = EVE_DAY - 1;
@@ -30,7 +31,7 @@ export function eveTierRange(tier: EveTier) {
   return tier.min === next.min - 1 ? `${tier.min}` : `${tier.min}-${next.min - 1}`;
 }
 
-export const eveStarShown = (year: number, now: Date) => now.getTime() < Date.UTC(year + 1, 1, 1);
+export const eveStarShown = (year: number, since: number) => year >= since;
 
 type Point = readonly [number, number];
 const fmt = (point: Point) => `${point[0].toFixed(2)} ${point[1].toFixed(2)}`;
@@ -273,7 +274,7 @@ type StarUser = { id?: string; eveStar?: EveStar | null };
 export function useEveStar(user: StarUser): EveStar | null {
   const viewerId = useContext(ViewerIdContext);
   const rewards = useRewards();
-  const now = useAdventNow();
+  const { eveStarSince } = useCelebrations();
   let star = user.eveStar ?? null;
   if (user.id && user.id === viewerId && rewards) {
     const own = rewards
@@ -281,5 +282,5 @@ export function useEveStar(user: StarUser): EveStar | null {
       .sort((a, b) => b.year - a.year)[0];
     star = own ? { year: own.year, doors: own.doorsOpened ?? 0 } : null;
   }
-  return star && eveStarShown(star.year, now) ? star : null;
+  return star && eveStarShown(star.year, eveStarSince) ? star : null;
 }

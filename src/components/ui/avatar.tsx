@@ -13,7 +13,7 @@ function Avatar({
   ...props
 }: AvatarPrimitive.Root.Props & {
   size?: "default" | "sm" | "lg";
-  hat?: boolean | string;
+  hat?: boolean;
   userId?: string | null;
 }) {
   const viewerId = React.useContext(ViewerIdContext);
@@ -28,7 +28,7 @@ function Avatar({
       )}
       {...props}
     >
-      {hatted && <SantaHat className={typeof hat === "string" ? hat : undefined} />}
+      {hatted && <SantaHat />}
       {children}
     </AvatarPrimitive.Root>
   );

@@ -1,3 +1,4 @@
+import { useCelebrations } from "@/lib/celebrations";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence } from "motion/react";
@@ -14,7 +15,6 @@ import { scrollerOf } from "@/features/feed/feed-floaters";
 import {
   ADVENT_DOORS,
   adventDay,
-  isGiftSeason,
   openAdventCalendar,
   setGiftHidden,
   useAdventNow,
@@ -132,9 +132,10 @@ export function AdventGift() {
   const anchor = useRef<HTMLSpanElement>(null);
   const corner = useScrollerCorner(anchor);
   const now = useAdventNow();
+  const { giftSeason } = useCelebrations();
   const { giftHidden, opened, year } = useAdventState();
   const today = adventDay(now);
-  const visible = !giftHidden && isGiftSeason(now);
+  const visible = !giftHidden && giftSeason;
   const waiting =
     year === today.year &&
     today.month === 11 &&

@@ -5,7 +5,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { MAIN_WORDMARK, useBranding, type Variation } from "@/lib/branding";
+import { ANNIVERSARY_MESSAGE, MAIN_WORDMARK, useBranding, type Variation } from "@/lib/branding";
 import { cn } from "@/lib/utils";
 
 export function SiteWordmark({
@@ -85,6 +85,19 @@ export function SiteLogoLink({
   children: (variation: Variation | null) => ReactNode;
 }) {
   const { active } = useBranding();
+  if (active?.id === "anniversary")
+    return (
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Link to="/" aria-label="ysocial home" onClick={onHomeClick} className={className}>
+              {children(active)}
+            </Link>
+          }
+        />
+        <TooltipContent side={tooltipSide}>{ANNIVERSARY_MESSAGE}</TooltipContent>
+      </Tooltip>
+    );
   if (!active || active.id === "christmas-eve")
     return (
       <Link to="/" aria-label="ysocial home" onClick={onHomeClick} className={className}>
