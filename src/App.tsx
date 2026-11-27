@@ -132,7 +132,7 @@ function AppShell() {
   if (settingsRequest && settingsRequest.navigationKey !== navigationKey) {
     setSettingsRequest(null);
   }
-  const settingsLink = matchPath("/settings/account", pathname) !== null;
+  const settingsLink = matchPath("/settings/account", pathname) !== null || matchPath("/settings/feed", pathname) !== null;
   const settingsOpen = settingsLink || settingsRequest?.navigationKey === navigationKey;
   const profileHandle = matchPath("/:profileHandle", pathname)?.params
     .profileHandle;
@@ -385,7 +385,7 @@ function AppShell() {
               <Route path="/legal/feed" element={<FeedExplainerPage />} />
               <Route
                 path="/settings/feed"
-                element={<ComingSoon title="Feed preferences" />}
+                element={<HomeFeed session={auth.session} />}
               />
               <Route
                 path="/communities"

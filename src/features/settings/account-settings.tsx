@@ -10,13 +10,14 @@ import {
   type ReactNode,
 } from "react";
 import { Dialog as SettingsDialog } from "@base-ui/react/dialog";
-import { Link, useNavigate, useSearchParams } from "react-router";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router";
 import {
   Bell,
   Camera,
   ChevronRight,
   CircleAlert,
   Link2,
+  ListFilter,
   LoaderCircle,
   LogOut,
   Palette,
@@ -59,6 +60,7 @@ import type { AuthState } from "@/features/auth/use-auth";
 import { YourDataSettings } from "./your-data-settings";
 import { clearRecentSearches } from "@/lib/search";
 import { FeedActivitySettings } from "./feed-activity-settings";
+import { FeedSettings } from "./feed-settings";
 import { BannerEditor } from "@/features/profile/banner-editor";
 import { BannerImage } from "@/features/profile/banner-image";
 import {
@@ -96,6 +98,7 @@ const sections = [
   "Appearance",
   "Connections",
   "Notifications",
+  "Feed",
   "Privacy and safety",
 ] as const;
 type SettingsSection = (typeof sections)[number];
@@ -106,6 +109,7 @@ const sectionIcons: Record<SettingsSection, LucideIcon> = {
   Connections: Link2,
   Appearance: Palette,
   Notifications: Bell,
+  Feed: ListFilter,
   "Privacy and safety": ShieldCheck,
 };
 
@@ -357,8 +361,11 @@ function SignedInSettings({
   const own = useOwnProfile(user);
   const cosmetics = useCosmetics(user.id);
   const [params] = useSearchParams();
+  const { pathname } = useLocation();
+  const [feedResets, setFeedResets] = useState(0);
   const [selected, setSelected] = useState<SettingsSection>(() => {
     if (!active) return "Appearance";
+    if (pathname === "/settings/feed") return "Feed";
     return params.has("connection") || params.has("domainconnect") || params.has("github")
       ? "Connections"
       : "Account";
@@ -622,6 +629,25 @@ function SignedInSettings({
                   <NotificationPreferences userId={user.id} />
                 </Section>
 
+                <Section title="Feed">
+                  <FeedSettings
+                    key={feedResets}
+                    userId={user.id}
+                    personalize={user.feedPersonalize}
+                    values={{ discovery: user.feedDiscovery, freshness: user.feedFreshness, replies: user.feedReplies }}
+                    onSlidersChange={auth.updateFeedSliders}
+                  />
+                  <FeedActivitySettings
+                    userId={user.id}
+                    personalize={user.feedPersonalize}
+                    onChange={auth.updateFeedPersonalize}
+                    onCleared={() => {
+                      auth.updateFeedSliders(user.id, { feedDiscovery: 0, feedFreshness: 0, feedReplies: 0 });
+                      setFeedResets((current) => current + 1);
+                    }}
+                  />
+                </Section>
+
                 <Section title="Privacy and safety">
                   <SettingsGroup>
                     <button
@@ -641,12 +667,20 @@ function SignedInSettings({
                         description="Manage the devices that can read your messages."
                       />
                     </Link>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelected("Feed");
+                        if (content.current) content.current.scrollTop = 0;
+                      }}
+                      className={linkRowClass}
+                    >
+                      <LinkRowBody
+                        title="Feed activity"
+                        description="Personalization, recorded activity and Feed controls."
+                      />
+                    </button>
                   </SettingsGroup>
-                  <FeedActivitySettings
-                    userId={user.id}
-                    personalize={user.feedPersonalize}
-                    onChange={auth.updateFeedPersonalize}
-                  />
                   <YourDataSettings />
                 </Section>
               </>
