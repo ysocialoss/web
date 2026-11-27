@@ -59,6 +59,7 @@ import { toast } from "@/components/ui/toast-manager";
 import { ConnectionsDialog, type ConnectionList } from "./connections-dialog";
 import { PostListSkeleton, ProfileSkeleton } from "@/components/loading-skeletons";
 import { useLoadMore } from "@/hooks/use-load-more";
+import { ImageViewer } from "@/features/feed/image-viewer";
 import { mergeTimelinePage } from "./profile-timeline";
 import { usePageTitle } from "@/hooks/use-page-title";
 import {
@@ -131,6 +132,7 @@ export function ProfilePage({
     return peekProfile(profileCacheKey(handle, known));
   });
   const [pictureDialogOpen, setPictureDialogOpen] = useState(false);
+  const [avatarViewing, setAvatarViewing] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const hasGithubResult = searchParams.has("github") || searchParams.has("connection");
   const [editDialogOpen, setEditDialogOpen] = useState(hasGithubResult);
@@ -617,18 +619,37 @@ export function ProfilePage({
                 />
               </>
             ) : (
-              <Avatar hat className="absolute -bottom-8 left-4 size-16 ring-4 ring-background">
+              <>
+                <button
+                  type="button"
+                  aria-label="View profile picture"
+                  aria-haspopup="dialog"
+                  disabled={!profile.profile.avatarUrl}
+                  onClick={() => setAvatarViewing(true)}
+                  className="absolute -bottom-8 left-4 z-10 size-16 cursor-zoom-in rounded-[30%] ring-4 ring-background outline-none [corner-shape:squircle] focus-visible:ring-ring disabled:cursor-default"
+                >
+                  <Avatar hat className="size-full">
+                    {profile.profile.avatarUrl && (
+                      <AvatarImage
+                        src={profile.profile.avatarUrl}
+                        alt={`${profile.profile.displayName}'s avatar`}
+                        referrerPolicy="no-referrer"
+                      />
+                    )}
+                    <AvatarFallback className="text-lg">
+                      {profile.profile.displayName.slice(0, 2)}
+                    </AvatarFallback>
+                  </Avatar>
+                </button>
                 {profile.profile.avatarUrl && (
-                  <AvatarImage
-                    src={profile.profile.avatarUrl}
-                    alt={`${profile.profile.displayName}'s avatar`}
-                    referrerPolicy="no-referrer"
+                  <ImageViewer
+                    images={[{ src: profile.profile.avatarUrl, alt: `${profile.profile.displayName}'s avatar` }]}
+                    index={avatarViewing ? 0 : null}
+                    onIndexChange={(index) => setAvatarViewing(index !== null)}
+                    onClose={() => setAvatarViewing(false)}
                   />
                 )}
-                <AvatarFallback className="text-lg">
-                  {profile.profile.displayName.slice(0, 2)}
-                </AvatarFallback>
-              </Avatar>
+              </>
             )}
           </div>
           <div className="min-w-0">
