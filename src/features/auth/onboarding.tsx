@@ -55,7 +55,7 @@ export function Onboarding({
     <Dialog open onOpenChange={(_open, details) => details.cancel()}>
       <DialogContent
         showCloseButton={false}
-        className="max-h-[calc(100dvh-2rem)] overflow-y-auto px-5 pt-5 sm:max-w-md sm:px-6 sm:pt-6"
+        className="max-h-[calc(100dvh-2rem)] overflow-y-auto px-5 pt-5 sm:max-w-md sm:px-6 sm:pt-6 [&:is(.overflow-auto,.overflow-y-auto)]:[scrollbar-gutter:auto]"
       >
         <form
           className="space-y-6"
