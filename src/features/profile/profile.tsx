@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import {
   api,
   errorMessage,
@@ -57,7 +57,9 @@ import { ReportMenu, copyLinkAction, type MenuAction } from "@/features/reports/
 import { setBlocked } from "@/features/reports/blocked-users";
 import { toast } from "@/components/ui/toast-manager";
 import { ConnectionsDialog, type ConnectionList } from "./connections-dialog";
-import { ProfileSkeleton } from "@/components/loading-skeletons";
+import { PostListSkeleton, ProfileSkeleton } from "@/components/loading-skeletons";
+import { useLoadMore } from "@/hooks/use-load-more";
+import { mergeTimelinePage } from "./profile-timeline";
 import { usePageTitle } from "@/hooks/use-page-title";
 import {
   getActionRevision,
@@ -287,6 +289,31 @@ export function ProfilePage({
     void load(controller.signal);
     return () => controller.abort();
   }, [load, session]);
+  const nextCursor = loadedProfile?.nextCursors[tab] ?? null;
+  const [paging, setPaging] = useState(false);
+  const [pageFailure, setPageFailure] = useState<{ key: string; message: string } | null>(null);
+  const pageKey = `${handle}|${tab}`;
+  const pageError = pageFailure?.key === pageKey ? pageFailure.message : "";
+  const pagingRef = useRef(false);
+  const loadMore = useCallback(async () => {
+    const current = loadedProfile;
+    if (!current || !nextCursor || pagingRef.current) return;
+    pagingRef.current = true;
+    setPaging(true);
+    setPageFailure(null);
+    try {
+      const page = await api.profileTimeline(handle, tab, nextCursor);
+      setProfile((latest) =>
+        latest && latest.profile.id === current.profile.id ? mergeTimelinePage(latest, tab, page) : latest,
+      );
+    } catch (reason) {
+      setPageFailure({ key: pageKey, message: errorMessage(reason) });
+    } finally {
+      pagingRef.current = false;
+      setPaging(false);
+    }
+  }, [loadedProfile, nextCursor, handle, tab, pageKey]);
+  const sentinel = useLoadMore(() => void loadMore(), Boolean(nextCursor) && !paging && !pageError);
   useEffect(() => {
     if (loadedProfile)
       storeProfile(profileCacheKey(handle, viewerId), loadedProfile);
@@ -815,7 +842,17 @@ export function ProfilePage({
                   pinnable={tab === "posts" && ownProfile}
                 />
               ))}
-          {profile[tab].length === 0 && <p className="mt-4">No {tab} yet.</p>}
+          {nextCursor && <div ref={sentinel} aria-hidden="true" className="h-px" />}
+          {paging && <PostListSkeleton count={2} label="Loading more…" lockScroll={false} />}
+          {pageError && (
+            <div className="space-y-2 py-4 text-center">
+              <p role="alert" className="text-sm text-destructive">{pageError}</p>
+              <Button variant="outline" size="sm" onClick={() => void loadMore()}>
+                Try again
+              </Button>
+            </div>
+          )}
+          {profile[tab].length === 0 && !nextCursor && <p className="mt-4">No {tab} yet.</p>}
         </>
       )}
     </div>
