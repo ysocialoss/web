@@ -33,7 +33,7 @@ export function TermsPage() {
           <h2>3. Registrierung</h2>
           <p><strong>3.1 Mindestalter.</strong> Du musst mindestens 16 Jahre alt sein. Mit der Registrierung bestätigst du das.</p>
           <p><strong>3.2 Pseudonyme.</strong> Du musst keinen echten Namen angeben. Handle und Anzeigename dürfen frei gewählt werden, solange sie nicht gegen Abschnitt 5 verstoßen.</p>
-          <p><strong>3.3 Freischaltung.</strong> Neue Konten werden manuell freigeschaltet. Ein Anspruch auf Freischaltung besteht nicht.</p>
+          <p><strong>3.3 Freischaltung.</strong> Neue Konten werden manuell von einer Warteliste freigeschaltet. Die Warteliste dient dazu, Missbrauch zu verhindern und das Wachstum von ysocial in der Beta-Phase gesund zu halten. Ein Anspruch auf Freischaltung besteht nicht.</p>
           <p><strong>3.4 Sicherheit.</strong> Halte deinen Login geschützt. Pro Person ist ein Konto erlaubt, Zweitkonten für klar erkennbare Zwecke (zum Beispiel ein Projekt) sind in Ordnung.</p>
 
           <h2>4. Deine Inhalte</h2>
@@ -89,7 +89,7 @@ export function TermsPage() {
           <h2>3. Registration</h2>
           <p><strong>3.1 Minimum age.</strong> You must be at least 16 years old. You confirm this when you sign up.</p>
           <p><strong>3.2 Pseudonyms.</strong> You do not have to use your real name. You may choose your handle and display name freely as long as they do not break section 5.</p>
-          <p><strong>3.3 Approval.</strong> New accounts are approved manually. There is no entitlement to approval.</p>
+          <p><strong>3.3 Approval.</strong> New accounts are approved manually from a waitlist. The waitlist exists to prevent abuse and to support healthy growth of ysocial during its beta phase. There is no entitlement to approval.</p>
           <p><strong>3.4 Security.</strong> Keep your login safe. One account per person; additional accounts for clearly recognisable purposes (for example a project) are fine.</p>
 
           <h2>4. Your content</h2>

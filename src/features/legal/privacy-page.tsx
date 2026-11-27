@@ -50,7 +50,7 @@ export function PrivacyPage() {
           <p>Die Anmeldung erfolgt über CNS, den Login-Dienst desselben Betreibers. Dabei erhalten wir eine pseudonyme Kennung, Benutzername, Name und Profilbild aus deinem CNS-Konto (Scopes <code>openid profile</code>). Die Zugangstoken werden verschlüsselt gespeichert und beim Abmelden oder Löschen widerrufen. Rechtsgrundlage: Vertragserfüllung (Art. 6 Abs. 1 lit. b DSGVO).</p>
 
           <h2>3. Konto, Profil und Inhalte</h2>
-          <p>Wir speichern Handle, Anzeigename, Bio, Pronomen, Avatar, Banner, Beiträge, Antworten, Umfragen, Sprachnachrichten, Bilder sowie Likes, Reposts, Lesezeichen, Follows und Blockierungen. Öffentliche Beiträge und Profile sind für alle sichtbar. Du musst keinen echten Namen verwenden; Pseudonyme sind ausdrücklich erlaubt (§ 19 TDDDG). Neue Konten werden manuell freigeschaltet. Rechtsgrundlage: Art. 6 Abs. 1 lit. b DSGVO.</p>
+          <p>Wir speichern Handle, Anzeigename, Bio, Pronomen, Avatar, Banner, Beiträge, Antworten, Umfragen, Sprachnachrichten, Bilder sowie Likes, Reposts, Lesezeichen, Follows und Blockierungen. Öffentliche Beiträge und Profile sind für alle sichtbar. Du musst keinen echten Namen verwenden; Pseudonyme sind ausdrücklich erlaubt (§ 19 TDDDG). Neue Konten werden manuell von einer Warteliste freigeschaltet. Die Warteliste dient dazu, Missbrauch zu verhindern und das Wachstum von ysocial in der Beta-Phase gesund zu halten. Rechtsgrundlage: Art. 6 Abs. 1 lit. b DSGVO.</p>
           <p>Beim Hochladen von Bildern entfernen wir alle Metadaten wie EXIF und GPS-Standort, indem jedes Bild neu kodiert wird. Sprachnachrichten werden ebenfalls ohne Metadaten neu kodiert.</p>
 
           <h2>4. Direktnachrichten</h2>
@@ -128,7 +128,7 @@ export function PrivacyPage() {
           <p>You sign in through CNS, the login service run by the same operator. We receive a pseudonymous identifier, username, name and profile picture from your CNS account (scopes <code>openid profile</code>). Access tokens are stored encrypted and revoked when you log out or delete your account. Legal basis: performance of a contract (Art. 6(1)(b) GDPR).</p>
 
           <h2>3. Account, profile and content</h2>
-          <p>We store your handle, display name, bio, pronouns, avatar, banner, posts, replies, polls, voice notes and images, as well as likes, reposts, bookmarks, follows and blocks. Public posts and profiles are visible to everyone. You never need to use your real name; pseudonyms are explicitly allowed (§ 19 TDDDG). New accounts are approved manually. Legal basis: Art. 6(1)(b) GDPR.</p>
+          <p>We store your handle, display name, bio, pronouns, avatar, banner, posts, replies, polls, voice notes and images, as well as likes, reposts, bookmarks, follows and blocks. Public posts and profiles are visible to everyone. You never need to use your real name; pseudonyms are explicitly allowed (§ 19 TDDDG). New accounts are approved manually from a waitlist. The waitlist exists to prevent abuse and to support healthy growth of ysocial during its beta phase. Legal basis: Art. 6(1)(b) GDPR.</p>
           <p>When you upload images, we remove all metadata such as EXIF and GPS location by re-encoding every image. Voice notes are re-encoded without metadata too.</p>
 
           <h2>4. Direct messages</h2>
