@@ -156,6 +156,24 @@ test("outdated terms block the app until they are accepted", async ({ page }) =>
   await expect.poll(() => accepted).toEqual({ version: "2026-11-27", acceptTerms: true, ageConfirmed: true });
 });
 
+test("people who already confirmed their age only accept the updated terms", async ({ page }) => {
+  let accepted: unknown = null;
+  await setup(page, { termsCurrent: false, user: { ...viewer, ageConfirmed: true } });
+  await page.route("**/auth/terms", (route) => {
+    accepted = route.request().postDataJSON();
+    return route.fulfill({ status: 204 });
+  });
+  await page.goto("/");
+  const dialog = page.getByRole("dialog", { name: "Our terms have been updated" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole("checkbox", { name: "I am at least 16 years old." })).toHaveCount(0);
+  const proceed = dialog.getByRole("button", { name: "Continue" });
+  await expect(proceed).toBeDisabled();
+  await dialog.getByRole("checkbox", { name: "I accept the updated Terms of use." }).check();
+  await proceed.click();
+  await expect.poll(() => accepted).toEqual({ version: "2026-11-27", acceptTerms: true });
+});
+
 test("anyone can send a notice through the public report form", async ({ page }) => {
   let sent: Record<string, unknown> | null = null;
   await setup(page, null);
