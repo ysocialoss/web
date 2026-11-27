@@ -87,7 +87,7 @@ export function ReportPage() {
       <div className="space-y-2">
         <h1 className="text-2xl font-semibold tracking-tight">Report content</h1>
         <p className="text-sm leading-relaxed text-muted-foreground">
-          Use this form to report illegal content or content that breaks our <Link to="/legal/terms" className="underline underline-offset-4">rules</Link>,
+          Use this form to report illegal content or content that breaks our <Link to="/legal/terms" className="underline underline-offset-4">rules</Link>, including AI-generated content, which is strictly forbidden,
           also without an account (Art. 16 DSA). If you have an account, the report option in a post's or profile's menu is quicker.
           If someone is in immediate danger, call 110.
         </p>

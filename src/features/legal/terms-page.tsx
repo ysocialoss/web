@@ -15,6 +15,7 @@ export const termsClauseTitles: Record<string, { de: string; en: string }> = {
   "5.9": { de: "Identitätsanmaßung", en: "Impersonation" },
   "5.10": { de: "Privatsphäre anderer", en: "Privacy of others" },
   "5.11": { de: "Geistiges Eigentum", en: "Intellectual property" },
+  "5.12": { de: "KI-generierte Inhalte", en: "AI-generated content" },
   "6.2": { de: "Umgehung von Sperren und Missbrauch des Dienstes", en: "Ban evasion and misuse of the service" },
 };
 
@@ -52,13 +53,14 @@ export function TermsPage() {
           <p><strong>5.9 Identitätsanmaßung.</strong> Sich als eine andere reale Person oder Organisation ausgeben. Klar gekennzeichnete Parodie ist erlaubt.</p>
           <p><strong>5.10 Privatsphäre anderer.</strong> Veröffentlichen privater Informationen anderer ohne deren Einwilligung (zum Beispiel Adressen oder private Fotos).</p>
           <p><strong>5.11 Geistiges Eigentum.</strong> Inhalte, die Urheber-, Marken- oder andere Schutzrechte verletzen.</p>
+          <p><strong>5.12 KI-generierte Inhalte.</strong> Inhalte, die ganz oder überwiegend von generativer künstlicher Intelligenz erzeugt wurden, sind streng verboten. Das gilt für Texte, Bilder, GIFs, Videos, Sprachaufnahmen und synthetische Stimmen, auch in Profilbildern, Bannern und Profilangaben. Verstöße kannst du mit dem Grund „KI-generierte Inhalte“ melden.</p>
 
           <h2>6. Moderation</h2>
           <p><strong>6.1</strong> Wir prüfen gemeldete Inhalte und dürfen bei Verstößen gegen Gesetze oder diese Regeln Inhalte entfernen oder verbergen, Profilangaben zurücksetzen und Konten vorübergehend oder dauerhaft sperren. Wir handeln dabei sorgfältig, objektiv und verhältnismäßig und berücksichtigen die Grundrechte aller Beteiligten, insbesondere die Meinungsfreiheit.</p>
           <p><strong>6.2 Umgehung von Sperren</strong> und sonstiger Missbrauch des Dienstes, etwa Angriffe auf die Technik, sind verboten.</p>
           <p><strong>6.3 Automatisierte Prüfungen.</strong> Hochgeladene Bilder werden automatisch auf Nacktheit und auf bekannte Darstellungen sexuellen Kindesmissbrauchs geprüft. Bei einem Treffer wird der Upload blockiert. Entscheidungen über Konten trifft immer ein Mensch, außer bei Treffern auf bekannte Missbrauchsdarstellungen, bei denen das Konto sofort vorläufig gesperrt wird.</p>
           <p><strong>6.4 Begründung.</strong> Wenn wir gegen deine Inhalte oder dein Konto vorgehen, informieren wir dich in der App über die Maßnahme, die Tatsachen, die Rechtsgrundlage oder Regel, ob automatisierte Mittel beteiligt waren und wie du dich wehren kannst (Art. 17 DSA).</p>
-          <p><strong>6.5 Meldungen.</strong> Rechtswidrige Inhalte kann jede Person über das <a href="/report">Meldeformular</a> oder die Meldefunktion in der App melden. Wir bestätigen den Eingang und informieren über das Ergebnis.</p>
+          <p><strong>6.5 Meldungen.</strong> Rechtswidrige Inhalte kann jede Person über das <a href="/report">Meldeformular</a> oder die Meldefunktion in der App melden. Wir bestätigen den Eingang und informieren über das Ergebnis. Verstöße gegen die Regeln in Abschnitt 5, etwa KI-generierte Inhalte (5.12), kann ebenfalls jede Person dort melden.</p>
           <p><strong>6.6 Straftaten.</strong> Bei Hinweisen auf Straftaten, die das Leben oder die Sicherheit von Personen bedrohen, informieren wir die Strafverfolgungsbehörden (Art. 18 DSA).</p>
 
           <h2>7. Beschwerden und Streitbeilegung</h2>
@@ -107,13 +109,14 @@ export function TermsPage() {
           <p><strong>5.9 Impersonation.</strong> Pretending to be another real person or organisation. Clearly labelled parody is allowed.</p>
           <p><strong>5.10 Privacy of others.</strong> Publishing other people's private information without their consent (for example addresses or private photos).</p>
           <p><strong>5.11 Intellectual property.</strong> Content that infringes copyright, trademarks or other protected rights.</p>
+          <p><strong>5.12 AI-generated content.</strong> Content created wholly or largely by generative artificial intelligence is strictly forbidden. This covers text, images, GIFs, video, voice recordings and synthetic voices, including in profile pictures, banners and profile details. You can report it with the reason “AI-generated content”.</p>
 
           <h2>6. Moderation</h2>
           <p><strong>6.1</strong> We review reported content and, where laws or these rules are broken, may remove or hide content, reset profile details and suspend accounts temporarily or permanently. We act diligently, objectively and proportionately and take the fundamental rights of everyone involved into account, in particular freedom of expression.</p>
           <p><strong>6.2 Ban evasion</strong> and other misuse of the service, such as attacks on its technology, are prohibited.</p>
           <p><strong>6.3 Automated checks.</strong> Uploaded images are checked automatically for nudity and for known child sexual abuse material. On a match, the upload is blocked. Decisions about accounts are always taken by a person, except for matches with known abuse material, where the account is suspended immediately pending review.</p>
           <p><strong>6.4 Statement of reasons.</strong> When we act against your content or account, we tell you in the app what we did, the facts, the legal ground or rule, whether automated means were involved and how you can contest it (Art. 17 DSA).</p>
-          <p><strong>6.5 Reports.</strong> Anyone can report illegal content through the <a href="/report">report form</a> or the report option in the app. We confirm receipt and inform you of the outcome.</p>
+          <p><strong>6.5 Reports.</strong> Anyone can report illegal content through the <a href="/report">report form</a> or the report option in the app. We confirm receipt and inform you of the outcome. Anyone can also report breaches of the rules in section 5 there, such as AI-generated content (5.12).</p>
           <p><strong>6.6 Criminal offences.</strong> If we become aware of offences that threaten the life or safety of people, we inform law enforcement (Art. 18 DSA).</p>
 
           <h2>7. Appeals and dispute resolution</h2>

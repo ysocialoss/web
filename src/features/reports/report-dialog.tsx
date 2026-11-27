@@ -34,6 +34,7 @@ export const reasonLabels: Record<ReportReason, { label: string; hint: string }>
   self_harm: { label: "Self-harm or suicide", hint: "Encouraging or depicting self-harm" },
   misinformation: { label: "Misinformation", hint: "False information that can cause harm" },
   impersonation: { label: "Impersonation", hint: "Pretending to be someone else" },
+  ai_generated: { label: "AI-generated content", hint: "Text, images, audio or video made by AI, which is not allowed" },
   illegal: { label: "Illegal content", hint: "Content that breaks the law" },
   other: { label: "Something else", hint: "Tell us more below" },
 };

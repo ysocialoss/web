@@ -368,7 +368,7 @@ const connectionUserSchema = z.extend(userSchema, {
 });
 export type ConnectionUser = z.infer<typeof connectionUserSchema>;
 export const reportReasons = [
-  "spam", "harassment", "hate", "violence", "sexual", "self_harm", "misinformation", "impersonation", "illegal", "other",
+  "spam", "harassment", "hate", "violence", "sexual", "self_harm", "misinformation", "impersonation", "ai_generated", "illegal", "other",
 ] as const;
 export type ReportReason = (typeof reportReasons)[number];
 export type ReportTarget =
