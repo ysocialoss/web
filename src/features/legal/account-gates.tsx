@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router";
+import { Link, useLocation } from "react-router";
 import { LoaderCircle, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -133,13 +133,16 @@ export function TermsUpdateDialog({ version, onDone, onLogout }: { version: stri
 export function ModerationNoticeBanner({ userId }: { userId: string }) {
   const [unseen, setUnseen] = useState(0);
   useEffect(() => {
+  const { pathname } = useLocation();
+  const onModerationPage = pathname === "/moderation" || pathname.startsWith("/moderation/");
     const controller = new AbortController();
+    if (onModerationPage) return;
     api.moderationNotices(controller.signal)
       .then((notices) => setUnseen(notices.unseen))
       .catch(() => undefined);
     return () => controller.abort();
-  }, [userId]);
-  if (!unseen) return null;
+  }, [userId, onModerationPage]);
+  if (!unseen || onModerationPage) return null;
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-muted p-4 text-sm" role="status">
       <span className="flex items-center gap-2 font-medium">
