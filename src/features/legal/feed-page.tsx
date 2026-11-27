@@ -3,7 +3,7 @@ import { collectedFeedData } from "./account-gates";
 
 export function FeedExplainerPage() {
   return (
-    <LegalLayout title={{ de: "So funktioniert der Feed", en: "How the feed works" }} version="2026-12-01">
+    <LegalLayout title={{ de: "So funktioniert der Feed", en: "How the feed works" }} version="2026-11-27">
       {(language) => language === "de" ? (
         <>
           <p>Hier erklären wir, nach welchen Kriterien ysocial Beiträge anzeigt und welche Daten dafür genutzt werden.</p>

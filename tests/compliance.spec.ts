@@ -44,7 +44,7 @@ async function setup(page: Page, session: Record<string, unknown> | null = {}) {
             user: viewer,
             avatarUrl: null,
             suggestedHandle: viewer.handle,
-            termsVersion: "2026-12-01",
+            termsVersion: "2026-11-27",
             ...session,
           },
     }),
@@ -153,7 +153,7 @@ test("outdated terms block the app until they are accepted", async ({ page }) =>
   await dialog.getByRole("checkbox", { name: "I am at least 16 years old." }).check();
   await dialog.getByRole("checkbox", { name: "I accept the updated Terms of use." }).check();
   await proceed.click();
-  await expect.poll(() => accepted).toEqual({ version: "2026-12-01", acceptTerms: true, ageConfirmed: true });
+  await expect.poll(() => accepted).toEqual({ version: "2026-11-27", acceptTerms: true, ageConfirmed: true });
 });
 
 test("anyone can send a notice through the public report form", async ({ page }) => {

@@ -2,7 +2,7 @@ import { LegalLayout } from "./legal-layout";
 import { useOperator } from "./use-operator";
 import { collectedFeedData } from "./account-gates";
 
-export const privacyVersion = "2026-12-01";
+export const privacyVersion = "2026-11-27";
 
 const storageKeys = [
   { key: "theme, branding", de: "Gewähltes Farbschema und Logo", en: "Chosen colour scheme and logo" },

@@ -1,7 +1,7 @@
 import { LegalLayout } from "./legal-layout";
 import { useOperator } from "./use-operator";
 
-export const termsVersion = "2026-12-01";
+export const termsVersion = "2026-11-27";
 
 export const termsClauseTitles: Record<string, { de: string; en: string }> = {
   "3.1": { de: "Mindestalter", en: "Minimum age" },
