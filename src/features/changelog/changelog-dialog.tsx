@@ -58,7 +58,7 @@ export function ChangelogDialog() {
   const { open } = useChangelogState();
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!next) closeChangelog(); }}>
-      <DialogContent className="max-h-[85dvh] sm:max-w-lg">
+      <DialogContent className="flex max-h-[85dvh] flex-col overflow-hidden sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="text-xl font-semibold">
             What's new
@@ -107,7 +107,7 @@ function ChangelogContent() {
   }
 
   return (
-    <div className="-mx-1 flex min-h-0 flex-col gap-6 overflow-y-auto px-1">
+    <div className="-mx-1 flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-1">
       {upcoming.length > 0 && (
         <ReleaseGroup title="Coming soon" note="On staging, not live yet" entries={upcoming} />
       )}
