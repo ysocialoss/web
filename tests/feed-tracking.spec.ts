@@ -215,6 +215,7 @@ test("coming back to the Feed within 30 minutes reuses the ranked page", async (
   const { feedRequests } = await setup(page);
   await page.goto("/");
   await expect(page.locator(`#post-${posts[2].id}`)).toBeVisible();
+  await page.waitForLoadState("networkidle");
   await page.waitForTimeout(300);
   const before = feedRequests.filter((name) => name === "for_you").length;
   await page.getByRole("link", { name: "Following" }).first().click();
