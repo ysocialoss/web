@@ -3,6 +3,7 @@ import { api, errorMessage } from "@/lib/api";
 import { Switch } from "@/components/ui/switch";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { SettingsGroup } from "./settings-group";
+import { forgetRankedFeeds } from "@/features/feed/use-feed";
 
 export function FeedActivitySettings({
   userId,
@@ -30,6 +31,7 @@ export function FeedActivitySettings({
       if (!current.authenticated || current.needsOnboarding || current.user.id !== userId)
         throw new Error("account changed");
       const saved = await api.setFeedPreferences(checked);
+      forgetRankedFeeds();
       onChange(userId, saved.personalize);
     } catch (reason) {
       onChange(userId, !checked);
@@ -43,6 +45,7 @@ export function FeedActivitySettings({
     setClearError("");
     try {
       await api.clearFeedActivity();
+      forgetRankedFeeds();
       setCleared(true);
       onCleared?.();
       return true;

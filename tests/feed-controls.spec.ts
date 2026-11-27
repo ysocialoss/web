@@ -255,3 +255,24 @@ test("Undo after changing a rating puts the earlier rating back", async ({ page 
   ]);
   expect(calls.some((call) => call.method === "DELETE")).toBe(false);
 });
+
+test("clearing feed activity reloads the ranked feed instead of reusing the cached one", async ({ page }) => {
+  await setup(page);
+  let rankings = 0;
+  page.on("request", (request) => {
+    if (new URL(request.url()).pathname === "/api/feed/for-you") rankings++;
+  });
+  await page.route("**/api/feed/reset", (route) => route.fulfill({ json: { cleared: 3 } }));
+  await page.goto("/");
+  await expect(card(page, 0)).toBeVisible();
+  await openMenu(page, 0);
+  await page.getByRole("menuitem", { name: "Why am I seeing this?" }).click();
+  await page.getByRole("dialog", { name: "Why am I seeing this?" }).getByRole("link", { name: "Feed settings" }).click();
+  await expect(page.getByText("Clear feed activity", { exact: true })).toBeVisible();
+  await page.waitForTimeout(500);
+  const before = rankings;
+  await page.getByRole("button", { name: "Clear", exact: true }).last().click();
+  await page.getByRole("button", { name: "Clear activity" }).click();
+  await expect(page.getByText("Your feed activity was cleared.")).toBeVisible();
+  await expect.poll(() => rankings).toBeGreaterThan(before);
+});

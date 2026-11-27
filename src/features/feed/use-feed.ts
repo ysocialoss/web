@@ -49,9 +49,24 @@ const feedCache = new Map<
     caughtUp: boolean;
     fallback: boolean;
     fetchedAt: number;
+    rankKey: string;
   }
 >();
 const rankedReuseMs = 30 * 60 * 1000;
+let rankedGeneration = 0;
+const rankedListeners = new Set<() => void>();
+
+export function forgetRankedFeeds() {
+  rankedGeneration++;
+  for (const listener of rankedListeners) listener();
+}
+function subscribeToRankedGeneration(listener: () => void) {
+  rankedListeners.add(listener);
+  return () => {
+    rankedListeners.delete(listener);
+  };
+}
+const getRankedGeneration = () => rankedGeneration;
 
 export function useFeed(
   session: Session | null,
@@ -71,11 +86,16 @@ export function useFeed(
     parentId === undefined
       ? `${viewerId ?? "anonymous"}${topic ? `|topic:${topic}` : ""}${search ? `|search:${search}` : ""}${following ? "|following" : ""}${ranked ? "|for_you" : ""}`
       : null;
+  const generation = useSyncExternalStore(subscribeToRankedGeneration, getRankedGeneration);
+  const onboarded = !!session?.authenticated && !session.needsOnboarding;
+  const rankKey = ranked
+    ? `${viewerId ?? "anonymous"}|${onboarded ? session.user.feedPersonalize : ""}|${onboarded ? session.feedChoiceNeeded : ""}|${onboarded ? session.pendingApproval : ""}|${generation}`
+    : "";
   const [cached] = useState(() =>
     cacheKey === null ? undefined : feedCache.get(cacheKey),
   );
-  const [cacheFresh] = useState(
-    () => !!cached && ranked && Date.now() - cached.fetchedAt < rankedReuseMs,
+  const [freshFor] = useState(() =>
+    cached && ranked && cached.rankKey === rankKey && Date.now() - cached.fetchedAt < rankedReuseMs ? rankKey : null,
   );
   const [placements, setPlacements] = useState<Record<string, FeedPlacement>>(
     cached?.placements ?? {},
@@ -83,6 +103,11 @@ export function useFeed(
   const [caughtUp, setCaughtUp] = useState(cached?.caughtUp ?? false);
   const [fallback, setFallback] = useState(cached?.fallback ?? false);
   const [fetchedAt, setFetchedAt] = useState(cached?.fetchedAt ?? 0);
+  const [loadedKey, setLoadedKey] = useState(cached?.rankKey ?? "");
+  const rankKeyRef = useRef(rankKey);
+  useEffect(() => {
+    rankKeyRef.current = rankKey;
+  }, [rankKey]);
   const liveIds = useRef(new Set<string>());
   const pendingAcks = useRef(new Set<string>());
   const [feedPosts, setFeedPosts] = useState<Post[]>(cached?.posts ?? []);
@@ -123,10 +148,7 @@ export function useFeed(
     const timer = window.setTimeout(() => setEnteringIds(new Set()), 700);
     return () => window.clearTimeout(timer);
   }, [enteringIds]);
-  const onboarded = !!session?.authenticated && !session.needsOnboarding;
-  const sessionKey = ranked
-    ? `${viewerId ?? "anonymous"}|${onboarded ? session.user.feedPersonalize : ""}|${onboarded ? session.feedChoiceNeeded : ""}|${onboarded ? session.pendingApproval : ""}`
-    : session;
+  const sessionKey = ranked ? rankKey : session;
   const readOnly = onboarded && (session.pendingApproval || !!session.ban);
   const canPost = onboarded && !readOnly;
   const personalRanking = ranked && canPost && session.user.feedPersonalize && !session.feedChoiceNeeded;
@@ -155,7 +177,10 @@ export function useFeed(
           setCaughtUp(extra.caughtUp ?? false);
           setFallback(extra.fallback ?? false);
         }
-        if (!cursor) setFetchedAt(Date.now());
+        if (!cursor) {
+          setFetchedAt(Date.now());
+          setLoadedKey(rankKeyRef.current);
+        }
         rememberPosts(page.posts, viewerId, startedAt);
         // The page is authoritative for the posts it holds, including their order:
         // a repost can lift an older post back to the top.
@@ -199,16 +224,16 @@ export function useFeed(
   );
   useEffect(() => {
     if (cacheKey === null) return;
-    feedCache.set(cacheKey, { posts: feedPosts, repostedBy, nextCursor, placements, caughtUp, fallback, fetchedAt });
-  }, [cacheKey, feedPosts, repostedBy, nextCursor, placements, caughtUp, fallback, fetchedAt]);
+    feedCache.set(cacheKey, { posts: feedPosts, repostedBy, nextCursor, placements, caughtUp, fallback, fetchedAt, rankKey: loadedKey });
+  }, [cacheKey, feedPosts, repostedBy, nextCursor, placements, caughtUp, fallback, fetchedAt, loadedKey]);
   useEffect(() => {
-    if (!autoLoad || cacheFresh) return;
+    if (!autoLoad || (ranked && freshFor === rankKey)) return;
     const controller = new AbortController();
     // HTTP completes asynchronously; cleanup cancels stale responses.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load(undefined, controller.signal, !!cached && !ranked);
     return () => controller.abort();
-  }, [load, sessionKey, autoLoad, cached, cacheFresh, ranked]);
+  }, [load, sessionKey, autoLoad, cached, freshFor, rankKey, ranked]);
   useLiveUpdates({
     enabled: autoLoad && parentId === undefined && !search,
     scope: `${viewerId ?? "anonymous"}|${topic ?? ""}${following ? "|following" : ""}${ranked ? "|for_you" : ""}`,

@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { api, errorMessage } from "@/lib/api";
 import type { AuthState } from "@/features/auth/use-auth";
+import { forgetRankedFeeds } from "@/features/feed/use-feed";
 
 export const collectedFeedData = [
   { en: "Which posts appeared on your screen and roughly how long they stayed visible", de: "Welche Beiträge auf deinem Bildschirm erschienen und wie lange sie ungefähr sichtbar waren" },
@@ -38,7 +39,10 @@ export function FeedChoiceDialog({ onDone, onDismiss }: {
     setError("");
     try {
       if (fromNav && !personalize) void api.feedChoiceDeclined().catch(() => {});
-      else await api.setFeedPreferences(personalize, fromNav ? "nav" : undefined);
+      else {
+        await api.setFeedPreferences(personalize, fromNav ? "nav" : undefined);
+        forgetRankedFeeds();
+      }
       onDone(personalize);
     } catch (reason) {
       setError(errorMessage(reason));
