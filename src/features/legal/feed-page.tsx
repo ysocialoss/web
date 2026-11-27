@@ -35,7 +35,7 @@ export function FeedExplainerPage() {
           <h2>Welche Daten genutzt werden</h2>
           <p>Nutzungsdaten zeichnen wir nur auf, wenn du die Feed-Personalisierung eingeschaltet hast:</p>
           <ul>{collectedFeedData.map((item) => <li key={item.de}>{item.de}</li>)}</ul>
-          <p>Für jede Feed-Seite speichern wir, welche Beiträge ausgewählt wurden, in welcher Reihenfolge und mit welchen Signalen, damit das Weiterblättern funktioniert und wir die Sortierung verbessern können. Das wird nach 180 Tagen gelöscht. Für nicht angemeldete Besucher speichern wir eine gemeinsame, anonyme Liste für 2 Tage.</p>
+          <p>Für jede Feed-Seite speichern wir, welche Beiträge ausgewählt wurden, in welcher Reihenfolge und mit welchen Signalen, damit das Weiterblättern funktioniert und wir die Sortierung verbessern können. Wenn die Personalisierung eingeschaltet ist, speichern wir dasselbe auch für jede Seite von „Folge ich“, mit den Signalen, die der Feed für diese Beiträge genutzt hätte. Das dient nur dazu, die Sortierung zu trainieren; die zeitliche Reihenfolge von „Folge ich“ ändert sich dadurch nicht. Das wird nach 180 Tagen gelöscht. Für nicht angemeldete Besucher speichern wir eine gemeinsame, anonyme Liste für 2 Tage.</p>
           <p>Diese Daten dienen allein dazu, deinen Feed zu verbessern. Sie werden nicht für Werbung verwendet, nicht verkauft und nicht an Dritte weitergegeben. Nicht genutzt werden: Daten anderer Websites oder Apps, Werbe-IDs, Standort, Kontakte, Inhalte von Direktnachrichten.</p>
           <h2>Deine Kontrolle</h2>
           <p>Unter Einstellungen, Feed kannst du die Sortierung selbst beeinflussen. Diese Einstellungen gelten nur für den Feed, nicht für „Folge ich", Profile oder die Suche.</p>
@@ -80,7 +80,7 @@ export function FeedExplainerPage() {
           <h2>What data is used</h2>
           <p>We only record usage data if you turned feed personalization on:</p>
           <ul>{collectedFeedData.map((item) => <li key={item.en}>{item.en}</li>)}</ul>
-          <p>For each Feed page we store which posts were picked, their order and their ranking signals, so paging works and we can improve the ranking. This is deleted after 180 days. For visitors who are not signed in we store one shared, anonymous list for 2 days.</p>
+          <p>For each Feed page we store which posts were picked, their order and their ranking signals, so paging works and we can improve the ranking. If personalization is on, we store the same for every page of Following, with the signals the Feed would have used for those posts. This only trains the ranking; Following stays in time order. This is deleted after 180 days. For visitors who are not signed in we store one shared, anonymous list for 2 days.</p>
           <p>This data only serves to improve your feed. It is not used for advertising, not sold and not passed to third parties. Not used: data from other websites or apps, advertising IDs, location, contacts, content of direct messages.</p>
           <h2>Your control</h2>
           <p>In Settings, Feed you can shape the ordering yourself. These settings apply to the Feed only, not to Following, profiles or search.</p>

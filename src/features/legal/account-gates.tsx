@@ -21,6 +21,7 @@ export const collectedFeedData = [
   { en: "Where in the app it happened (for example the Feed, Following or a profile) and the position in the list", de: "Wo in der App es passierte (zum Beispiel im Feed, bei Gefolgt oder auf einem Profil) und die Position in der Liste" },
   { en: "Feedback you give with Interested, Not interested, Snooze and topic choices", de: "Rückmeldungen über Interessiert, Nicht interessiert, Stummschalten und Themenwahl" },
   { en: "Which posts the Feed picked for you, in which order, and the signals it used to rank them", de: "Welche Beiträge der Feed für dich ausgewählt hat, in welcher Reihenfolge und welche Signale er für die Sortierung genutzt hat" },
+  { en: "Which posts you were shown in Following, with the same signals, to train the ranking (Following stays in time order)", de: "Welche Beiträge dir bei „Folge ich“ angezeigt wurden, mit denselben Signalen, um die Sortierung zu trainieren („Folge ich“ bleibt zeitlich sortiert)" },
   { en: "Whether you use a phone or a desktop, derived from your browser's request headers", de: "Ob du ein Smartphone oder einen Computer nutzt, abgeleitet aus den Anfrage-Headern deines Browsers" },
   { en: "A random session number that is forgotten when you close the tab", de: "Eine zufällige Sitzungsnummer, die beim Schließen des Tabs vergessen wird" },
 ];
